@@ -1496,6 +1496,8 @@ export function SakuraCanvas({
   useEffect(() => { selectedColorRef.current = selectedColor; }, [selectedColor]);
   useEffect(() => { currentPhaseRef.current = currentPhase; }, [currentPhase]);
   useEffect(() => { currentRoundRef.current = currentRound; }, [currentRound]);
+  const isCreationModeRef = useRef(isCreationMode);
+  useEffect(() => { isCreationModeRef.current = isCreationMode; }, [isCreationMode]);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -1732,7 +1734,12 @@ export function SakuraCanvas({
   const restartTriggerRef = useRef<() => void>(() => {});
 
   const handleRestart = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop(); } catch {}
+    }
+    isSouvenirRecordingRef.current = false;
     setIsCreationMode(false);
+    isCreationModeRef.current = false;
     colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
     setSelectedColor('pink');
     setPlexusAttachedCount(0);
@@ -1769,59 +1776,7 @@ export function SakuraCanvas({
     setIsPlexusFinale(false);
     restartTriggerRef.current();
 
-    // Start 14s Souvenir Recording from the live canvas
-    if (canvasRef.current && typeof MediaRecorder !== 'undefined') {
-      try {
-        isSouvenirRecordingRef.current = true;
-        // Suppress ripple-effect animation immediately for the MP4 video capture
-        if (bgUniformsRef.current?.uRippleActive) bgUniformsRef.current.uRippleActive.value = 0.0;
-        if (bgUniformsRef.current?.uRippleTime) bgUniformsRef.current.uRippleTime.value = 0.0;
-
-        const stream = canvasRef.current.captureStream(60);
-        let selectedMimeType = 'video/webm';
-        const mimeTypes = [
-          'video/mp4;codecs=avc1',
-          'video/mp4;codecs=h264',
-          'video/mp4',
-          'video/webm;codecs=h264',
-          'video/webm;codecs=vp9',
-          'video/webm'
-        ];
-        for (const mt of mimeTypes) {
-          if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) {
-            selectedMimeType = mt;
-            break;
-          }
-        }
-        const chunks: Blob[] = [];
-        const recorder = new MediaRecorder(stream, {
-          mimeType: selectedMimeType,
-          videoBitsPerSecond: 15000000
-        });
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-        recorder.onstop = () => {
-          isSouvenirRecordingRef.current = false;
-          const blob = new Blob(chunks, { type: selectedMimeType });
-          const url = URL.createObjectURL(blob);
-          setSouvenirVideoBlob(blob);
-          setSouvenirVideoUrl(url);
-          setIsNftSaved(false);
-          setIsSouvenirVideoOpen(true);
-          showToast('✨ Dein 14s Video-Souvenir ist fertig!');
-        };
-        recorder.start(100);
-        setTimeout(() => {
-          if (recorder.state !== 'inactive') recorder.stop();
-        }, 14000);
-      } catch (err) {
-        isSouvenirRecordingRef.current = false;
-        console.warn('Canvas recorder fallback:', err);
-      }
-    }
-
-    showToast(type === 'bluten' ? '🌸 Sumi-e Kunstwerk gestartet (Creation Mode)' : '✨ Plexus Kunstwerk gestartet (Creation Mode)');
+    showToast(type === 'bluten' ? '🌸 Sumi-e Kunstwerk gestartet (Souvenirmodus)' : '✨ Plexus Kunstwerk gestartet (Souvenirmodus)');
     sendInteractionRef.current?.('ARTWORK_SELECT', { artwork: type });
     setIsLightboxOpen(false);
     setHostCreationReady(false);
@@ -1832,6 +1787,74 @@ export function SakuraCanvas({
   useEffect(() => {
     selectArtworkChoiceRef.current = selectArtworkChoice;
   }, [selectArtworkChoice]);
+
+  // Dedicated Souvenir Recording Function - Triggered ONLY at the beginning of the final animation!
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+
+  const startSouvenirRecording = useCallback((durationSeconds: number = 14) => {
+    if (!canvasRef.current || typeof MediaRecorder === 'undefined') return;
+    if (isSouvenirRecordingRef.current) return;
+
+    try {
+      isSouvenirRecordingRef.current = true;
+      // Suppress ripple-effect animation immediately for the MP4 video capture
+      if (bgUniformsRef.current?.uRippleActive) bgUniformsRef.current.uRippleActive.value = 0.0;
+      if (bgUniformsRef.current?.uRippleTime) bgUniformsRef.current.uRippleTime.value = 0.0;
+
+      const stream = canvasRef.current.captureStream(60);
+      let selectedMimeType = 'video/webm';
+      const mimeTypes = [
+        'video/mp4;codecs=avc1',
+        'video/mp4;codecs=h264',
+        'video/mp4',
+        'video/webm;codecs=h264',
+        'video/webm;codecs=vp9',
+        'video/webm'
+      ];
+      for (const mt of mimeTypes) {
+        if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) {
+          selectedMimeType = mt;
+          break;
+        }
+      }
+      const chunks: Blob[] = [];
+      const recorder = new MediaRecorder(stream, {
+        mimeType: selectedMimeType,
+        videoBitsPerSecond: 15000000
+      });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = () => {
+        isSouvenirRecordingRef.current = false;
+        mediaRecorderRef.current = null;
+        const blob = new Blob(chunks, { type: selectedMimeType });
+        const url = URL.createObjectURL(blob);
+        setSouvenirVideoBlob(blob);
+        setSouvenirVideoUrl(url);
+        setIsNftSaved(false);
+        setIsSouvenirVideoOpen(true);
+        showToast('✨ Dein Video-Souvenir ist fertig!');
+      };
+
+      recorder.start(100);
+      showToast('🎥 Souvenir-Aufnahme der finalen Animation gestartet...');
+      setTimeout(() => {
+        if (recorder.state !== 'inactive') recorder.stop();
+      }, durationSeconds * 1000);
+    } catch (err) {
+      isSouvenirRecordingRef.current = false;
+      mediaRecorderRef.current = null;
+      console.warn('Canvas recorder fallback:', err);
+    }
+  }, [showToast]);
+
+  const startSouvenirRecordingRef = useRef(startSouvenirRecording);
+  useEffect(() => {
+    startSouvenirRecordingRef.current = startSouvenirRecording;
+  }, [startSouvenirRecording]);
 
   const handleExit = useCallback(() => {
     try {
@@ -2132,6 +2155,11 @@ export function SakuraCanvas({
       }
 
       showToastRef.current?.('🌸 14s Blüten-Vortex aktiviert!');
+
+      // In Souvenir Mode: Start MP4 video recording directly at the beginning of the final animation!
+      if (isCreationModeRef.current) {
+        startSouvenirRecordingRef.current?.(14);
+      }
     };
 
     const spawnOrbRound = (roundNum: number, phase: 'BRANCH' | 'BLOSSOM') => {
@@ -3488,6 +3516,11 @@ export function SakuraCanvas({
               initFinaleParticles(weightedPalettes, weightedPositions);
 
               showToast('🌟 10s Finale: Stern-Netzwerk aktiviert!');
+
+              // In Souvenir Mode: Start MP4 video recording directly at the beginning of the final animation!
+              if (isCreationModeRef.current) {
+                startSouvenirRecordingRef.current?.(10);
+              }
             }
           }
         } else {
@@ -4478,9 +4511,14 @@ export function SakuraCanvas({
         const targetMode = (mode === 'plexus' || mode === 'bluten') ? mode : 'bluten';
         handleSwitchMode(targetMode);
         if (expMode === 'souvenir') {
+          setIsCreationMode(true);
+          isCreationModeRef.current = true;
           setTimeout(() => {
             selectArtworkChoiceRef.current?.(targetMode);
           }, 100);
+        } else {
+          setIsCreationMode(false);
+          isCreationModeRef.current = false;
         }
         if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
           requestLandscapeOrientationRef.current?.();
