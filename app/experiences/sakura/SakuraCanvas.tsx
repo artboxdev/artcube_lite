@@ -1283,14 +1283,34 @@ class OrbNode {
   }
 }
 
+// ==========================================
+// 10-COLOR CURSOR PALETTE SET (From Sakura V3)
+// ==========================================
+export const CURSOR_PALETTE_10 = [
+  { name: 'Cyan Glow', hex: '#00f0ff', rgb: '0, 240, 255' },
+  { name: 'Electric Violet', hex: '#b026ff', rgb: '176, 38, 255' },
+  { name: 'Neon Lime', hex: '#39ff14', rgb: '57, 255, 20' },
+  { name: 'Solar Amber', hex: '#ffaa00', rgb: '255, 170, 0' },
+  { name: 'Hot Coral', hex: '#ff3366', rgb: '255, 51, 102' },
+  { name: 'Aqua Marine', hex: '#00ffa3', rgb: '0, 255, 163' },
+  { name: 'Bright Magenta', hex: '#ff007f', rgb: '255, 0, 127' },
+  { name: 'Celestial Blue', hex: '#3388ff', rgb: '51, 136, 255' },
+  { name: 'Sunburst Yellow', hex: '#ffe600', rgb: '255, 230, 0' },
+  { name: 'Luminous Pink', hex: '#ff66cc', rgb: '255, 102, 204' }
+];
+
 interface SakuraCanvasProps extends ExperienceComponentProps {
   onExit?: () => void;
   initialMode?: 'bluten' | 'plexus' | string;
+  sessionId?: string;
 }
 
 export function SakuraCanvas({
   isRunning = false,
   isMobile = false,
+  isHost = true,
+  myName = 'Host',
+  sessionId = 'sakura-session',
   sendInteraction,
   onCanvasesReady,
   onRendererReady,
@@ -1302,6 +1322,87 @@ export function SakuraCanvas({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const baseCamPosRef = useRef(new THREE.Vector3(0, -0.4, 16));
   const baseLookAtRef = useRef(new THREE.Vector3(0, -0.4, 0));
+  const bgUniformsRef = useRef<Record<string, { value: any }> | null>(null);
+
+  // Souvenir MP4 Video Recording state ref (suppresses ripple effect during video capture)
+  const isSouvenirRecordingRef = useRef<boolean>(false);
+
+  // User Cursors with Names & Multi-Screen Session Sync (Sakura V3)
+  const user1ColorRef = useRef(CURSOR_PALETTE_10[0]); // Cyan Glow for Host
+  const user2ColorRef = useRef(CURSOR_PALETTE_10[1]); // Electric Violet for Guest
+  const [remoteUser1Name, setRemoteUser1Name] = useState<string>('Host');
+  const [remoteUser2Name, setRemoteUser2Name] = useState<string>('Gast');
+  const channelRef = useRef<BroadcastChannel | null>(null);
+
+  const displayUser1Name = isHost ? (myName || 'Host') : (remoteUser1Name || 'Host');
+  const displayUser2Name = isHost ? (remoteUser2Name || 'Gast') : (myName || 'Gast');
+
+  // Trigger visual gesture feedback on the cursor element
+  const triggerCursorGesture = useCallback((userIndex: 1 | 2, type: 'mousedown' | 'mouseup' | 'click' | 'hold') => {
+    const circle = document.getElementById(userIndex === 1 ? 'cursorCircle1' : 'cursorCircle2');
+    const cursor = document.getElementById(userIndex === 1 ? 'userCursor1' : 'userCursor2');
+    if (!circle || !cursor) return;
+
+    if (type === 'mousedown' || type === 'hold') {
+      circle.classList.add('gesture-active');
+    } else if (type === 'mouseup') {
+      circle.classList.remove('gesture-active');
+    } else if (type === 'click') {
+      circle.classList.add('gesture-click');
+      setTimeout(() => circle.classList.remove('gesture-click'), 400);
+
+      const ring = document.createElement('div');
+      ring.className = 'gesture-ring';
+      const col = userIndex === 1 ? user1ColorRef.current : user2ColorRef.current;
+      ring.style.setProperty('--user-color-glow', `rgba(${col.rgb}, 0.9)`);
+      cursor.appendChild(ring);
+      setTimeout(() => ring.remove(), 600);
+    }
+  }, []);
+
+  // Cross-Tab & Multi-Screen Real-Time Session Synchronization via BroadcastChannel
+  const effectiveSessionId = sessionId || 'sakura-session';
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel(`sakura_channel_${effectiveSessionId}`);
+    channelRef.current = channel;
+
+    // Broadcast our name to the session
+    channel.postMessage({
+      type: 'USER_NAME',
+      senderIndex: isHost ? 1 : 2,
+      user1Name: isHost ? (myName || 'Host') : undefined,
+      user2Name: !isHost ? (myName || 'Gast') : undefined
+    });
+
+    channel.onmessage = (event) => {
+      const data = event.data;
+      if (!data || !data.type) return;
+
+      if (data.type === 'CURSOR_MOVE') {
+        const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
+        const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
+        if (cursorElem) {
+          cursorElem.classList.add('active');
+          const cX = data.normX * window.innerWidth;
+          const cY = (1.0 - data.normY) * window.innerHeight;
+          cursorElem.style.left = `${cX}px`;
+          cursorElem.style.top = `${cY}px`;
+        }
+      } else if (data.type === 'GESTURE') {
+        const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
+        triggerCursorGesture(remoteIdx as 1 | 2, data.gestureType);
+      } else if (data.type === 'USER_NAME') {
+        if (data.user1Name) setRemoteUser1Name(data.user1Name);
+        if (data.user2Name) setRemoteUser2Name(data.user2Name);
+      }
+    };
+
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, [effectiveSessionId, isHost, myName, triggerCursorGesture]);
 
   // App & Artwork Mode State
   const [activeMode, setActiveMode] = useState<'bluten' | 'plexus'>(
@@ -1671,6 +1772,11 @@ export function SakuraCanvas({
     // Start 14s Souvenir Recording from the live canvas
     if (canvasRef.current && typeof MediaRecorder !== 'undefined') {
       try {
+        isSouvenirRecordingRef.current = true;
+        // Suppress ripple-effect animation immediately for the MP4 video capture
+        if (bgUniformsRef.current?.uRippleActive) bgUniformsRef.current.uRippleActive.value = 0.0;
+        if (bgUniformsRef.current?.uRippleTime) bgUniformsRef.current.uRippleTime.value = 0.0;
+
         const stream = canvasRef.current.captureStream(60);
         let selectedMimeType = 'video/webm';
         const mimeTypes = [
@@ -1696,6 +1802,7 @@ export function SakuraCanvas({
           if (e.data && e.data.size > 0) chunks.push(e.data);
         };
         recorder.onstop = () => {
+          isSouvenirRecordingRef.current = false;
           const blob = new Blob(chunks, { type: selectedMimeType });
           const url = URL.createObjectURL(blob);
           setSouvenirVideoBlob(blob);
@@ -1709,6 +1816,7 @@ export function SakuraCanvas({
           if (recorder.state !== 'inactive') recorder.stop();
         }, 14000);
       } catch (err) {
+        isSouvenirRecordingRef.current = false;
         console.warn('Canvas recorder fallback:', err);
       }
     }
@@ -1793,6 +1901,7 @@ export function SakuraCanvas({
       uBgBlend: { value: 0.0 },
       uBgDim: { value: 1.0 }
     };
+    bgUniformsRef.current = bgUniforms;
 
     const bgMat = new THREE.ShaderMaterial({
       vertexShader: bgVertexShader,
@@ -2013,8 +2122,13 @@ export function SakuraCanvas({
         bgUniforms.uBgColor3.value.copy(bgPal.c3);
         bgUniforms.uRippleCrest.value.copy(bgPal.crest);
         bgUniforms.uBgBlend.value = 0.0;
-        bgUniforms.uRippleActive.value = 1.0;
-        bgUniforms.uRippleTime.value = 0.0;
+        if (!isSouvenirRecordingRef.current) {
+          bgUniforms.uRippleActive.value = 1.0;
+          bgUniforms.uRippleTime.value = 0.0;
+        } else {
+          bgUniforms.uRippleActive.value = 0.0;
+          bgUniforms.uRippleTime.value = 0.0;
+        }
       }
 
       showToastRef.current?.('🌸 14s Blüten-Vortex aktiviert!');
@@ -3209,6 +3323,25 @@ export function SakuraCanvas({
       if (clientX === undefined || clientY === undefined) return;
       updatePointerWorld(clientX, clientY);
 
+      // Position local user cursor element and ensure active
+      const activeIdx = isHost ? 1 : 2;
+      const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
+      if (activeCursor) {
+        activeCursor.classList.add('active');
+        activeCursor.style.left = `${clientX}px`;
+        activeCursor.style.top = `${clientY}px`;
+      }
+
+      // Broadcast cursor move to multi-screen session peer
+      if (channelRef.current) {
+        channelRef.current.postMessage({
+          type: 'CURSOR_MOVE',
+          senderIndex: activeIdx,
+          normX: clientX / window.innerWidth,
+          normY: 1.0 - (clientY / window.innerHeight)
+        });
+      }
+
       if (isMouseDown && draggedPlexusCluster && activeModeRef.current === 'plexus') {
         draggedPlexusCluster.centerX = mouseWorld.x + dragOffset.x;
         draggedPlexusCluster.centerY = mouseWorld.y + dragOffset.y;
@@ -3236,6 +3369,17 @@ export function SakuraCanvas({
       const clientY = touch ? touch.clientY : (e as MouseEvent).clientY;
       if (clientX === undefined || clientY === undefined) return;
       updatePointerWorld(clientX, clientY);
+
+      // Trigger gesture animation and broadcast to session
+      const activeIdx = isHost ? 1 : 2;
+      triggerCursorGesture(activeIdx, 'mousedown');
+      if (channelRef.current) {
+        channelRef.current.postMessage({
+          type: 'GESTURE',
+          senderIndex: activeIdx,
+          gestureType: 'mousedown'
+        });
+      }
 
       if (activeModeRef.current === 'bluten') {
         hasHitOrbThisGesture = checkAndTriggerOrbHit(clientX, clientY);
@@ -3265,6 +3409,17 @@ export function SakuraCanvas({
     };
 
     const handlePointerUp = (e?: MouseEvent | TouchEvent) => {
+      const activeIdx = isHost ? 1 : 2;
+      triggerCursorGesture(activeIdx, 'mouseup');
+      triggerCursorGesture(activeIdx, 'click');
+      if (channelRef.current) {
+        channelRef.current.postMessage({
+          type: 'GESTURE',
+          senderIndex: activeIdx,
+          gestureType: 'click'
+        });
+      }
+
       if (e && activeModeRef.current === 'bluten') {
         const touch = 'changedTouches' in e && e.changedTouches.length > 0 ? e.changedTouches[0] : null;
         const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
@@ -3306,10 +3461,16 @@ export function SakuraCanvas({
               isPlexusFinaleActive = true;
               setIsPlexusFinale(true);
               plexusFinaleStartTime = totalAnimTime;
-              isPlexusRippleActive = true;
-              plexusRippleTimer = 0.0;
-              if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
-              if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+              if (!isSouvenirRecordingRef.current) {
+                isPlexusRippleActive = true;
+                plexusRippleTimer = 0.0;
+                if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
+                if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+              } else {
+                isPlexusRippleActive = false;
+                if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
+                if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+              }
 
               // Initialize network particles exclusively from docked orbs
               const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
@@ -3444,7 +3605,10 @@ export function SakuraCanvas({
         cameraRef.current.lookAt(baseLookAtRef.current);
       }
 
-      if (bgUniforms.uRippleActive.value > 0.5) {
+      if (isSouvenirRecordingRef.current) {
+        if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
+        if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+      } else if (bgUniforms.uRippleActive.value > 0.5) {
         bgUniforms.uRippleTime.value += delta;
         if (bgUniforms.uRippleTime.value > 3.0) {
           bgUniforms.uRippleActive.value = 0.0;
@@ -3806,7 +3970,11 @@ export function SakuraCanvas({
 
         const finaleAge = isPlexusFinaleActive ? (totalAnimTime - plexusFinaleStartTime) : 0.0;
 
-        if (isPlexusRippleActive) {
+        if (isSouvenirRecordingRef.current) {
+          isPlexusRippleActive = false;
+          if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
+          if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+        } else if (isPlexusRippleActive) {
           plexusRippleTimer += delta;
           if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
           if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = plexusRippleTimer;
@@ -4401,9 +4569,46 @@ export function SakuraCanvas({
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <canvas
           ref={canvasRef}
-          className="pointer-events-auto block cursor-pointer portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full"
+          className={`pointer-events-auto block ${isRunning ? 'landscape:cursor-none cursor-pointer' : 'cursor-pointer'} portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full`}
         />
       </div>
+
+      {/* Custom Translucent User Cursors with Names (From Sakura V3) */}
+      {isRunning && (
+        <>
+          <div
+            id="userCursor1"
+            className="user-cursor pointer-events-none fixed top-0 left-0 z-[100] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-300 opacity-0 select-none"
+            style={{
+              '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
+              '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
+            } as React.CSSProperties}
+          >
+            <div id="cursorCircle1" className="cursor-circle relative w-8 h-8 rounded-full border-2 border-white/90 shadow-[0_0_16px_var(--user-color-glow)] transition-transform duration-200">
+              <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_#ffffff]" />
+            </div>
+            <div id="cursorName1" className="cursor-name mt-1.5 text-[11px] font-semibold tracking-[1.5px] text-white uppercase whitespace-nowrap px-2 py-0.5 rounded-[10px] bg-[#120c1c]/70 backdrop-blur-md border border-[var(--user-color-glow)] shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {displayUser1Name}
+            </div>
+          </div>
+
+          <div
+            id="userCursor2"
+            className="user-cursor pointer-events-none fixed top-0 left-0 z-[100] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-300 opacity-0 select-none"
+            style={{
+              '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
+              '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
+            } as React.CSSProperties}
+          >
+            <div id="cursorCircle2" className="cursor-circle relative w-8 h-8 rounded-full border-2 border-white/90 shadow-[0_0_16px_var(--user-color-glow)] transition-transform duration-200">
+              <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_#ffffff]" />
+            </div>
+            <div id="cursorName2" className="cursor-name mt-1.5 text-[11px] font-semibold tracking-[1.5px] text-white uppercase whitespace-nowrap px-2 py-0.5 rounded-[10px] bg-[#120c1c]/70 backdrop-blur-md border border-[var(--user-color-glow)] shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+              {displayUser2Name}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
       {isRunning && (

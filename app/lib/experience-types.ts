@@ -19,6 +19,7 @@ export interface ExperienceComponentProps {
   isRecording: boolean;
   isHost: boolean;
   myName: string;
+  sessionId?: string;
   sendInteraction: (kind: string, data: Record<string, unknown>) => void;
   onCanvasesReady: (flare: HTMLCanvasElement, star: HTMLCanvasElement) => void;
   onRendererReady: (api: ExperienceRendererAPI) => void;

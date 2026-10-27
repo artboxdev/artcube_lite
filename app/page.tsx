@@ -91,6 +91,7 @@ function ArtCubeApp() {
           isRecording={false}
           isHost={isHost}
           myName={myName || (isHost ? 'Host' : 'Gast')}
+          sessionId={sessionId}
           sendInteraction={handleSendInteraction}
           onCanvasesReady={handleCanvasesReady}
           onRendererReady={handleRendererReady}
