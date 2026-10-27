@@ -1855,6 +1855,10 @@ export function SakuraCanvas({
     const petalAngle = new Float32Array(MAX_PETALS);
     const petalPhaseZ = new Float32Array(MAX_PETALS);
     const petalScales = new Float32Array(MAX_PETALS);
+    const driftDirection = new Float32Array(MAX_PETALS);
+    const driftSpeedH = new Float32Array(MAX_PETALS);
+    const driftOffsetH = new Float32Array(MAX_PETALS);
+    const driftOffsetV = new Float32Array(MAX_PETALS);
     const dummy = new THREE.Object3D();
     let activePetalCount = 0;
 
@@ -1863,10 +1867,14 @@ export function SakuraCanvas({
       petalOriginY[i] = -0.4 + (Math.random() - 0.5) * 8.0;
       petalRadiusX[i] = 3.2 + Math.random() * 6.4;
       petalRadiusY[i] = 2.4 + Math.random() * 4.8;
-      petalSpeed[i] = (0.24 + Math.random() * 0.40) * (i % 2 === 0 ? 1 : -1);
+      petalSpeed[i] = (0.19 + Math.random() * 0.32) * (i % 2 === 0 ? 1 : -1);
       petalAngle[i] = Math.random() * Math.PI * 2.0;
       petalPhaseZ[i] = Math.random() * Math.PI * 2.0;
       petalScales[i] = 0.5 + Math.random() * 0.5;
+      driftDirection[i] = i % 2 === 0 ? 1.0 : -1.0;
+      driftSpeedH[i] = 0.35 + Math.random() * 0.50;
+      driftOffsetH[i] = 0.0;
+      driftOffsetV[i] = 0.0;
     }
 
     // 2. Main Trunk & Progressive Growth Lifecycle
@@ -1922,8 +1930,9 @@ export function SakuraCanvas({
     let currentRoundNum = 1;
     let currentPhaseName: 'BRANCH' | 'BLOSSOM' | 'VORTEX' | 'DONE' = 'BRANCH';
 
-    // 14-Second Dominant Color Vortex State (4s alignment + 10s storm)
+    // 14-Second Dominant Color Vortex State (4s alignment + 10s storm + ambient drift)
     let isVortexActive = false;
+    let isDriftActive = false;
     let vortexTimer = 0.0;
     const VORTEX_ALIGN_TIME = 4.0;
     const VORTEX_STORM_TIME = 10.0;
@@ -1951,12 +1960,15 @@ export function SakuraCanvas({
         const pal = BLOSSOM_PALETTES[colorKey] || BLOSSOM_PALETTES.pink;
         const colorHex = pal.shades[Math.floor(Math.random() * pal.shades.length)];
         instancedPetalMesh.setColorAt(i, new THREE.Color(colorHex));
+        driftOffsetH[i] = 0.0;
+        driftOffsetV[i] = 0.0;
       }
       if (instancedPetalMesh.instanceColor) {
         instancedPetalMesh.instanceColor.needsUpdate = true;
       }
 
       isVortexActive = true;
+      isDriftActive = false;
       vortexTimer = 0.0;
       activePetalCount = vortexPetalLimit;
       if (instancedPetalMesh && instancedPetalMesh.material) {
@@ -3312,7 +3324,12 @@ export function SakuraCanvas({
     // Restart function to reset 3D scene elements cleanly
     restartTriggerRef.current = () => {
       isVortexActive = false;
+      isDriftActive = false;
       vortexTimer = 0.0;
+      for (let i = 0; i < MAX_PETALS; i++) {
+        driftOffsetH[i] = 0.0;
+        driftOffsetV[i] = 0.0;
+      }
       instancedPetalMesh.visible = false;
       activePetalCount = 0;
 
@@ -3499,25 +3516,26 @@ export function SakuraCanvas({
           vortexTimer += delta;
           const centerX = cameraRef.current ? cameraRef.current.position.x : 2.4;
           const centerY = cameraRef.current ? cameraRef.current.position.y : -0.4;
+          const centerZ = -3.5; // Petals pushed 50% further back on Z axis into mid/background
           const sideTilt = 0.15;
 
           if (vortexTimer < VORTEX_ALIGN_TIME) {
-            // Phase 1: 4s gentle transition & alignment into flight paths
+            // Phase 1: 4s gentle transition & alignment into flight paths (20% speed reduction)
             const alignProgress = Math.min(1.0, vortexTimer / VORTEX_ALIGN_TIME);
             const blend = alignProgress * alignProgress * (3.0 - 2.0 * alignProgress);
-            const spinMultiplier = 0.65 + blend * 2.8;
+            const spinMultiplier = (0.65 + blend * 2.8) * 0.64;
 
             for (let i = 0; i < activePetalCount; i++) {
               petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
               const a = petalAngle[i];
               const normH = (i / activePetalCount);
 
-              // Initial floating drift position (scaled 20% inwards)
+              // Initial floating drift position (set back in Z)
               const driftX = petalOriginX[i] + Math.sin(totalAnimTime * 0.4 + petalPhaseZ[i]) * petalRadiusX[i] * 0.4;
               const driftY = petalOriginY[i] + Math.cos(totalAnimTime * 0.35 + petalPhaseZ[i]) * petalRadiusY[i] * 0.4;
-              const driftZ = Math.sin(totalAnimTime * 0.3 + petalPhaseZ[i]) * 1.6;
+              const driftZ = centerZ + Math.sin(totalAnimTime * 0.3 + petalPhaseZ[i]) * 0.8;
 
-              // Vortex circular cylinder with 20% diameter reduction on all axes & organic path variance
+              // Vortex circular cylinder with 50% reduced Z depth
               const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
               const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] + totalAnimTime * 1.6) * 0.5;
               const currentRadius = baseTubeRadius + radialWobble * blend;
@@ -3525,11 +3543,11 @@ export function SakuraCanvas({
               const heightWobble = Math.sin(a * 2.2 + petalPhaseZ[i] + totalAnimTime * 1.4) * 0.7 * blend;
               const rawY = (normH - 0.5) * 12.8 + heightWobble;
               const rawX = Math.cos(a) * currentRadius;
-              const rawZ = Math.sin(a) * currentRadius;
+              const rawZ = Math.sin(a) * currentRadius * 0.50; // 50% reduced forward Z protrusion
 
               const vortexX = rawX + centerX;
               const vortexY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-              const vortexZ = rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt);
+              const vortexZ = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
 
               const px = THREE.MathUtils.lerp(driftX, vortexX, blend);
               const py = THREE.MathUtils.lerp(driftY, vortexY, blend);
@@ -3537,80 +3555,141 @@ export function SakuraCanvas({
 
               dummy.position.set(px, py, pz);
               dummy.rotation.set(
-                totalAnimTime * (0.9 + (petalRadiusX[i] % 0.6)) + i,
-                totalAnimTime * (1.3 + (petalRadiusY[i] % 0.6)) + i,
-                a + Math.sin(totalAnimTime * 2.5 + i) * 0.35
+                totalAnimTime * (0.8 + (petalRadiusX[i] % 0.5)) + i,
+                totalAnimTime * (1.1 + (petalRadiusY[i] % 0.5)) + i,
+                a + Math.sin(totalAnimTime * 2.0 + i) * 0.3
               );
               dummy.scale.setScalar(petalScales[i] * (0.6 + 0.4 * blend));
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
             }
-          } else {
-            // Phase 2: 10s full vortex storm (20% reduced diameter, increased flight variance & wilder paths)
+          } else if (vortexTimer < VORTEX_TOTAL_DURATION) {
+            // Phase 2: 10s full vortex storm (speed reduced by additional 20%, 50% Z-setback)
             const stormTimer = vortexTimer - VORTEX_ALIGN_TIME;
             const stormProgress = Math.min(1.0, stormTimer / VORTEX_STORM_TIME);
-            const spinMultiplier = 3.6 + Math.sin(stormProgress * Math.PI) * 1.6;
+            const spinMultiplier = (3.6 + Math.sin(stormProgress * Math.PI) * 1.6) * 0.64;
 
             for (let i = 0; i < activePetalCount; i++) {
               petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
               const a = petalAngle[i];
               const normH = (i / activePetalCount);
 
-              // 20% diameter reduction on all axes
               const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80 * (0.85 + 0.35 * Math.sin(stormProgress * Math.PI));
 
-              // Organic turbulent variance in flight trajectories:
-              // 1. Radial undulation (petals dive in and swoosh out)
+              // Organic turbulent flight variance:
               const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.2) * (0.75 + 0.35 * (petalRadiusY[i] % 1.5))
                                  + Math.cos(a * 4.5 + petalPhaseZ[i]) * 0.35;
               const currentRadius = Math.max(1.5, baseTubeRadius + radialWobble);
 
-              // 2. Vertical undulating wave (petals dynamically rise and dip)
               const heightWobble = Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.8) * 1.1
                                  + Math.cos(a * 1.4 + i * 0.5) * 0.45;
-              const rawY = (normH - 0.5) * 12.8 + heightWobble; // 16.0 * 0.80 = 12.8
+              const rawY = (normH - 0.5) * 12.8 + heightWobble;
 
-              // 3. Tangential flutter
+              // Tangential flutter
               const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.3;
               const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.3;
 
               const rawX = Math.cos(a) * currentRadius + flutterX;
-              const rawZ = Math.sin(a) * currentRadius + flutterZ;
+              // 50% reduced Z depth to keep petals deep in the scene
+              const rawZ = (Math.sin(a) * currentRadius + flutterZ) * 0.50;
 
               const px = rawX + centerX;
               const py = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-              const pz = rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt);
+              const pz = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
 
               dummy.position.set(px, py, pz);
               dummy.rotation.set(
-                totalAnimTime * (1.1 + (petalRadiusX[i] % 0.8)) + i,
-                totalAnimTime * (1.5 + (petalRadiusY[i] % 0.8)) + i,
-                a + Math.sin(totalAnimTime * 3.2 + i) * 0.5
+                totalAnimTime * (0.9 + (petalRadiusX[i] % 0.6)) + i,
+                totalAnimTime * (1.2 + (petalRadiusY[i] % 0.6)) + i,
+                a + Math.sin(totalAnimTime * 2.5 + i) * 0.4
               );
               dummy.scale.setScalar(petalScales[i] * (0.9 + 0.3 * Math.sin(stormProgress * Math.PI)));
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
             }
+          } else {
+            // Phase 3: Seamless post-vortex ambient drift through visible area
+            if (!isDriftActive) {
+              isDriftActive = true;
+              if (bgUniforms.uBgColor1) bgUniforms.uBgColor1.value.copy(BG_COLOR_PALETTES.default.c1);
+              if (bgUniforms.uBgColor2) bgUniforms.uBgColor2.value.copy(BG_COLOR_PALETTES.default.c2);
+              if (bgUniforms.uBgColor3) bgUniforms.uBgColor3.value.copy(BG_COLOR_PALETTES.default.c3);
+              if (bgUniforms.uRippleCrest) bgUniforms.uRippleCrest.value.copy(BG_COLOR_PALETTES.default.crest);
+              if (bgUniforms.uBgBlend) bgUniforms.uBgBlend.value = 0.0;
+              if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
+              if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+
+              markArtworkCompletedRef.current?.('bluten');
+              roundState = 'IDLE';
+              currentPhaseName = 'DONE';
+              currentPhaseRef.current = 'DONE';
+              setCurrentPhase('DONE');
+              showToastRef.current?.('🌸 Blütenkunstwerk nach 14s vollendet!');
+            }
+
+            const driftAge = vortexTimer - VORTEX_TOTAL_DURATION;
+            // Over 3s, the circular swirl unwinds and dissolves into smooth horizontal drift
+            const swirlBlend = Math.max(0.0, 1.0 - driftAge / 3.0);
+            const driftBlend = Math.min(1.0, driftAge / 2.0);
+            const spinMultiplier = (3.6 * 0.64) * swirlBlend * swirlBlend;
+
+            const halfSpanX = 17.0;
+            const halfSpanY = 8.5;
+
+            for (let i = 0; i < activePetalCount; i++) {
+              petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
+              const a = petalAngle[i];
+              const normH = (i / activePetalCount);
+
+              // Accumulate horizontal and vertical drift movement
+              driftOffsetH[i] += driftDirection[i] * driftSpeedH[i] * delta * driftBlend;
+              driftOffsetV[i] += (Math.sin(totalAnimTime * 0.45 + petalPhaseZ[i]) * 0.25 - 0.08) * delta * driftBlend;
+
+              const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
+              const expandRadius = baseTubeRadius * (1.0 + Math.min(0.5, driftAge * 0.15));
+              const radialWobble = (Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.2) * 0.6) * swirlBlend;
+              const currentRadius = expandRadius + radialWobble;
+
+              const heightWobble = (Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.8) * 1.0) * swirlBlend;
+              const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.3 * swirlBlend;
+              const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.3 * swirlBlend;
+
+              const rawX = Math.cos(a) * currentRadius * swirlBlend + flutterX + driftOffsetH[i];
+              const rawY = (normH - 0.5) * 12.8 + heightWobble + driftOffsetV[i];
+              const rawZ = ((Math.sin(a) * currentRadius + flutterZ) * 0.50) * swirlBlend + Math.sin(totalAnimTime * 0.4 + petalPhaseZ[i]) * 0.6;
+
+              let px = rawX + centerX;
+              let py = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
+              const pz = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
+
+              // Continuous seamless boundary wrapping across visible canvas
+              if (px > centerX + halfSpanX) {
+                driftOffsetH[i] -= halfSpanX * 2.0;
+                px -= halfSpanX * 2.0;
+              } else if (px < centerX - halfSpanX) {
+                driftOffsetH[i] += halfSpanX * 2.0;
+                px += halfSpanX * 2.0;
+              }
+              if (py < centerY - halfSpanY) {
+                driftOffsetV[i] += halfSpanY * 2.0;
+                py += halfSpanY * 2.0;
+              } else if (py > centerY + halfSpanY) {
+                driftOffsetV[i] -= halfSpanY * 2.0;
+                py -= halfSpanY * 2.0;
+              }
+
+              dummy.position.set(px, py, pz);
+              dummy.rotation.set(
+                totalAnimTime * (0.35 + 0.65 * swirlBlend + (petalRadiusX[i] % 0.3)) + i,
+                totalAnimTime * (0.45 + 0.85 * swirlBlend + (petalRadiusY[i] % 0.3)) + i,
+                a * swirlBlend + Math.sin(totalAnimTime * 0.8 + i) * 0.5 + driftDirection[i] * 0.3
+              );
+              dummy.scale.setScalar(petalScales[i] * (0.85 + 0.08 * Math.sin(totalAnimTime * 0.8 + i)));
+              dummy.updateMatrix();
+              instancedPetalMesh.setMatrixAt(i, dummy.matrix);
+            }
           }
           instancedPetalMesh.instanceMatrix.needsUpdate = true;
-
-          if (vortexTimer >= VORTEX_TOTAL_DURATION) {
-            isVortexActive = false;
-            if (bgUniforms.uBgColor1) bgUniforms.uBgColor1.value.copy(BG_COLOR_PALETTES.default.c1);
-            if (bgUniforms.uBgColor2) bgUniforms.uBgColor2.value.copy(BG_COLOR_PALETTES.default.c2);
-            if (bgUniforms.uBgColor3) bgUniforms.uBgColor3.value.copy(BG_COLOR_PALETTES.default.c3);
-            if (bgUniforms.uRippleCrest) bgUniforms.uRippleCrest.value.copy(BG_COLOR_PALETTES.default.crest);
-            if (bgUniforms.uBgBlend) bgUniforms.uBgBlend.value = 0.0;
-            if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
-            if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
-
-            markArtworkCompletedRef.current?.('bluten');
-            roundState = 'IDLE';
-            currentPhaseName = 'DONE';
-            currentPhaseRef.current = 'DONE';
-            setCurrentPhase('DONE');
-            showToastRef.current?.('🌸 Blütenkunstwerk nach 14s vollendet!');
-          }
         }
 
         // 3-Round Step-by-Step Lifecycle for BRANCH and BLOSSOM phases
