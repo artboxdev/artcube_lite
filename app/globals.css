@@ -188,12 +188,16 @@ h6 {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 1000;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  z-index: 99999 !important;
   pointer-events: none;
-  transition: opacity 0.3s ease;
-  opacity: 0;
+  opacity: 1;
   user-select: none;
-  will-change: left, top;
+  will-change: transform;
 }
 
 .user-cursor.active {
@@ -208,14 +212,18 @@ h6 {
   background-color: var(--user-color-alpha, rgba(0, 240, 255, 0.35));
   box-shadow: 0 0 16px var(--user-color-glow, rgba(0, 240, 255, 0.6));
   position: absolute;
-  top: 0;
-  left: 0;
-  transform: translate(-50%, -50%);
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+  top: -16px;
+  left: -16px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  transform-origin: center center;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+  pointer-events: none;
 }
 
 .cursor-circle.gesture-active {
-  transform: translate(-50%, -50%) scale(1.38);
+  transform: scale(1.35);
   box-shadow: 0 0 30px var(--user-color-glow, rgba(0, 240, 255, 0.95)), 0 0 45px rgba(255, 255, 255, 0.9);
 }
 
@@ -224,20 +232,21 @@ h6 {
 }
 
 @keyframes cursorClickPulse {
-  0% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.45); }
-  100% { transform: translate(-50%, -50%) scale(1); }
+  0% { transform: scale(1); }
+  50% { transform: scale(1.45); }
+  100% { transform: scale(1); }
 }
 
 .gesture-ring {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: -16px;
+  left: -16px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
   border: 2px solid var(--user-color-glow, rgba(0, 240, 255, 0.9));
-  transform: translate(-50%, -50%) scale(1);
+  box-sizing: border-box;
+  transform-origin: center center;
   pointer-events: none;
   opacity: 1;
   animation: gestureRingExpand 0.6s ease-out forwards;
@@ -245,14 +254,12 @@ h6 {
 
 @keyframes gestureRingExpand {
   0% {
-    width: 32px;
-    height: 32px;
+    transform: scale(1);
     opacity: 0.95;
     border-width: 3px;
   }
   100% {
-    width: 110px;
-    height: 110px;
+    transform: scale(3.5);
     opacity: 0;
     border-width: 1px;
   }
@@ -265,10 +272,12 @@ h6 {
   left: 50%;
   width: 6px;
   height: 6px;
+  margin-top: -3px;
+  margin-left: -3px;
   background-color: #ffffff;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
   box-shadow: 0 0 8px #ffffff;
+  pointer-events: none;
 }
 
 .cursor-name {
