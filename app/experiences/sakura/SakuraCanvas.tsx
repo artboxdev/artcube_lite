@@ -1855,10 +1855,23 @@ export function SakuraCanvas({
     const petalAngle = new Float32Array(MAX_PETALS);
     const petalPhaseZ = new Float32Array(MAX_PETALS);
     const petalScales = new Float32Array(MAX_PETALS);
-    const driftDirection = new Float32Array(MAX_PETALS);
-    const driftSpeedH = new Float32Array(MAX_PETALS);
-    const driftOffsetH = new Float32Array(MAX_PETALS);
-    const driftOffsetV = new Float32Array(MAX_PETALS);
+
+    // Exact Floating2DPetal flow parameters ported from sakura-v3.html
+    const petalPosX = new Float32Array(MAX_PETALS);
+    const petalPosY = new Float32Array(MAX_PETALS);
+    const petalPosZ = new Float32Array(MAX_PETALS);
+    const petalSpeedX = new Float32Array(MAX_PETALS);
+    const petalSpeedY = new Float32Array(MAX_PETALS);
+    const petalAmpX = new Float32Array(MAX_PETALS);
+    const petalAmpY = new Float32Array(MAX_PETALS);
+    const petalAmpZ = new Float32Array(MAX_PETALS);
+    const petalFreqX = new Float32Array(MAX_PETALS);
+    const petalFreqY = new Float32Array(MAX_PETALS);
+    const petalFreqZ = new Float32Array(MAX_PETALS);
+    const petalPhaseX = new Float32Array(MAX_PETALS);
+    const petalPhaseY = new Float32Array(MAX_PETALS);
+    const petalSeed = new Float32Array(MAX_PETALS);
+    const petalAge = new Float32Array(MAX_PETALS);
     const dummy = new THREE.Object3D();
     let activePetalCount = 0;
 
@@ -1871,10 +1884,23 @@ export function SakuraCanvas({
       petalAngle[i] = Math.random() * Math.PI * 2.0;
       petalPhaseZ[i] = Math.random() * Math.PI * 2.0;
       petalScales[i] = 0.5 + Math.random() * 0.5;
-      driftDirection[i] = i % 2 === 0 ? 1.0 : -1.0;
-      driftSpeedH[i] = 0.35 + Math.random() * 0.50;
-      driftOffsetH[i] = 0.0;
-      driftOffsetV[i] = 0.0;
+
+      // sakura-v3.html flow vectors
+      petalPosX[i] = 2.4 + (Math.random() - 0.5) * 16.0;
+      petalPosY[i] = -0.4 + (Math.random() - 0.5) * 10.0;
+      petalPosZ[i] = -3.5 - Math.random() * 1.5;
+      petalSpeedX[i] = (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.8) * 0.80;
+      petalSpeedY[i] = (Math.random() - 0.5) * 0.4 * 0.80;
+      petalAmpX[i] = 1.6 + Math.random() * 2.2;
+      petalAmpY[i] = 1.2 + Math.random() * 1.8;
+      petalAmpZ[i] = (0.8 + Math.random() * 1.2) * 0.50; // 50% Z-setback
+      petalFreqX[i] = 0.3 + Math.random() * 0.4;
+      petalFreqY[i] = 0.25 + Math.random() * 0.35;
+      petalFreqZ[i] = 0.4 + Math.random() * 0.5;
+      petalPhaseX[i] = Math.random() * Math.PI * 2.0;
+      petalPhaseY[i] = Math.random() * Math.PI * 2.0;
+      petalSeed[i] = Math.random() * 100.0;
+      petalAge[i] = Math.random() * 4.0;
     }
 
     // 2. Main Trunk & Progressive Growth Lifecycle
@@ -1960,8 +1986,7 @@ export function SakuraCanvas({
         const pal = BLOSSOM_PALETTES[colorKey] || BLOSSOM_PALETTES.pink;
         const colorHex = pal.shades[Math.floor(Math.random() * pal.shades.length)];
         instancedPetalMesh.setColorAt(i, new THREE.Color(colorHex));
-        driftOffsetH[i] = 0.0;
-        driftOffsetV[i] = 0.0;
+        petalAge[i] = Math.random() * 4.0;
       }
       if (instancedPetalMesh.instanceColor) {
         instancedPetalMesh.instanceColor.needsUpdate = true;
@@ -3326,10 +3351,6 @@ export function SakuraCanvas({
       isVortexActive = false;
       isDriftActive = false;
       vortexTimer = 0.0;
-      for (let i = 0; i < MAX_PETALS; i++) {
-        driftOffsetH[i] = 0.0;
-        driftOffsetV[i] = 0.0;
-      }
       instancedPetalMesh.visible = false;
       activePetalCount = 0;
 
@@ -3608,7 +3629,7 @@ export function SakuraCanvas({
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
             }
           } else {
-            // Phase 3: Seamless post-vortex ambient drift through visible area
+            // Phase 3: Exact sakura-v3.html Floating2DPetal post-finale ambient flow
             if (!isDriftActive) {
               isDriftActive = true;
               if (bgUniforms.uBgColor1) bgUniforms.uBgColor1.value.copy(BG_COLOR_PALETTES.default.c1);
@@ -3625,66 +3646,84 @@ export function SakuraCanvas({
               currentPhaseRef.current = 'DONE';
               setCurrentPhase('DONE');
               showToastRef.current?.('🌸 Blütenkunstwerk nach 14s vollendet!');
+
+              // Synchronize initial drift coordinates smoothly from current vortex positions
+              for (let i = 0; i < activePetalCount; i++) {
+                const a = petalAngle[i];
+                const normH = (i / activePetalCount);
+                const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
+                const rawY = (normH - 0.5) * 12.8;
+                const rawX = Math.cos(a) * baseTubeRadius;
+                const rawZ = Math.sin(a) * baseTubeRadius * 0.50;
+                const tornadoX = rawX + centerX;
+                const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
+
+                petalPosX[i] = tornadoX - Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+                petalPosY[i] = tornadoY - Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+              }
             }
 
             const driftAge = vortexTimer - VORTEX_TOTAL_DURATION;
-            // Over 3s, the circular swirl unwinds and dissolves into smooth horizontal drift
-            const swirlBlend = Math.max(0.0, 1.0 - driftAge / 3.0);
-            const driftBlend = Math.min(1.0, driftAge / 2.0);
-            const spinMultiplier = (3.6 * 0.64) * swirlBlend * swirlBlend;
-
-            const halfSpanX = 17.0;
-            const halfSpanY = 8.5;
+            const VORTEX_FADE_TIME = 3.5;
+            const vortexBlendFactor = Math.max(0.0, 1.0 - driftAge / VORTEX_FADE_TIME);
+            const smoothPower = vortexBlendFactor * vortexBlendFactor * (3.0 - 2.0 * vortexBlendFactor);
 
             for (let i = 0; i < activePetalCount; i++) {
-              petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
-              const a = petalAngle[i];
-              const normH = (i / activePetalCount);
+              petalAge[i] += delta;
 
-              // Accumulate horizontal and vertical drift movement
-              driftOffsetH[i] += driftDirection[i] * driftSpeedH[i] * delta * driftBlend;
-              driftOffsetV[i] += (Math.sin(totalAnimTime * 0.45 + petalPhaseZ[i]) * 0.25 - 0.08) * delta * driftBlend;
+              // Advance drift according to sakura-v3.html speed vectors
+              petalPosX[i] += petalSpeedX[i] * delta;
+              petalPosY[i] += petalSpeedY[i] * delta;
 
-              const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
-              const expandRadius = baseTubeRadius * (1.0 + Math.min(0.5, driftAge * 0.15));
-              const radialWobble = (Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.2) * 0.6) * swirlBlend;
-              const currentRadius = expandRadius + radialWobble;
+              // Exact sakura-v3.html canvas boundary wrapping
+              if (petalPosX[i] > centerX + 16.0) petalPosX[i] = centerX - 16.0;
+              if (petalPosX[i] < centerX - 16.0) petalPosX[i] = centerX + 16.0;
+              if (petalPosY[i] < centerY - 9.0) petalPosY[i] = centerY + 9.0;
+              if (petalPosY[i] > centerY + 9.0) petalPosY[i] = centerY - 9.0;
 
-              const heightWobble = (Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.8) * 1.0) * swirlBlend;
-              const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.3 * swirlBlend;
-              const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.3 * swirlBlend;
+              // Exact sakura-v3.html harmonic wave trajectory formulas
+              const normalX = petalPosX[i] + Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+              const normalY = petalPosY[i] + Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+              const normalZ = petalPosZ[i] + Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
 
-              const rawX = Math.cos(a) * currentRadius * swirlBlend + flutterX + driftOffsetH[i];
-              const rawY = (normH - 0.5) * 12.8 + heightWobble + driftOffsetV[i];
-              const rawZ = ((Math.sin(a) * currentRadius + flutterZ) * 0.50) * swirlBlend + Math.sin(totalAnimTime * 0.4 + petalPhaseZ[i]) * 0.6;
+              let finalX = normalX;
+              let finalY = normalY;
+              let finalZ = normalZ;
 
-              let px = rawX + centerX;
-              let py = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-              const pz = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
+              if (smoothPower > 0.001) {
+                // Smoothly uncurling tornado during fade-out
+                const spinMultiplier = (3.6 * 0.64) * smoothPower;
+                petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
+                const a = petalAngle[i];
+                const normH = (i / activePetalCount);
 
-              // Continuous seamless boundary wrapping across visible canvas
-              if (px > centerX + halfSpanX) {
-                driftOffsetH[i] -= halfSpanX * 2.0;
-                px -= halfSpanX * 2.0;
-              } else if (px < centerX - halfSpanX) {
-                driftOffsetH[i] += halfSpanX * 2.0;
-                px += halfSpanX * 2.0;
+                const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
+                const expandRadius = baseTubeRadius * (1.0 + (1.0 - smoothPower) * 0.4);
+                const rawY = (normH - 0.5) * 12.8;
+                const rawX = Math.cos(a) * expandRadius;
+                const rawZ = Math.sin(a) * expandRadius * 0.50;
+
+                const tornadoX = rawX + centerX;
+                const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
+                const tornadoZ = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
+
+                finalX = normalX * (1.0 - smoothPower) + tornadoX * smoothPower;
+                finalY = normalY * (1.0 - smoothPower) + tornadoY * smoothPower;
+                finalZ = normalZ * (1.0 - smoothPower) + tornadoZ * smoothPower;
               }
-              if (py < centerY - halfSpanY) {
-                driftOffsetV[i] += halfSpanY * 2.0;
-                py += halfSpanY * 2.0;
-              } else if (py > centerY + halfSpanY) {
-                driftOffsetV[i] -= halfSpanY * 2.0;
-                py -= halfSpanY * 2.0;
-              }
 
-              dummy.position.set(px, py, pz);
+              dummy.position.set(finalX, finalY, finalZ);
+
+              // 3D Rotation from sakura-v3.html Floating2DPetal
               dummy.rotation.set(
-                totalAnimTime * (0.35 + 0.65 * swirlBlend + (petalRadiusX[i] % 0.3)) + i,
-                totalAnimTime * (0.45 + 0.85 * swirlBlend + (petalRadiusY[i] % 0.3)) + i,
-                a * swirlBlend + Math.sin(totalAnimTime * 0.8 + i) * 0.5 + driftDirection[i] * 0.3
+                petalAge[i] * 0.4 + petalSeed[i],
+                petalAge[i] * 0.5 + petalSeed[i],
+                Math.sin(petalAge[i] * 0.6 + petalSeed[i]) * 0.8
               );
-              dummy.scale.setScalar(petalScales[i] * (0.85 + 0.08 * Math.sin(totalAnimTime * 0.8 + i)));
+
+              // Depth scale from sakura-v3.html
+              const zScale = Math.max(0.30, Math.min(1.15, 0.45 + (finalZ + 3.5) * 0.14));
+              dummy.scale.setScalar(petalScales[i] * zScale);
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
             }
