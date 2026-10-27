@@ -1859,10 +1859,10 @@ export function SakuraCanvas({
     let activePetalCount = 0;
 
     for (let i = 0; i < MAX_PETALS; i++) {
-      petalOriginX[i] = 2.4 + (Math.random() - 0.5) * 16.0;
-      petalOriginY[i] = -0.4 + (Math.random() - 0.5) * 10.0;
-      petalRadiusX[i] = 4.0 + Math.random() * 8.0;
-      petalRadiusY[i] = 3.0 + Math.random() * 6.0;
+      petalOriginX[i] = 2.4 + (Math.random() - 0.5) * 12.8;
+      petalOriginY[i] = -0.4 + (Math.random() - 0.5) * 8.0;
+      petalRadiusX[i] = 3.2 + Math.random() * 6.4;
+      petalRadiusY[i] = 2.4 + Math.random() * 4.8;
       petalSpeed[i] = (0.24 + Math.random() * 0.40) * (i % 2 === 0 ? 1 : -1);
       petalAngle[i] = Math.random() * Math.PI * 2.0;
       petalPhaseZ[i] = Math.random() * Math.PI * 2.0;
@@ -3512,16 +3512,20 @@ export function SakuraCanvas({
               const a = petalAngle[i];
               const normH = (i / activePetalCount);
 
-              // Initial floating drift position
-              const driftX = petalOriginX[i] + Math.sin(totalAnimTime * 0.4 + petalPhaseZ[i]) * petalRadiusX[i] * 0.5;
-              const driftY = petalOriginY[i] + Math.cos(totalAnimTime * 0.35 + petalPhaseZ[i]) * petalRadiusY[i] * 0.5;
-              const driftZ = Math.sin(totalAnimTime * 0.3 + petalPhaseZ[i]) * 2.0;
+              // Initial floating drift position (scaled 20% inwards)
+              const driftX = petalOriginX[i] + Math.sin(totalAnimTime * 0.4 + petalPhaseZ[i]) * petalRadiusX[i] * 0.4;
+              const driftY = petalOriginY[i] + Math.cos(totalAnimTime * 0.35 + petalPhaseZ[i]) * petalRadiusY[i] * 0.4;
+              const driftZ = Math.sin(totalAnimTime * 0.3 + petalPhaseZ[i]) * 1.6;
 
-              // Vortex circular cylinder position
-              const tubeRadius = (7.5 + (petalRadiusX[i] % 2.5));
-              const rawY = (normH - 0.5) * 16.0;
-              const rawX = Math.cos(a) * tubeRadius;
-              const rawZ = Math.sin(a) * tubeRadius;
+              // Vortex circular cylinder with 20% diameter reduction on all axes & organic path variance
+              const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
+              const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] + totalAnimTime * 1.6) * 0.5;
+              const currentRadius = baseTubeRadius + radialWobble * blend;
+
+              const heightWobble = Math.sin(a * 2.2 + petalPhaseZ[i] + totalAnimTime * 1.4) * 0.7 * blend;
+              const rawY = (normH - 0.5) * 12.8 + heightWobble;
+              const rawX = Math.cos(a) * currentRadius;
+              const rawZ = Math.sin(a) * currentRadius;
 
               const vortexX = rawX + centerX;
               const vortexY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
@@ -3532,13 +3536,17 @@ export function SakuraCanvas({
               const pz = THREE.MathUtils.lerp(driftZ, vortexZ, blend);
 
               dummy.position.set(px, py, pz);
-              dummy.rotation.set(totalAnimTime * 0.8 + i, totalAnimTime * 1.2 + i, a);
+              dummy.rotation.set(
+                totalAnimTime * (0.9 + (petalRadiusX[i] % 0.6)) + i,
+                totalAnimTime * (1.3 + (petalRadiusY[i] % 0.6)) + i,
+                a + Math.sin(totalAnimTime * 2.5 + i) * 0.35
+              );
               dummy.scale.setScalar(petalScales[i] * (0.6 + 0.4 * blend));
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
             }
           } else {
-            // Phase 2: 10s full vortex storm (speed reduced by 20%)
+            // Phase 2: 10s full vortex storm (20% reduced diameter, increased flight variance & wilder paths)
             const stormTimer = vortexTimer - VORTEX_ALIGN_TIME;
             const stormProgress = Math.min(1.0, stormTimer / VORTEX_STORM_TIME);
             const spinMultiplier = 3.6 + Math.sin(stormProgress * Math.PI) * 1.6;
@@ -3548,18 +3556,37 @@ export function SakuraCanvas({
               const a = petalAngle[i];
               const normH = (i / activePetalCount);
 
-              const tubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * (0.85 + 0.35 * Math.sin(stormProgress * Math.PI));
-              const rawY = (normH - 0.5) * 16.0;
+              // 20% diameter reduction on all axes
+              const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80 * (0.85 + 0.35 * Math.sin(stormProgress * Math.PI));
 
-              const rawX = Math.cos(a) * tubeRadius;
-              const rawZ = Math.sin(a) * tubeRadius;
+              // Organic turbulent variance in flight trajectories:
+              // 1. Radial undulation (petals dive in and swoosh out)
+              const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.2) * (0.75 + 0.35 * (petalRadiusY[i] % 1.5))
+                                 + Math.cos(a * 4.5 + petalPhaseZ[i]) * 0.35;
+              const currentRadius = Math.max(1.5, baseTubeRadius + radialWobble);
+
+              // 2. Vertical undulating wave (petals dynamically rise and dip)
+              const heightWobble = Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.8) * 1.1
+                                 + Math.cos(a * 1.4 + i * 0.5) * 0.45;
+              const rawY = (normH - 0.5) * 12.8 + heightWobble; // 16.0 * 0.80 = 12.8
+
+              // 3. Tangential flutter
+              const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.3;
+              const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.3;
+
+              const rawX = Math.cos(a) * currentRadius + flutterX;
+              const rawZ = Math.sin(a) * currentRadius + flutterZ;
 
               const px = rawX + centerX;
               const py = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
               const pz = rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt);
 
               dummy.position.set(px, py, pz);
-              dummy.rotation.set(totalAnimTime * 0.8 + i, totalAnimTime * 1.2 + i, a);
+              dummy.rotation.set(
+                totalAnimTime * (1.1 + (petalRadiusX[i] % 0.8)) + i,
+                totalAnimTime * (1.5 + (petalRadiusY[i] % 0.8)) + i,
+                a + Math.sin(totalAnimTime * 3.2 + i) * 0.5
+              );
               dummy.scale.setScalar(petalScales[i] * (0.9 + 0.3 * Math.sin(stormProgress * Math.PI)));
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
