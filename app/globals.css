@@ -188,16 +188,12 @@ h6 {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 100;
+  z-index: 1000;
   pointer-events: none;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   transition: opacity 0.3s ease;
   opacity: 0;
   user-select: none;
-  will-change: transform, left, top;
+  will-change: left, top;
 }
 
 .user-cursor.active {
@@ -211,12 +207,15 @@ h6 {
   border: 2px solid rgba(255, 255, 255, 0.9);
   background-color: var(--user-color-alpha, rgba(0, 240, 255, 0.35));
   box-shadow: 0 0 16px var(--user-color-glow, rgba(0, 240, 255, 0.6));
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
 }
 
 .cursor-circle.gesture-active {
-  transform: scale(1.38);
+  transform: translate(-50%, -50%) scale(1.38);
   box-shadow: 0 0 30px var(--user-color-glow, rgba(0, 240, 255, 0.95)), 0 0 45px rgba(255, 255, 255, 0.9);
 }
 
@@ -225,9 +224,9 @@ h6 {
 }
 
 @keyframes cursorClickPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.45); }
-  100% { transform: scale(1); }
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.45); }
+  100% { transform: translate(-50%, -50%) scale(1); }
 }
 
 .gesture-ring {
@@ -273,7 +272,11 @@ h6 {
 }
 
 .cursor-name {
-  margin-top: 6px;
+  position: absolute;
+  top: 22px;
+  left: 0;
+  transform: translateX(-50%);
+  margin-top: 0;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.5px;
@@ -287,6 +290,7 @@ h6 {
   -webkit-backdrop-filter: blur(8px);
   border-radius: 10px;
   border: 1px solid var(--user-color-glow, rgba(0, 240, 255, 0.4));
+  pointer-events: none;
 }
 
 /* Artwork Session Cursor Enforcement:
