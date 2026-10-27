@@ -1420,6 +1420,18 @@ export function SakuraCanvas({
 
   useEffect(() => {
     isRunningRef.current = isRunning;
+    if (typeof document !== 'undefined') {
+      if (isRunning) {
+        document.body.classList.add('artwork-session-active');
+      } else {
+        document.body.classList.remove('artwork-session-active');
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('artwork-session-active');
+      }
+    };
   }, [isRunning]);
 
   const sendInteractionRef = useRef(sendInteraction);
@@ -2021,8 +2033,8 @@ export function SakuraCanvas({
       petalPosX[i] = 2.4 + (Math.random() - 0.5) * 16.0;
       petalPosY[i] = -0.4 + (Math.random() - 0.5) * 10.0;
       petalPosZ[i] = -3.5 - Math.random() * 1.5;
-      petalSpeedX[i] = (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.8) * 0.80;
-      petalSpeedY[i] = (Math.random() - 0.5) * 0.4 * 0.80;
+      petalSpeedX[i] = (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.8) * 0.64;
+      petalSpeedY[i] = (Math.random() - 0.5) * 0.4 * 0.64;
       petalAmpX[i] = 1.6 + Math.random() * 2.2;
       petalAmpY[i] = 1.2 + Math.random() * 1.8;
       petalAmpZ[i] = (0.8 + Math.random() * 1.2) * 0.50; // 50% Z-setback
@@ -3746,8 +3758,8 @@ export function SakuraCanvas({
             const stormProgress = vortexTimer / VORTEX_TOTAL_DURATION;
             const stormIntensity = Math.sin(stormProgress * Math.PI);
 
-            // Continuous, smooth spin acceleration (zero step change!)
-            const spinMultiplier = (0.65 + smoothBuild * 2.8 + stormIntensity * 1.1) * 0.64;
+            // Continuous, smooth spin acceleration (reduced by 20%)
+            const spinMultiplier = (0.65 + smoothBuild * 2.8 + stormIntensity * 1.1) * 0.512;
 
             for (let i = 0; i < activePetalCount; i++) {
               petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
@@ -3774,7 +3786,8 @@ export function SakuraCanvas({
               const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.3 * smoothBuild;
               const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.3 * smoothBuild;
 
-              const rawX = Math.cos(a) * currentRadius + flutterX;
+              // Subtle horizontal ellipse: widened on width (X-axis) by 30%
+              const rawX = Math.cos(a) * (currentRadius * 1.30) + flutterX;
               // 50% reduced Z depth to keep petals deep in the scene
               const rawZ = (Math.sin(a) * currentRadius + flutterZ) * 0.50;
 
@@ -3789,15 +3802,15 @@ export function SakuraCanvas({
 
               dummy.position.set(px, py, pz);
 
-              // Continuous tumbling rotation without sudden parameter jumps
+              // Continuous tumbling rotation without sudden parameter jumps (reduced velocity by 20%)
               dummy.rotation.set(
-                totalAnimTime * (0.8 + 0.2 * smoothBuild + (petalRadiusX[i] % 0.4)) + i,
-                totalAnimTime * (1.1 + 0.3 * smoothBuild + (petalRadiusY[i] % 0.4)) + i,
+                (totalAnimTime * (0.8 + 0.2 * smoothBuild + (petalRadiusX[i] % 0.4)) + i) * 0.80,
+                (totalAnimTime * (1.1 + 0.3 * smoothBuild + (petalRadiusY[i] % 0.4)) + i) * 0.80,
                 a + Math.sin(totalAnimTime * 2.2 + i) * (0.3 + 0.15 * smoothBuild)
               );
 
-              // 20% reduced max size on Z axis (scaling reduced by 20%)
-              const stormScale = (0.55 + 0.25 * smoothBuild + 0.15 * stormIntensity) * 0.80;
+              // 20% reduced max size on Z axis (scaling reduced further by 20%: factor 0.64)
+              const stormScale = (0.55 + 0.25 * smoothBuild + 0.15 * stormIntensity) * 0.64;
               dummy.scale.setScalar(petalScales[i] * stormScale);
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
@@ -3827,7 +3840,7 @@ export function SakuraCanvas({
                 const normH = (i / activePetalCount);
                 const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
                 const rawY = (normH - 0.5) * 12.8;
-                const rawX = Math.cos(a) * baseTubeRadius;
+                const rawX = Math.cos(a) * (baseTubeRadius * 1.30);
                 const rawZ = Math.sin(a) * baseTubeRadius * 0.50;
                 const tornadoX = rawX + centerX;
                 const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
@@ -3843,11 +3856,11 @@ export function SakuraCanvas({
             const smoothPower = vortexBlendFactor * vortexBlendFactor * (3.0 - 2.0 * vortexBlendFactor);
 
             for (let i = 0; i < activePetalCount; i++) {
-              petalAge[i] += delta;
+              petalAge[i] += delta * 0.80;
 
-              // Advance drift according to sakura-v3.html speed vectors
-              petalPosX[i] += petalSpeedX[i] * delta;
-              petalPosY[i] += petalSpeedY[i] * delta;
+              // Advance drift according to sakura-v3.html speed vectors (reduced by 20%)
+              petalPosX[i] += petalSpeedX[i] * delta * 0.80;
+              petalPosY[i] += petalSpeedY[i] * delta * 0.80;
 
               // Exact sakura-v3.html canvas boundary wrapping
               if (petalPosX[i] > centerX + 16.0) petalPosX[i] = centerX - 16.0;
@@ -3865,8 +3878,8 @@ export function SakuraCanvas({
               let finalZ = normalZ;
 
               if (smoothPower > 0.001) {
-                // Smoothly uncurling tornado during fade-out
-                const spinMultiplier = (3.6 * 0.64) * smoothPower;
+                // Smoothly uncurling tornado during fade-out (velocity reduced by 20%)
+                const spinMultiplier = (3.6 * 0.512) * smoothPower;
                 petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
                 const a = petalAngle[i];
                 const normH = (i / activePetalCount);
@@ -3874,7 +3887,8 @@ export function SakuraCanvas({
                 const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
                 const expandRadius = baseTubeRadius * (1.0 + (1.0 - smoothPower) * 0.4);
                 const rawY = (normH - 0.5) * 12.8;
-                const rawX = Math.cos(a) * expandRadius;
+                // Subtle horizontal ellipse in fade-out
+                const rawX = Math.cos(a) * (expandRadius * 1.30);
                 const rawZ = Math.sin(a) * expandRadius * 0.50;
 
                 const tornadoX = rawX + centerX;
@@ -3895,8 +3909,8 @@ export function SakuraCanvas({
                 Math.sin(petalAge[i] * 0.6 + petalSeed[i]) * 0.8
               );
 
-              // Depth scale from sakura-v3.html (20% reduced max size on Z axis)
-              const zScale = Math.max(0.24, Math.min(0.92, (0.45 + (finalZ + 3.5) * 0.14) * 0.80));
+              // Depth scale from sakura-v3.html (further reduced by 20%: factor 0.64)
+              const zScale = Math.max(0.19, Math.min(0.74, (0.45 + (finalZ + 3.5) * 0.14) * 0.64));
               dummy.scale.setScalar(petalScales[i] * zScale);
               dummy.updateMatrix();
               instancedPetalMesh.setMatrixAt(i, dummy.matrix);
@@ -4607,7 +4621,7 @@ export function SakuraCanvas({
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <canvas
           ref={canvasRef}
-          className={`pointer-events-auto block ${isRunning ? 'landscape:cursor-none cursor-pointer' : 'cursor-pointer'} portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full`}
+          className={`pointer-events-auto block ${isRunning ? 'cursor-none' : 'cursor-pointer'} portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full`}
         />
       </div>
 
@@ -4616,7 +4630,7 @@ export function SakuraCanvas({
         <>
           <div
             id="userCursor1"
-            className="user-cursor pointer-events-none fixed top-0 left-0 z-[100] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-300 opacity-0 select-none"
+            className="user-cursor pointer-events-none fixed top-0 left-0 z-[1000] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-300 opacity-0 select-none"
             style={{
               '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
               '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
@@ -4632,7 +4646,7 @@ export function SakuraCanvas({
 
           <div
             id="userCursor2"
-            className="user-cursor pointer-events-none fixed top-0 left-0 z-[100] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-300 opacity-0 select-none"
+            className="user-cursor pointer-events-none fixed top-0 left-0 z-[1000] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-300 opacity-0 select-none"
             style={{
               '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
               '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
@@ -4701,36 +4715,39 @@ export function SakuraCanvas({
         <div className={`absolute inset-0 px-4 py-3 pt-[max(12px,var(--sat))] pb-[max(14px,var(--sab))] flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
           {/* TOP SECTION: Cleanly stacked above the 16:9 canvas */}
           <div className="flex flex-col items-center gap-2.5 w-full">
-            {/* Control Buttons Centered Row */}
-            <div className="pointer-events-auto flex items-center justify-center gap-2 w-full flex-wrap">
+            {/* Control Buttons Centered Row (Subtle Icon-Only Buttons) */}
+            <div className="pointer-events-auto flex items-center justify-center gap-2.5 w-full">
               <button
                 onClick={toggleAudio}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 hover:border-[#ff2a9d] text-white text-[10px] font-semibold tracking-wider uppercase rounded-full shadow-lg transition-all"
+                aria-label={isAudioMuted ? 'Sound an' : 'Sound aus'}
+                title={isAudioMuted ? 'Sound an' : 'Sound aus'}
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95 text-sm"
               >
                 <span>{isAudioMuted ? '🔇' : '🎵'}</span>
-                <span>{isAudioMuted ? 'Mute' : 'Sound'}</span>
               </button>
               <button
                 onClick={togglePause}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 hover:border-[#ff2a9d] text-white text-[10px] font-semibold tracking-wider uppercase rounded-full shadow-lg transition-all"
+                aria-label={isPaused ? 'Fortsetzen' : 'Pause'}
+                title={isPaused ? 'Fortsetzen' : 'Pause'}
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95 text-sm"
               >
                 <span>{isPaused ? '▶️' : '⏸️'}</span>
-                <span>{isPaused ? 'Play' : 'Pause'}</span>
               </button>
               <button
                 onClick={handleRestart}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 hover:border-[#ff2a9d] text-white text-[10px] font-semibold tracking-wider uppercase rounded-full shadow-lg transition-all"
+                aria-label="Neu starten"
+                title="Neu starten"
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95 text-sm"
               >
                 <span>🔄</span>
-                <span>Restart</span>
               </button>
               <button
                 onClick={handleExit}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-pink-500/80 to-rose-600/80 backdrop-blur-md border border-pink-400/60 text-white text-[10px] font-bold tracking-wider uppercase rounded-full shadow-[0_0_12px_rgba(255,42,157,0.4)] transition-all cursor-pointer"
-                title="Zurück zur Startseite"
+                aria-label="Beenden"
+                title="Beenden & zurück zur Startseite"
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-md backdrop-blur-md transition-all active:scale-95 text-sm"
               >
-                <span>🚪</span>
-                <span>Exit</span>
+                <span>✕</span>
               </button>
             </div>
 
@@ -4779,61 +4796,65 @@ export function SakuraCanvas({
 
           {/* BOTTOM SECTION: Mode Selector, Souvenir Button, Brand Title stacked below 16:9 canvas */}
           <div className="flex flex-col items-center gap-2.5 w-full">
-            {/* Mode Selector */}
-            <div className="pointer-events-auto flex items-center justify-center">
+            {/* Mode Selector & Souvenir Button (Subtle Icon-Only Buttons) */}
+            <div className="pointer-events-auto flex items-center justify-center gap-3">
               {isCreationMode ? (
-                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_15px_rgba(255,42,157,0.4)]">
-                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
-                  <span className="text-[10px] font-bold tracking-[2px] uppercase text-white">
-                    Souvenir Mode
-                  </span>
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_15px_rgba(255,42,157,0.4)] text-sm"
+                  title="Souvenir Mode aktiv"
+                >
+                  <span>🎨</span>
                 </div>
               ) : (
                 <div className="flex gap-1.5 p-1 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-lg">
                   <button
                     onClick={() => handleSwitchMode('bluten')}
-                    className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${
+                    aria-label="Blüten-Modus"
+                    title="Blüten-Modus (Sumi-e)"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
                       activeMode === 'bluten'
                         ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_12px_rgba(255,42,157,0.5)]'
-                        : 'text-[#ffc8eb]/60 hover:text-white'
+                        : 'opacity-60 hover:opacity-100 text-white/70 hover:text-white'
                     }`}
                   >
-                    Blüten
+                    <span>🌸</span>
                   </button>
                   <button
                     onClick={() => handleSwitchMode('plexus')}
-                    className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${
+                    aria-label="Plexus-Modus"
+                    title="Plexus-Modus (Konstellation)"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
                       activeMode === 'plexus'
                         ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
-                        : 'text-[#ffc8eb]/60 hover:text-white'
+                        : 'opacity-60 hover:opacity-100 text-white/70 hover:text-white'
                     }`}
                   >
-                    Plexus
+                    <span>✨</span>
                   </button>
                 </div>
               )}
-            </div>
 
-            {/* Souvenir Action Button & Badges */}
-            <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-full max-w-[280px]">
-              {(hostCreationReady || guestCreationReady) && (
-                <div className="flex items-center gap-3">
-                  <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Host
+              {/* Souvenir Action Button & Badges */}
+              <div className="flex items-center gap-2">
+                {(hostCreationReady || guestCreationReady) && (
+                  <div className="flex items-center gap-1.5">
+                    <div className={`flex items-center gap-1 text-[8px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                      <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Host
+                    </div>
+                    <div className={`flex items-center gap-1 text-[8px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                      <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Gast
+                    </div>
                   </div>
-                  <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Gast
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={toggleCreationReady}
-                className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
-                title="In den Souvenirmodus wechseln"
-              >
-                <span>🎨</span>
-                <span>Souvenirmodus starten</span>
-              </button>
+                )}
+                <button
+                  onClick={toggleCreationReady}
+                  aria-label="Souvenirmodus starten"
+                  title="Souvenirmodus starten"
+                  className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] border border-[#4ee2ec]/80 shadow-[0_4px_16px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 transition-all text-base"
+                >
+                  <span>🎨</span>
+                </button>
+              </div>
             </div>
 
             {/* Brand Title */}
@@ -4868,39 +4889,42 @@ export function SakuraCanvas({
               </p>
             </div>
 
-            {/* Top Right: Sound, Pause, Restart & EXIT Control Buttons */}
+            {/* Top Right: Sound, Pause, Restart & EXIT Control Buttons (Subtle Icon-Only Buttons) */}
             <div className="pointer-events-auto flex items-center gap-2.5">
               <button
                 onClick={toggleAudio}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 hover:border-[#ff2a9d] hover:bg-[#ff2a9d]/30 text-white text-[11px] font-semibold tracking-[1.5px] uppercase rounded-full shadow-lg transition-all"
+                aria-label={isAudioMuted ? 'Sound an' : 'Sound aus'}
+                title={isAudioMuted ? 'Sound an' : 'Sound aus'}
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95 text-base"
               >
                 <span>{isAudioMuted ? '🔇' : '🎵'}</span>
-                <span>{isAudioMuted ? 'Sound OFF' : 'Sound ON'}</span>
               </button>
 
               <button
                 onClick={togglePause}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 hover:border-[#ff2a9d] hover:bg-[#ff2a9d]/30 text-white text-[11px] font-semibold tracking-[1.5px] uppercase rounded-full shadow-lg transition-all"
+                aria-label={isPaused ? 'Fortsetzen' : 'Pause'}
+                title={isPaused ? 'Fortsetzen' : 'Pause'}
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95 text-base"
               >
                 <span>{isPaused ? '▶️' : '⏸️'}</span>
-                <span>{isPaused ? 'Play' : 'Pause'}</span>
               </button>
 
               <button
                 onClick={handleRestart}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 hover:border-[#ff2a9d] hover:bg-[#ff2a9d]/30 text-white text-[11px] font-semibold tracking-[1.5px] uppercase rounded-full shadow-lg transition-all"
+                aria-label="Neu starten"
+                title="Neu starten"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95 text-base"
               >
                 <span>🔄</span>
-                <span>Restart</span>
               </button>
 
               <button
                 onClick={handleExit}
-                className="inline-flex items-center gap-2 px-4.5 py-2 bg-gradient-to-r from-pink-500/80 to-rose-600/80 hover:from-pink-500 hover:to-rose-600 backdrop-blur-md border border-pink-400/60 text-white text-[11px] font-bold tracking-[1.5px] uppercase rounded-full shadow-[0_0_15px_rgba(255,42,157,0.4)] transition-all cursor-pointer"
-                title="Zurück zur Startseite"
+                aria-label="Beenden"
+                title="Beenden & zurück zur Startseite"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95 text-base"
               >
-                <span>🚪</span>
-                <span>Exit</span>
+                <span>✕</span>
               </button>
             </div>
           </div>
@@ -4917,50 +4941,54 @@ export function SakuraCanvas({
               </p>
             </div>
 
-            {/* Bottom Center: Mode Selector / Creation Mode Badge */}
+            {/* Bottom Center: Mode Selector / Creation Mode Badge (Subtle Icon-Only Buttons) */}
             <div className="pointer-events-auto flex flex-col gap-1.5 items-center">
               {isCreationMode ? (
-                <div className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_20px_rgba(255,42,157,0.4)]">
-                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
-                  <span className="text-xs font-bold tracking-[2.5px] uppercase text-white">
-                    Souvenir Mode
-                  </span>
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_20px_rgba(255,42,157,0.4)] text-lg"
+                  title="Souvenir Mode aktiv"
+                >
+                  <span>🎨</span>
                 </div>
               ) : (
                 <div className="flex gap-2 p-1.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-xl">
                   <button
                     onClick={() => handleSwitchMode('bluten')}
-                    className={`px-4.5 py-2 rounded-full text-xs font-semibold tracking-[1.5px] uppercase transition-all ${activeMode === 'bluten'
+                    aria-label="Blüten-Modus"
+                    title="Blüten-Modus (Sumi-e)"
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-base transition-all ${activeMode === 'bluten'
                       ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_15px_rgba(255,42,157,0.5)]'
-                      : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
+                      : 'opacity-60 hover:opacity-100 text-white/70 hover:text-white hover:bg-[#ff69b4]/20'
                       }`}
                   >
-                    Blüten
+                    <span>🌸</span>
                   </button>
 
                   <button
                     onClick={() => handleSwitchMode('plexus')}
-                    className={`px-4.5 py-2 rounded-full text-xs font-semibold tracking-[1.5px] uppercase transition-all ${activeMode === 'plexus'
+                    aria-label="Plexus-Modus"
+                    title="Plexus-Modus (Konstellation)"
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-base transition-all ${activeMode === 'plexus'
                       ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_15px_rgba(0,240,255,0.5)]'
-                      : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
+                      : 'opacity-60 hover:opacity-100 text-white/70 hover:text-white hover:bg-[#ff69b4]/20'
                       }`}
                   >
-                    Plexus
+                    <span>✨</span>
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Bottom Right: Creation Button & Readiness Indicators */}
+            {/* Bottom Right: Creation Button & Readiness Indicators (Subtle Icon-Only Button) */}
             <div className="pointer-events-auto flex flex-col items-center gap-2">
               {/* Ready Status Badges with Green Checkmarks */}
-              <div className="flex items-center gap-4 min-h-[44px]">
-                <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${hostCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
+              <div className="flex items-center gap-3 min-h-[32px]">
+                <div className={`flex items-center gap-1.5 transition-all duration-300 ${hostCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-[11px] font-black shadow-[0_0_12px_rgba(16,231,130,0.8)]">✓</span>
                   <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">Host</span>
                 </div>
-                <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${guestCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
+                <div className={`flex items-center gap-1.5 transition-all duration-300 ${guestCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-[11px] font-black shadow-[0_0_12px_rgba(16,231,130,0.8)]">✓</span>
                   <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">Gast</span>
                 </div>
               </div>
@@ -4968,13 +4996,11 @@ export function SakuraCanvas({
               <div className="flex items-center gap-3">
                 <button
                   onClick={toggleCreationReady}
-                  className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center gap-2.5 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
-                  title="In den Souvenirmodus wechseln"
+                  aria-label="Souvenirmodus starten"
+                  title="Souvenirmodus starten"
+                  className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] border border-[#4ee2ec] shadow-[0_10px_30px_rgba(255,42,157,0.45)] hover:scale-110 active:scale-95 transition-all text-xl"
                 >
                   <span>🎨</span>
-                  <span className="relative z-10">
-                    Souvenirmodus starten
-                  </span>
                 </button>
               </div>
             </div>

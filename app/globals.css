@@ -289,4 +289,13 @@ h6 {
   border: 1px solid var(--user-color-glow, rgba(0, 240, 255, 0.4));
 }
 
-
+/* Artwork Session Cursor Enforcement:
+   Hide native OS pointer completely everywhere during active artwork session */
+body.artwork-session-active,
+body.artwork-session-active *,
+body.artwork-session-active button,
+body.artwork-session-active canvas,
+body.artwork-session-active a,
+body.artwork-session-active input {
+  cursor: none !important;
+}
