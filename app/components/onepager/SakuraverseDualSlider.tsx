@@ -797,10 +797,16 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     splitRatioRef.current = splitRatio;
   }, [splitRatio]);
 
-  // Slider Handle Dragging (ONLY when the central handle button itself is grabbed)
+  // Slider Handle Dragging (ONLY active in Smartphone view < 640px when handle button is grabbed)
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
       if (!isDraggingHandleRef.current || !containerRef.current) return;
+      if (window.innerWidth >= 640) {
+        isDraggingHandleRef.current = false;
+        splitRatioRef.current = 0.5;
+        setSplitRatio(0.5);
+        return;
+      }
       const rect = containerRef.current.getBoundingClientRect();
       const nextRatio = Math.max(
         0.12,
@@ -814,13 +820,23 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       isDraggingHandleRef.current = false;
     };
 
+    const onViewportResize = () => {
+      if (window.innerWidth >= 640 && splitRatioRef.current !== 0.5) {
+        isDraggingHandleRef.current = false;
+        splitRatioRef.current = 0.5;
+        setSplitRatio(0.5);
+      }
+    };
+
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('resize', onViewportResize);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('resize', onViewportResize);
     };
   }, []);
 
@@ -2434,46 +2450,46 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         />
 
         {/* Top-Left Badge: Sumi-e */}
-        <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 flex flex-col gap-1.5 pointer-events-none z-10">
-          <div className="px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shadow-lg">
-            <span>{t.sliderSumieBadge}</span>
+        <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 lg:top-4 lg:left-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-start gap-1 sm:gap-1.5 pointer-events-none z-10">
+          <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
+            <span className="truncate">{t.sliderSumieBadge}</span>
           </div>
           {isVortexUI && (
-            <div className="px-3 py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#ff2a9d]">
+            <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#ff2a9d]">
               {t.sliderVortexActive}
             </div>
           )}
         </div>
 
         {/* Top-Right Badge: Plexus */}
-        <div className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 flex flex-col items-end gap-1.5 pointer-events-none z-10">
-          <div className="px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shadow-lg">
-            <span>{t.sliderPlexusBadge}</span>
+        <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 lg:top-4 lg:right-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-end gap-1 sm:gap-1.5 pointer-events-none z-10">
+          <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
+            <span className="truncate">{t.sliderPlexusBadge}</span>
           </div>
           {isImpulseUI && (
-            <div className="px-3 py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#00c3ff]">
+            <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#00c3ff]">
               {t.sliderPulseActive}
             </div>
           )}
         </div>
 
         {/* Bottom Interaction Hints */}
-        <div className="absolute bottom-3 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-10">
-          <span className="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-xs text-pink-100/90 font-light">
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 lg:bottom-3.5 lg:left-4 lg:right-4 flex items-end justify-between gap-2 pointer-events-none z-10">
+          <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-pink-100/90 font-light">
             🔄 {t.sliderHintSumie}
           </span>
-          <span className="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-xs text-cyan-100/90 font-light">
+          <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-light text-right sm:text-left">
             ✨ {t.sliderHintPlexus}
           </span>
         </div>
 
-        {/* Divider Line (non-interactive visual line) */}
+        {/* Divider Line — ONLY visible in Smartphone view (< 640px) */}
         <div
           style={{ left: `${splitRatio * 100}%` }}
-          className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none z-10"
+          className="sm:hidden absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none z-10"
         />
 
-        {/* Interactive Handle Button — ONLY dragging this handle moves the slider! */}
+        {/* Interactive Handle Button — ONLY visible and draggable in Smartphone view (< 640px)! */}
         <button
           type="button"
           aria-label="Slider verschieben"
@@ -2483,7 +2499,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
             e.preventDefault();
             isDraggingHandleRef.current = true;
           }}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#12091c]/95 border-2 border-white shadow-[0_0_22px_rgba(255,42,157,0.85)] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center text-xs text-white font-bold cursor-ew-resize touch-none z-20"
+          className="sm:hidden absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#12091c]/95 border-2 border-white shadow-[0_0_22px_rgba(255,42,157,0.85)] active:scale-95 transition-transform flex items-center justify-center text-[11px] text-white font-bold cursor-ew-resize touch-none z-20"
         >
           ↔
         </button>
