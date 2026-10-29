@@ -1,91 +1,735 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import {
+  BLOSSOM_PALETTES,
+  PALETTE_RGB_CACHE,
+  BG_COLOR_PALETTES,
+  type BlossomColorId,
+} from '../../experiences/sakura/SakuraCanvas';
 import { Language, translations } from './translations';
 
 interface SakuraverseDualSliderProps {
   lang: Language;
 }
 
-interface BranchPoint {
-  x: number; // normalized 0..1 relative to full canvas width
-  y: number; // normalized 0..1 relative to canvas height
-  w: number; // stroke width in px
+// ============================================================================
+// 1:1 TEXTURE GENERATORS & SHADERS FROM SakuraCanvas.tsx
+// ============================================================================
+
+function createNoiseTexture(): THREE.DataTexture {
+  const size = 256;
+  const data = new Uint8Array(size * size * 4);
+  for (let i = 0; i < size * size; i++) {
+    const val = Math.floor(Math.random() * 256);
+    data[i * 4] = val;
+    data[i * 4 + 1] = val;
+    data[i * 4 + 2] = val;
+    data[i * 4 + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
 }
 
-interface BlossomClusterDef {
-  nx: number;
-  ny: number;
+function generatePetalTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    ctx.filter = 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.9))';
+    const grad = ctx.createLinearGradient(0, 0, 64, 64);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.3, '#f5f5f5');
+    grad.addColorStop(0.7, '#e0e0e0');
+    grad.addColorStop(1, '#c0c0c0');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(32, 4);
+    ctx.bezierCurveTo(50, 12, 60, 32, 50, 52);
+    ctx.bezierCurveTo(40, 62, 24, 62, 14, 52);
+    ctx.bezierCurveTo(4, 32, 14, 12, 32, 4);
+    ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function generateStarCrossTexture(hexColorStr: string): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    const cx = 64,
+      cy = 64;
+
+    const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 56);
+    rad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    rad.addColorStop(0.25, hexColorStr + 'bb');
+    rad.addColorStop(0.55, hexColorStr + '33');
+    rad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = rad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    const angles = [Math.PI / 4, -Math.PI / 4];
+    const half = 52;
+
+    for (let i = 0; i < angles.length; i++) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(angles[i]);
+
+      const flareGrad = ctx.createLinearGradient(-half, 0, half, 0);
+      flareGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      flareGrad.addColorStop(0.5, '#ffffff');
+      flareGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.shadowColor = hexColorStr;
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = flareGrad;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(-half, 0);
+      ctx.lineTo(half, 0);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const bgVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position, 1.0);
+  }
+`;
+
+const bgFragmentShader = /* glsl */ `
+  uniform vec3 iResolution;
+  uniform float iTime;
+  uniform sampler2D iChannel0;
+  uniform float uKaleidoscope;
+  uniform float uGridVibe;
+  uniform float uRippleActive;
+  uniform float uRippleTime;
+  uniform vec3 uBgColor1;
+  uniform vec3 uBgColor2;
+  uniform vec3 uBgColor3;
+  uniform vec3 uRippleCrest;
+  uniform float uBgBlend;
+  uniform float uBgDim;
+  varying vec2 vUv;
+
+  float noise(in vec2 x) {
+    vec2 p = floor(x);
+    vec2 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = texture2D(iChannel0, (p + vec2(0.5, 0.5)) / 256.0).x;
+    float b = texture2D(iChannel0, (p + vec2(1.5, 0.5)) / 256.0).x;
+    float c = texture2D(iChannel0, (p + vec2(0.5, 1.5)) / 256.0).x;
+    float d = texture2D(iChannel0, (p + vec2(1.5, 1.5)) / 256.0).x;
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+
+  const mat2 mtx = mat2(0.80, 0.60, -0.60, 0.80);
+
+  float fbm(vec2 p) {
+    float f = 0.0;
+    f += 0.500000 * noise(p); p = mtx * p * 2.02;
+    f += 0.250000 * noise(p); p = mtx * p * 2.03;
+    f += 0.125000 * noise(p); p = mtx * p * 2.01;
+    f += 0.062500 * noise(p); p = mtx * p * 2.04;
+    f += 0.031250 * noise(p); p = mtx * p * 2.01;
+    f += 0.015625 * noise(p);
+    return f / 0.96875;
+  }
+
+  float pattern(in vec2 p, in float t, in vec2 uv) {
+    vec2 q = vec2(fbm(p), fbm(p + vec2(10.0, 1.3)));
+    vec2 r = vec2(fbm(p + 4.0 * q + vec2(t) + vec2(1.7, 9.2)), fbm(p + 4.0 * q + vec2(t) + vec2(8.3, 2.8)));
+    vec2 g = vec2(fbm(p + 2.0 * r + vec2(t * 20.0) + vec2(2.0, 6.0)), fbm(p + 2.0 * r + vec2(t * 10.0) + vec2(5.0, 3.0)));
+    return fbm(p + 5.5 * g + vec2(-t * 7.0));
+  }
+
+  void main() {
+    vec2 fragCoord = gl_FragCoord.xy;
+    vec2 uv = clamp(fragCoord / max(iResolution.xy, vec2(1.0)), 0.0, 1.0);
+    
+    vec2 rippleOffset = vec2(0.0);
+    float waveNormal = 0.0;
+    float waveFade = 0.0;
+    float insideWave = 0.0;
+
+    if (uRippleActive > 0.5) {
+      vec2 centerUv = uv - vec2(0.5);
+      centerUv.x *= iResolution.x / iResolution.y;
+      float dist = length(centerUv);
+
+      float waveRadius = (uRippleTime / 3.0) * 1.8;
+      float waveDist = abs(dist - waveRadius);
+
+      float wavePhase = waveDist * 32.0 - uRippleTime * 9.0;
+      waveNormal = cos(wavePhase) * exp(-waveDist * waveDist * 110.0);
+      waveFade = smoothstep(3.0, 2.2, uRippleTime) * smoothstep(0.0, 0.1, uRippleTime);
+
+      insideWave = smoothstep(waveRadius + 0.15, waveRadius - 0.15, dist) * waveFade;
+      rippleOffset = normalize(centerUv + vec2(0.0001)) * waveNormal * 0.045 * waveFade;
+    }
+
+    vec2 distortedFragCoord = fragCoord + rippleOffset * iResolution.xy;
+    vec2 distortedUv = clamp(uv + rippleOffset, 0.0, 1.0);
+
+    float noiseVal = pattern(distortedFragCoord * vec2(0.004), iTime * 0.007, distortedUv);
+    
+    float effectiveBlend = clamp(max(uBgBlend, insideWave), 0.0, 1.0);
+    vec3 baseC1 = mix(vec3(0.05, 0.00, 0.02), uBgColor1, effectiveBlend);
+    vec3 baseC2 = mix(vec3(0.74, 0.00, 0.36), uBgColor2, effectiveBlend);
+    vec3 baseC3 = mix(vec3(0.80, 0.04, 0.44), uBgColor3, effectiveBlend);
+
+    vec3 col = mix(baseC1, baseC2, smoothstep(0.0, 1.0, noiseVal));
+    col = mix(col, baseC1 * 2.2, noiseVal * 0.8);
+    col = mix(col, baseC3, 0.35 * noiseVal);
+    col = mix(col, baseC2 * 0.7, smoothstep(0.0, 0.6, 0.6 * noiseVal));
+    col = mix(col, baseC3 * 1.1, 0.12 * noiseVal);
+    
+    col *= noiseVal * 1.68;
+
+    if (uRippleActive > 0.5) {
+      col += uRippleCrest * waveNormal * waveFade * 0.65;
+    }
+
+    float vignetteVal = max(0.0, 70.0 * uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y));
+    col *= (0.80 * (0.70 + 0.65 * sqrt(vignetteVal))) * uBgDim;
+    
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+const sumiVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vPosition;
+  uniform float uTime;
+
+  void main() {
+    vUv = uv;
+    vPosition = position;
+
+    float normX = clamp((position.x + 11.5) / 20.0, 0.0, 1.0);
+    float mainSway = sin(uTime * 1.25) * 0.38;
+    float subSway  = sin(uTime * 0.60) * 0.14;
+    
+    vec3 displacedPos = position;
+    displacedPos.y += (mainSway + subSway) * normX;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPos, 1.0);
+  }
+`;
+
+const sumiFragmentShader = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vPosition;
+  uniform vec3 uColor;
+  uniform float uTotalLength;
+  uniform float uProgress;
+  uniform float uAlpha;
+
+  vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+  float snoise(vec2 v){
+    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+    vec2 i  = floor(v + dot(v, C.yy) );
+    vec2 x0 = v -   i + dot(i, C.xx);
+    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    vec4 x12 = x0.xyxy + C.xxzz;
+    x12.xy -= i1;
+    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+    m = m*m; m = m*m;
+    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+    vec3 h = abs(x) - 0.5;
+    vec3 ox = floor(x + 0.5);
+    vec3 a0 = x - ox;
+    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+    vec3 g;
+    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+    return 130.0 * dot(m, g);
+  }
+
+  void main() {
+    float currentLength = uTotalLength * uProgress;
+    if (vUv.y > currentLength) discard;
+
+    float noiseVal = snoise(vec2(vUv.x * 30.0, vUv.y * 8.0));
+    float wave = snoise(vec2(vUv.y * 2.0)) * 0.15;
+    float distortedX = clamp(vUv.x + wave, 0.0, 1.0);
+    float edgeBias = pow(distortedX, 2.0); 
+    float threshold = mix(-1.5, 0.4, edgeBias); 
+    
+    float alpha = 0.95;
+    float erosion = smoothstep(threshold, threshold + 0.6, noiseVal);
+    alpha *= erosion;
+    
+    float distFromStart = vUv.y;
+    float distFromEnd = currentLength - vUv.y;
+    float startFade = smoothstep(0.0, min(0.12, currentLength * 0.35), distFromStart);
+    float endFade = smoothstep(0.0, min(0.15, currentLength * 0.35), distFromEnd);
+    alpha *= clamp(startFade * endFade + 0.15, 0.0, 1.0);
+
+    vec3 greyWhiteBase = mix(vec3(0.97, 0.97, 0.98), vec3(0.78, 0.80, 0.84), erosion);
+    vec3 finalColor = mix(greyWhiteBase, uColor, erosion * 0.90);
+    gl_FragColor = vec4(finalColor, alpha * uAlpha);
+  }
+`;
+
+const orbMeshVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const fractalOrbVertexShader = /* glsl */ `
+  varying vec3 vLocalPosition;
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+
+  void main() {
+    vLocalPosition = position;
+    vNormal = normalize(normalMatrix * normal);
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vViewPosition = -mvPosition.xyz;
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const fractalOrbFragmentShader = /* glsl */ `
+  uniform float uTime;
+  uniform vec3 uLocalCamPos;
+  uniform vec3 uPrimaryColor;
+  uniform vec3 uSecondaryColor;
+  uniform float uDensity;
+  uniform float uAlpha;
+  
+  uniform float uFractalIters;
+  uniform float uFractalScale;
+  uniform float uFractalDecay;
+  uniform float uInternalAnim;
+  uniform float uSmoothness;
+  uniform float uAsymmetry;
+  uniform float uRadius;
+  
+  varying vec3 vLocalPosition;
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+
+  float evaluateStructure(vec3 pos) {
+    float densityAcc = 0.0;
+    vec3 anchor = pos;
+    
+    float animTime = uTime * uInternalAnim;
+    float s = sin(animTime);
+    float c = cos(animTime);
+    mat2 rotAnim = mat2(c, s, -s, c);
+
+    float a = 0.5 * uAsymmetry;
+    mat2 rotAsym1 = mat2(cos(a), sin(a), -sin(a), cos(a));
+    float b = 0.3 * uAsymmetry;
+    mat2 rotAsym2 = mat2(cos(b), sin(b), -sin(b), cos(b));
+    
+    for (int step = 0; step < 12; ++step) {
+      if (float(step) >= uFractalIters) break;
+      
+      pos.xy *= rotAnim;
+      pos.yz *= rotAnim;
+      
+      pos.xz *= rotAsym1;
+      pos.yz *= rotAsym2;
+      pos += vec3(0.05, -0.02, 0.03) * uAsymmetry;
+      
+      vec3 foldedPos = sqrt(pos * pos + uSmoothness);
+      float magnitudeSq = dot(foldedPos, foldedPos);
+      magnitudeSq = max(magnitudeSq, 0.00001); 
+      
+      pos = (uFractalScale * foldedPos / magnitudeSq) - uFractalScale;
+      
+      float ySq = pos.y * pos.y;
+      float zSq = pos.z * pos.z;
+      float yz2 = 2.0 * pos.y * pos.z;
+      pos.yz = vec2(ySq - zSq, yz2);
+      
+      pos = vec3(pos.z, pos.x, pos.y);
+      
+      densityAcc += exp(uFractalDecay * abs(dot(pos, anchor)));
+    }
+    
+    return densityAcc * 0.5;
+  }
+
+  vec2 getVolumeBounds(vec3 origin, vec3 dir, float radius) {
+    float b = dot(origin, dir);
+    float c = dot(origin, origin) - radius * radius;
+    float discriminant = b * b - c;
+    
+    if (discriminant < 0.0) {
+      return vec2(-1.0);
+    }
+    
+    float root = sqrt(discriminant);
+    return vec2(-b - root, -b + root);
+  }
+
+  vec3 traceEnergy(vec3 origin, vec3 dir, vec2 limits, float radius) {
+    float currentDepth = limits.x;
+    float marchStep = (limits.y - limits.x) / 36.0;
+    vec3 finalEnergy = vec3(0.0);
+    float fieldVal = 0.0;
+    float normScale = 2.0 / radius;
+    
+    for(int i = 0; i < 36; i++) {
+      currentDepth += marchStep * exp(-1.5 * fieldVal);
+      if(currentDepth > limits.y) break;
+      
+      vec3 samplePoint = origin + currentDepth * dir;
+      vec3 normSample = samplePoint * normScale;
+      fieldVal = evaluateStructure(normSample);
+      
+      float vSq = fieldVal * fieldVal;
+      float gradientBlend = smoothstep(0.0, 0.4, fieldVal);
+      vec3 currentGradient = mix(uSecondaryColor, uPrimaryColor, gradientBlend);
+      
+      vec3 emission = currentGradient * (fieldVal * 1.8 + vSq * 1.0);
+      finalEnergy = 0.99 * finalEnergy + (0.095 * uDensity) * emission;
+    }
+    
+    return finalEnergy;
+  }
+
+  void main() {
+    if (uAlpha < 0.005) discard;
+    
+    vec3 rayOrig = uLocalCamPos;
+    vec3 rayDir = normalize(vLocalPosition - uLocalCamPos);
+    
+    float t = uTime * 0.1;
+    float s = sin(t);
+    float c = cos(t);
+    mat2 rotXZ = mat2(c, s, -s, c);
+    rayOrig.xz *= rotXZ;
+    rayDir.xz *= rotXZ;
+
+    vec2 limits = getVolumeBounds(rayOrig, rayDir, uRadius);
+    
+    if (limits.x < 0.0) {
+      discard;
+    }
+    
+    vec3 volumeColor = traceEnergy(rayOrig, rayDir, limits, uRadius);
+    
+    vec3 normal = normalize(vNormal);
+    vec3 viewDir = normalize(vViewPosition);
+    float facingRatio = max(dot(normal, viewDir), 0.0);
+    
+    float edgeAA = smoothstep(0.0, 0.08, facingRatio);
+    vec3 finalColor = 0.5 * log(1.0 + volumeColor);
+    finalColor = clamp(finalColor, 0.0, 1.0) * edgeAA;
+    
+    float maxLuma = max(finalColor.r, max(finalColor.g, finalColor.b));
+    float alpha = clamp(maxLuma * 1.6, 0.0, 1.0) * edgeAA * uAlpha;
+    
+    if (alpha < 0.005) discard;
+    gl_FragColor = vec4(finalColor * 1.65, alpha);
+  }
+`;
+
+const atmosphereVertexShader = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vViewPosition = -mvPosition.xyz;
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const atmosphereFragmentShader = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uGlow;
+  uniform float uLevel;
+  uniform float uAlpha;
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+  void main() {
+    if (uAlpha < 0.005) discard;
+    vec3 normal = normalize(vNormal);
+    vec3 viewDir = normalize(vViewPosition);
+    float vdn = max(dot(normal, viewDir), 0.0);
+    
+    float edgeFade = smoothstep(0.0, 0.15, vdn);
+    float innerFadePoint = clamp(1.0 - uLevel, 0.0, 0.99);
+    float centerFade = smoothstep(1.0, innerFadePoint, vdn);
+    
+    float alpha = edgeFade * centerFade * uGlow * uAlpha;
+    if (alpha < 0.005) discard;
+    
+    gl_FragColor = vec4(uColor * 1.4, alpha);
+  }
+`;
+
+const FRACTAL_ORB_PRESETS: Record<
+  BlossomColorId,
+  {
+    primary: string;
+    secondary: string;
+    density: number;
+    speed: number;
+    fractalIters: number;
+    fractalScale: number;
+    fractalDecay: number;
+    smoothness: number;
+    asymmetry: number;
+    atmosphereGlow: number;
+    atmosphereLevel: number;
+    atmosphereScale: number;
+  }
+> = {
+  pink: {
+    primary: '#ff1a8c',
+    secondary: '#ff99e6',
+    density: 3.0,
+    speed: 0.55,
+    fractalIters: 4,
+    fractalScale: 0.95,
+    fractalDecay: -16.7,
+    smoothness: 0.031,
+    asymmetry: 0.48,
+    atmosphereGlow: 1.5,
+    atmosphereLevel: 1.0,
+    atmosphereScale: 1.03,
+  },
+  red: {
+    primary: '#ff2244',
+    secondary: '#ff8800',
+    density: 3.0,
+    speed: 0.55,
+    fractalIters: 4,
+    fractalScale: 0.95,
+    fractalDecay: -16.7,
+    smoothness: 0.031,
+    asymmetry: 0.48,
+    atmosphereGlow: 1.5,
+    atmosphereLevel: 1.0,
+    atmosphereScale: 1.03,
+  },
+  blue: {
+    primary: '#00b3ff',
+    secondary: '#6e00ff',
+    density: 3.0,
+    speed: 0.55,
+    fractalIters: 4,
+    fractalScale: 0.95,
+    fractalDecay: -16.7,
+    smoothness: 0.031,
+    asymmetry: 0.48,
+    atmosphereGlow: 1.5,
+    atmosphereLevel: 1.0,
+    atmosphereScale: 1.03,
+  },
+  green: {
+    primary: '#00e676',
+    secondary: '#0062ff',
+    density: 3.0,
+    speed: 0.55,
+    fractalIters: 4,
+    fractalScale: 0.95,
+    fractalDecay: -16.7,
+    smoothness: 0.031,
+    asymmetry: 0.48,
+    atmosphereGlow: 1.5,
+    atmosphereLevel: 1.0,
+    atmosphereScale: 1.03,
+  },
+  yellow: {
+    primary: '#ffbb00',
+    secondary: '#ff7700',
+    density: 3.0,
+    speed: 0.55,
+    fractalIters: 4,
+    fractalScale: 0.95,
+    fractalDecay: -16.7,
+    smoothness: 0.031,
+    asymmetry: 0.48,
+    atmosphereGlow: 1.5,
+    atmosphereLevel: 1.0,
+    atmosphereScale: 1.03,
+  },
+};
+
+// 1:1 ImmersiveStroke class from SakuraCanvas.tsx
+class ImmersiveStroke {
+  maxPoints = 600;
+  pointCount = 0;
+  points: THREE.Vector3[] = [];
+  pathLength = 0;
+  baseWidth: number;
+  currentWidth: number;
+  level: number;
+  seed = Math.random();
+  lengthUniform = { value: 0 };
+  progressUniform = { value: 1.0 };
+  timeUniform = { value: 0.0 };
+  alphaUniform = { value: 1.0 };
+  positions: Float32Array;
+  uvs: Float32Array;
+  indices: Uint16Array;
+  geometry: THREE.BufferGeometry;
+  material: THREE.ShaderMaterial;
+  mesh: THREE.Mesh;
+
+  constructor(sceneGroup: THREE.Group, baseWidth = 0.45, level = 0, colorHex = 0xf5e4cf) {
+    this.baseWidth = baseWidth;
+    this.currentWidth = baseWidth;
+    this.level = level;
+
+    this.positions = new Float32Array(this.maxPoints * 2 * 3);
+    this.uvs = new Float32Array(this.maxPoints * 2 * 2);
+    this.indices = new Uint16Array(this.maxPoints * 6);
+
+    this.geometry = new THREE.BufferGeometry();
+    this.geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+    this.geometry.setAttribute('uv', new THREE.BufferAttribute(this.uvs, 2));
+    this.geometry.setIndex(new THREE.BufferAttribute(this.indices, 1));
+    this.geometry.setDrawRange(0, 0);
+
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: sumiVertexShader,
+      fragmentShader: sumiFragmentShader,
+      uniforms: {
+        uColor: { value: new THREE.Color(colorHex) },
+        uTotalLength: this.lengthUniform,
+        uProgress: this.progressUniform,
+        uTime: this.timeUniform,
+        uAlpha: this.alphaUniform,
+      },
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    this.mesh = new THREE.Mesh(this.geometry, this.material);
+    sceneGroup.add(this.mesh);
+  }
+
+  addPoint(p: THREE.Vector3, widthScale = 1.0) {
+    if (this.pointCount >= this.maxPoints - 1) return;
+
+    const dir = new THREE.Vector3(0, 1, 0);
+    let dist = 0.5;
+
+    if (this.pointCount > 0) {
+      const lastP = this.points[this.pointCount - 1];
+      dir.subVectors(p, lastP);
+      dist = dir.length();
+      if (dist < 0.02) return;
+      dir.normalize();
+    }
+
+    const currentPoint = p.clone();
+    this.points.push(currentPoint);
+    this.pathLength += dist * 0.5;
+
+    const up = new THREE.Vector3(0, 0, 1);
+    let normal = new THREE.Vector3().crossVectors(dir, up).normalize();
+    if (normal.lengthSq() < 0.001) {
+      normal = new THREE.Vector3(1, 0, 0);
+    }
+
+    const normDist = Math.min(1.0, this.pathLength / 8.0);
+    const pressureMod =
+      1.0 +
+      0.32 * Math.sin(normDist * Math.PI * 4.5 + this.seed * 7.0) +
+      0.12 * Math.cos(normDist * Math.PI * 9.0);
+    const finalWidthScale = widthScale * Math.max(0.4, Math.min(1.4, pressureMod));
+
+    const targetWidth = Math.max(0.035, this.baseWidth * finalWidthScale);
+    this.currentWidth += (targetWidth - this.currentWidth) * 0.25;
+    const width = this.currentWidth;
+
+    const left = currentPoint.clone().add(normal.clone().multiplyScalar(width * 0.5));
+    const right = currentPoint.clone().sub(normal.clone().multiplyScalar(width * 0.5));
+
+    const i = this.pointCount * 6;
+    this.positions[i] = left.x;
+    this.positions[i + 1] = left.y;
+    this.positions[i + 2] = left.z;
+
+    this.positions[i + 3] = right.x;
+    this.positions[i + 4] = right.y;
+    this.positions[i + 5] = right.z;
+
+    const u = this.pointCount * 4;
+    this.uvs[u] = 0;
+    this.uvs[u + 1] = this.pathLength;
+    this.uvs[u + 2] = 1;
+    this.uvs[u + 3] = this.pathLength;
+
+    if (this.pointCount > 0) {
+      const idx = (this.pointCount - 1) * 6;
+      const vIdx = (this.pointCount - 1) * 2;
+      this.indices[idx] = vIdx;
+      this.indices[idx + 1] = vIdx + 1;
+      this.indices[idx + 2] = vIdx + 2;
+      this.indices[idx + 3] = vIdx + 1;
+      this.indices[idx + 4] = vIdx + 3;
+      this.indices[idx + 5] = vIdx + 2;
+    }
+
+    this.pointCount++;
+    this.lengthUniform.value = this.pathLength;
+
+    this.geometry.attributes.position.needsUpdate = true;
+    this.geometry.attributes.uv.needsUpdate = true;
+    if (this.geometry.index) this.geometry.index.needsUpdate = true;
+    this.geometry.setDrawRange(0, Math.max(0, (this.pointCount - 1) * 6));
+  }
+
+  setTime(t: number) {
+    this.timeUniform.value = t;
+  }
+}
+
+interface AttachedPlexusNode3D {
   radius: number;
-  petals: {
-    dx: number;
-    dy: number;
-    r: number;
-    angle: number;
-    color: string;
-  }[];
-}
-
-interface FlyingPetal {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  angle: number;
-  spin: number;
-  swayPhase: number;
-  swaySpeed: number;
-  color: string;
-  vortexAngle: number;
-  vortexRadius: number;
-  vortexSpeed: number;
-}
-
-interface AttachedPlexusNode {
-  baseRadius: number;
   angle: number;
   elevation: number;
   orbitSpeed: number;
-  shade: string;
+  r: number;
+  g: number;
+  b: number;
   size: number;
-  wx: number;
-  wy: number;
-  wz: number;
+  rot: number;
+  rotSpeed: number;
 }
-
-interface PlexusOrb {
-  id: 'red' | 'blue' | 'yellow' | 'green';
-  name: string;
-  primary: string;
-  secondary: string;
-  rgb: [number, number, number];
-  shades: string[];
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  orbitCenterX: number; // normalized 0.55..0.92
-  orbitCenterY: number; // normalized 0.22..0.78
-  orbitRx: number;
-  orbitRy: number;
-  orbitSpeed: number;
-  orbitPhase: number;
-  wobbleTimer: number;
-  trail: { x: number; y: number }[];
-  nodes: AttachedPlexusNode[];
-}
-
-interface ActiveOrbImpulse {
-  orbA: PlexusOrb;
-  orbB: PlexusOrb;
-  remaining: number; // 3.0s countdown
-  duration: number;
-  midX: number;
-  midY: number;
-}
-
-const PINK_SHADES = ['#ffaae6', '#ff77dd', '#ff55cc', '#ff88ee', '#ffccee'];
 
 export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -105,20 +749,21 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     splitRatioRef.current = splitRatio;
   }, [splitRatio]);
 
-  // Handle dragging of the central slider divider ONLY when grabbed on the handle
+  // Slider Handle Dragging (ONLY when the central handle button itself is grabbed)
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
       if (!isDraggingHandleRef.current || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const nextRatio = Math.max(0.12, Math.min(0.88, (e.clientX - rect.left) / Math.max(1, rect.width)));
+      const nextRatio = Math.max(
+        0.12,
+        Math.min(0.88, (e.clientX - rect.left) / Math.max(1, rect.width))
+      );
       splitRatioRef.current = nextRatio;
       setSplitRatio(nextRatio);
     };
 
     const onPointerUp = () => {
-      if (isDraggingHandleRef.current) {
-        isDraggingHandleRef.current = false;
-      }
+      isDraggingHandleRef.current = false;
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -131,327 +776,750 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     };
   }, []);
 
+  // Main 1:1 Three.js WebGL Engine for Dual Slider
   useEffect(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!container || !canvas) return;
 
-    let width = 800;
-    let height = 340;
-    let dpr = 1;
+    let width = Math.max(320, container.clientWidth);
+    let height = Math.max(240, container.clientHeight);
 
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = Math.max(300, rect.width);
-      height = Math.max(240, rect.height);
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(width, height);
+    renderer.autoClear = false;
+
+    // =========================================================================
+    // 1. SHARED BACKGROUND SHADER SCENE (1:1 from SakuraCanvas.tsx)
+    // =========================================================================
+    const bgScene = new THREE.Scene();
+    const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const noiseTex = createNoiseTexture();
+
+    const bgUniforms = {
+      iResolution: {
+        value: new THREE.Vector3(renderer.domElement.width, renderer.domElement.height, 1),
+      },
+      iTime: { value: 0 },
+      iChannel0: { value: noiseTex },
+      uKaleidoscope: { value: 0.0 },
+      uGridVibe: { value: 0.0 },
+      uRippleActive: { value: 0.0 },
+      uRippleTime: { value: 0.0 },
+      uBgColor1: { value: BG_COLOR_PALETTES.default.c1.clone() },
+      uBgColor2: { value: BG_COLOR_PALETTES.default.c2.clone() },
+      uBgColor3: { value: BG_COLOR_PALETTES.default.c3.clone() },
+      uRippleCrest: { value: BG_COLOR_PALETTES.default.crest.clone() },
+      uBgBlend: { value: 0.0 },
+      uBgDim: { value: 1.0 },
     };
-    resize();
-    window.addEventListener('resize', resize);
+
+    const bgMat = new THREE.ShaderMaterial({
+      vertexShader: bgVertexShader,
+      fragmentShader: bgFragmentShader,
+      uniforms: bgUniforms,
+      depthWrite: false,
+      depthTest: false,
+    });
+    const bgMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
+    bgScene.add(bgMesh);
 
     // =========================================================================
-    // 1. SUMI-E ARTWORK DATA (Main Branch, Sub-Twigs, Pink Blossom Clusters, Petals)
+    // 2. SUMI-E 3D SCENE (1:1 ImmersiveStroke Trunk, Sub-Branches, Pink Blossom Clusters & Instanced Petals)
     // =========================================================================
-    // Main trunk curve points (normalized x in 0..0.48, y in 0..1)
-    const mainTrunk: BranchPoint[] = [
-      { x: -0.02, y: 0.78, w: 14 },
-      { x: 0.06, y: 0.68, w: 12 },
-      { x: 0.13, y: 0.69, w: 10.5 },
-      { x: 0.21, y: 0.54, w: 8.5 },
-      { x: 0.29, y: 0.46, w: 6.8 },
-      { x: 0.36, y: 0.35, w: 5.0 },
-      { x: 0.43, y: 0.38, w: 3.4 },
-      { x: 0.48, y: 0.30, w: 2.0 },
+    const blutenScene = new THREE.Scene();
+    const blutenCamera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
+
+    const updateCameras = (w: number, h: number) => {
+      const aspect = w / h;
+      blutenCamera.aspect = aspect;
+      blutenCamera.fov = 45;
+      blutenCamera.updateProjectionMatrix();
+      const visibleWidth = 2 * Math.tan(THREE.MathUtils.degToRad(22.5)) * 16 * aspect;
+      const targetCamX = -11.5 + visibleWidth * 0.48;
+      blutenCamera.position.set(targetCamX, -0.3, 16);
+      blutenCamera.lookAt(targetCamX, -0.3, 0);
+    };
+
+    const strokeGroup = new THREE.Group();
+    const petalGroup = new THREE.Group();
+    blutenScene.add(strokeGroup);
+    blutenScene.add(petalGroup);
+
+    const allSumieStrokes: ImmersiveStroke[] = [];
+
+    // Main Trunk Curve positioned so it spans the left side of the slider
+    const trunkCurve = new THREE.CatmullRomCurve3(
+      [
+        new THREE.Vector3(-12.2, -2.8, 0.0),
+        new THREE.Vector3(-10.2, -1.7, 0.25),
+        new THREE.Vector3(-8.4, -2.0, -0.2),
+        new THREE.Vector3(-6.6, -0.7, 0.3),
+        new THREE.Vector3(-4.8, -0.1, -0.15),
+        new THREE.Vector3(-3.1, 0.9, 0.2),
+        new THREE.Vector3(-1.6, 0.4, -0.25),
+        new THREE.Vector3(-0.2, 1.1, 0.15),
+      ],
+      false,
+      'centripetal',
+      0.5
+    );
+
+    const mainTrunkStroke = new ImmersiveStroke(strokeGroup, 0.58, 0, 0xf5e4cf);
+    const trunkPts = trunkCurve.getSpacedPoints(140);
+    for (let i = 0; i <= 140; i++) {
+      const tVal = i / 140;
+      mainTrunkStroke.addPoint(trunkPts[i], Math.max(0.18, 1.0 - tVal * 0.55));
+    }
+    allSumieStrokes.push(mainTrunkStroke);
+
+    // Spawn 5 authentic Sub-Branches along the main trunk (using exact spawnSubBranchFromOrb math)
+    const subBranchConfigs = [
+      { t: 0.22, angleDeg: 32, len: 4.6, seed: 0.15 },
+      { t: 0.38, angleDeg: -28, len: 4.2, seed: 0.42 },
+      { t: 0.54, angleDeg: 30, len: 3.9, seed: 0.68 },
+      { t: 0.7, angleDeg: -26, len: 3.4, seed: 0.81 },
+      { t: 0.84, angleDeg: 25, len: 2.8, seed: 0.33 },
     ];
 
-    const subBranches: BranchPoint[][] = [
-      // Upper twig 1
-      [
-        { x: 0.13, y: 0.69, w: 7.0 },
-        { x: 0.16, y: 0.52, w: 5.0 },
-        { x: 0.20, y: 0.38, w: 3.2 },
-        { x: 0.24, y: 0.27, w: 1.8 },
-      ],
-      // Lower twig 2
-      [
-        { x: 0.21, y: 0.54, w: 6.2 },
-        { x: 0.27, y: 0.64, w: 4.5 },
-        { x: 0.34, y: 0.68, w: 2.8 },
-        { x: 0.39, y: 0.63, w: 1.6 },
-      ],
-      // Upper twig 3
-      [
-        { x: 0.29, y: 0.46, w: 5.2 },
-        { x: 0.32, y: 0.31, w: 3.6 },
-        { x: 0.37, y: 0.21, w: 2.2 },
-        { x: 0.41, y: 0.16, w: 1.3 },
-      ],
-      // Side twig 4
-      [
-        { x: 0.36, y: 0.35, w: 4.0 },
-        { x: 0.41, y: 0.47, w: 2.6 },
-        { x: 0.46, y: 0.51, w: 1.5 },
-      ],
-    ];
+    const subBranchCurves: THREE.CatmullRomCurve3[] = [];
 
-    // Pink Sakura Blossom Clusters ("pinke Sakurablütenknollen") sitting on the branches
-    const clusterAnchors = [
-      { nx: 0.16, ny: 0.52, r: 16 },
-      { nx: 0.20, ny: 0.38, r: 19 },
-      { nx: 0.24, ny: 0.27, r: 15 },
-      { nx: 0.21, ny: 0.54, r: 21 },
-      { nx: 0.29, ny: 0.46, r: 22 },
-      { nx: 0.34, ny: 0.68, r: 16 },
-      { nx: 0.37, ny: 0.21, r: 18 },
-      { nx: 0.41, ny: 0.16, r: 14 },
-      { nx: 0.36, ny: 0.35, r: 20 },
-      { nx: 0.43, ny: 0.38, r: 17 },
-      { nx: 0.48, ny: 0.30, r: 15 },
-      { nx: 0.46, ny: 0.51, r: 14 },
-    ];
+    subBranchConfigs.forEach((cfg) => {
+      const startPos = trunkCurve.getPointAt(cfg.t);
+      const angleRad = THREE.MathUtils.degToRad(cfg.angleDeg);
+      const guideDir = new THREE.Vector3(Math.cos(angleRad), Math.sin(angleRad), 0).normalize();
+      const normal = new THREE.Vector3(-guideDir.y, guideDir.x, 0).normalize();
+      const numPts = 45;
+      const pts = [startPos.clone()];
 
-    const blossomClusters: BlossomClusterDef[] = clusterAnchors.map((a) => {
-      const petals = [];
-      const count = 11 + Math.floor(Math.random() * 6);
-      for (let i = 0; i < count; i++) {
-        const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-        const dist = Math.random() * a.r * 0.85;
-        petals.push({
-          dx: Math.cos(ang) * dist,
-          dy: Math.sin(ang) * dist,
-          r: 3.5 + Math.random() * 4.5,
-          angle: Math.random() * Math.PI * 2,
-          color: PINK_SHADES[i % PINK_SHADES.length],
-        });
+      for (let i = 1; i <= numPts; i++) {
+        const frac = i / numPts;
+        const currentDist = cfg.len * frac;
+        const wave1 = Math.sin(frac * Math.PI * 4.0 + cfg.seed * 6.0) * 0.38;
+        const wave2 = Math.cos(frac * Math.PI * 8.0 + cfg.seed * 3.0) * 0.16;
+        const sideOffset = (wave1 + wave2) * (1.0 - frac * 0.35);
+
+        const p = startPos
+          .clone()
+          .addScaledVector(guideDir, currentDist)
+          .addScaledVector(normal, sideOffset);
+        p.z += (Math.sin(frac * Math.PI * 2.0 + cfg.seed) - 0.5) * 0.25;
+        pts.push(p);
       }
-      return { nx: a.nx, ny: a.ny, radius: a.r, petals };
+
+      const childCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+      subBranchCurves.push(childCurve);
+
+      const childStroke = new ImmersiveStroke(strokeGroup, 0.32, 1, 0xf5e4cf);
+      const spacedPts = childCurve.getSpacedPoints(70);
+      for (let i = 0; i <= 70; i++) {
+        const frac = i / 70;
+        childStroke.addPoint(spacedPts[i], Math.max(0.15, 1.0 - frac * 0.6));
+      }
+      allSumieStrokes.push(childStroke);
     });
 
-    // Flying Sakura Petals (diagonal flight + 3s Vortex on circular mouse motion)
-    const NUM_FLYING_PETALS = 44;
-    const flyingPetals: FlyingPetal[] = [];
-    for (let i = 0; i < NUM_FLYING_PETALS; i++) {
-      flyingPetals.push({
-        x: Math.random() * 450,
-        y: Math.random() * 340,
-        vx: 0.65 + Math.random() * 0.85,
-        vy: 0.38 + Math.random() * 0.65,
-        size: 4.2 + Math.random() * 4.8,
-        angle: Math.random() * Math.PI * 2,
-        spin: (Math.random() - 0.5) * 0.045,
-        swayPhase: Math.random() * Math.PI * 2,
-        swaySpeed: 1.5 + Math.random() * 1.8,
-        color: PINK_SHADES[i % PINK_SHADES.length],
-        vortexAngle: Math.random() * Math.PI * 2,
-        vortexRadius: 18 + Math.random() * 95,
-        vortexSpeed: (2.8 + Math.random() * 2.2) * (i % 2 === 0 ? 1 : -1),
-      });
+    // Spawn 1:1 Pink Sakura Blossom Clusters ("pinke Sakurablütenknollen") on trunk & sub-branches
+    // (exact math from spawnBlossomClusterFromOrb in SakuraCanvas.tsx)
+    const allCurves = [trunkCurve, ...subBranchCurves];
+    const blossomPalette = BLOSSOM_PALETTES.pink;
+    const clusterLocations = [
+      { curveIdx: 0, t: 0.26 },
+      { curveIdx: 0, t: 0.45 },
+      { curveIdx: 0, t: 0.62 },
+      { curveIdx: 0, t: 0.78 },
+      { curveIdx: 0, t: 0.94 },
+      { curveIdx: 1, t: 0.45 },
+      { curveIdx: 1, t: 0.82 },
+      { curveIdx: 2, t: 0.55 },
+      { curveIdx: 2, t: 0.88 },
+      { curveIdx: 3, t: 0.5 },
+      { curveIdx: 3, t: 0.85 },
+      { curveIdx: 4, t: 0.65 },
+      { curveIdx: 5, t: 0.72 },
+    ];
+
+    clusterLocations.forEach((loc, cIdx) => {
+      const curve = allCurves[loc.curveIdx % allCurves.length];
+      const centerPos = curve.getPointAt(loc.t).clone();
+      const numLayerStrokes = 3;
+
+      for (let s = 0; s < numLayerStrokes; s++) {
+        const strokeColor =
+          blossomPalette.shades[(cIdx + s) % blossomPalette.shades.length];
+        const clusterRadius = 0.22 + (s % 2) * 0.1;
+        const baseAngle = s * 2.1 + cIdx;
+        const pts: THREE.Vector3[] = [];
+
+        for (let i = 0; i <= 20; i++) {
+          const frac = i / 20;
+          const angle = baseAngle + frac * Math.PI * 1.55;
+          const r = clusterRadius * (0.65 + 0.35 * Math.sin(frac * Math.PI * 2.0 + s));
+          pts.push(
+            centerPos
+              .clone()
+              .add(
+                new THREE.Vector3(
+                  Math.cos(angle) * r,
+                  Math.sin(angle) * r,
+                  0.08 + s * 0.03
+                )
+              )
+          );
+        }
+
+        const clusterCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+        const clusterStroke = new ImmersiveStroke(strokeGroup, 0.36, 3, strokeColor);
+        const spacedPts = clusterCurve.getSpacedPoints(35);
+        for (let i = 0; i <= 35; i++) {
+          const frac = i / 35;
+          clusterStroke.addPoint(spacedPts[i], 0.65 + 0.85 * Math.sin(frac * Math.PI));
+        }
+        allSumieStrokes.push(clusterStroke);
+      }
+    });
+
+    // 1:1 Instanced Sakura Petals (from SakuraCanvas.tsx)
+    const SLIDER_PETALS = 180;
+    const petalGeo = new THREE.PlaneGeometry(0.9, 0.9);
+    const petalTex = generatePetalTexture();
+    const petalMat = new THREE.MeshBasicMaterial({
+      map: petalTex,
+      color: new THREE.Color(0xffffff),
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const instancedPetalMesh = new THREE.InstancedMesh(petalGeo, petalMat, SLIDER_PETALS);
+    instancedPetalMesh.matrixAutoUpdate = false;
+    petalGroup.add(instancedPetalMesh);
+
+    const petalPosX = new Float32Array(SLIDER_PETALS);
+    const petalPosY = new Float32Array(SLIDER_PETALS);
+    const petalPosZ = new Float32Array(SLIDER_PETALS);
+    const petalSpeedX = new Float32Array(SLIDER_PETALS);
+    const petalSpeedY = new Float32Array(SLIDER_PETALS);
+    const petalAmpX = new Float32Array(SLIDER_PETALS);
+    const petalAmpY = new Float32Array(SLIDER_PETALS);
+    const petalAmpZ = new Float32Array(SLIDER_PETALS);
+    const petalFreqX = new Float32Array(SLIDER_PETALS);
+    const petalFreqY = new Float32Array(SLIDER_PETALS);
+    const petalFreqZ = new Float32Array(SLIDER_PETALS);
+    const petalPhaseX = new Float32Array(SLIDER_PETALS);
+    const petalPhaseY = new Float32Array(SLIDER_PETALS);
+    const petalPhaseZ = new Float32Array(SLIDER_PETALS);
+    const petalSeed = new Float32Array(SLIDER_PETALS);
+    const petalAge = new Float32Array(SLIDER_PETALS);
+    const petalScales = new Float32Array(SLIDER_PETALS);
+    const petalAngle = new Float32Array(SLIDER_PETALS);
+    const petalSpeed = new Float32Array(SLIDER_PETALS);
+    const petalRadiusX = new Float32Array(SLIDER_PETALS);
+    const petalRadiusY = new Float32Array(SLIDER_PETALS);
+    const dummy = new THREE.Object3D();
+
+    for (let i = 0; i < SLIDER_PETALS; i++) {
+      const shadeHex =
+        BLOSSOM_PALETTES.pink.shades[i % BLOSSOM_PALETTES.pink.shades.length];
+      instancedPetalMesh.setColorAt(i, new THREE.Color(shadeHex));
+
+      petalPosX[i] = -6.0 + (Math.random() - 0.5) * 14.0;
+      petalPosY[i] = -0.3 + (Math.random() - 0.5) * 10.0;
+      petalPosZ[i] = -2.5 - Math.random() * 1.5;
+      // Diagonal flight (top-left to bottom-right)
+      petalSpeedX[i] = 1.1 + Math.random() * 0.9;
+      petalSpeedY[i] = -(0.55 + Math.random() * 0.65);
+      petalAmpX[i] = 0.8 + Math.random() * 1.2;
+      petalAmpY[i] = 0.6 + Math.random() * 1.0;
+      petalAmpZ[i] = (0.6 + Math.random() * 0.9) * 0.5;
+      petalFreqX[i] = 0.35 + Math.random() * 0.4;
+      petalFreqY[i] = 0.3 + Math.random() * 0.35;
+      petalFreqZ[i] = 0.4 + Math.random() * 0.5;
+      petalPhaseX[i] = Math.random() * Math.PI * 2;
+      petalPhaseY[i] = Math.random() * Math.PI * 2;
+      petalPhaseZ[i] = Math.random() * Math.PI * 2;
+      petalSeed[i] = Math.random() * 100.0;
+      petalAge[i] = Math.random() * 4.0;
+      petalScales[i] = 0.55 + Math.random() * 0.45;
+
+      petalAngle[i] = Math.random() * Math.PI * 2;
+      petalSpeed[i] = (1.6 + Math.random() * 1.4) * (i % 2 === 0 ? 1 : -1);
+      petalRadiusX[i] = 2.2 + Math.random() * 3.8;
+      petalRadiusY[i] = 1.8 + Math.random() * 3.0;
+    }
+    if (instancedPetalMesh.instanceColor) {
+      instancedPetalMesh.instanceColor.needsUpdate = true;
     }
 
-    // Vortex state (triggered for 3.0s by circular mouse motion on Sumi-e side)
     let vortexRemaining = 0.0;
     let vortexBlend = 0.0;
-    let vortexCenterX = 180;
-    let vortexCenterY = 170;
     const mouseTrailHistory: { x: number; y: number; t: number }[] = [];
 
     // =========================================================================
-    // 2. PLEXUS ARTWORK DATA (4 Orbs: Red, Blue, Yellow, Green + Attached Plexus)
+    // 3. PLEXUS 3D SCENE (1:1 Volumetric Fractal Orbs + Attached Plexus + 3s Network Impulse)
     // =========================================================================
-    const orbConfigs: {
-      id: 'red' | 'blue' | 'yellow' | 'green';
+    const plexusScene = new THREE.Scene();
+    const plexusCamera = new THREE.PerspectiveCamera(60, width / height, 1, 3000);
+    plexusCamera.position.set(0, 0, 540);
+    plexusCamera.lookAt(0, 0, 0);
+
+    // 1:1 Plexus Lines & Star-Core Points Meshes from SakuraCanvas.tsx
+    const MAX_SLIDER_NODES = 400;
+    const MAX_SLIDER_LINES = 1800;
+
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_LINES * 6), 3)
+    );
+    lineGeo.setAttribute(
+      'color',
+      new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_LINES * 6), 3)
+    );
+    const lineMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.88,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
+    plexusScene.add(plexusLinesMesh);
+
+    const nodeGeo = new THREE.BufferGeometry();
+    nodeGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_NODES * 3), 3)
+    );
+    nodeGeo.setAttribute(
+      'color',
+      new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_NODES * 3), 3)
+    );
+    nodeGeo.setAttribute(
+      'size',
+      new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_NODES), 1)
+    );
+    const nodeMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uAlpha: { value: 1.0 },
+      },
+      vertexShader: /* glsl */ `
+        attribute float size;
+        attribute vec3 color;
+        varying vec3 vColor;
+        void main() {
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (300.0 / -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uAlpha;
+        varying vec3 vColor;
+        void main() {
+          vec2 p = gl_PointCoord - vec2(0.5);
+          float d = length(p);
+          if (d > 0.5) discard;
+          float starVal = pow(clamp(1.0 - abs(p.x) * 2.0, 0.0, 1.0) * clamp(1.0 - abs(p.y) * 2.0, 0.0, 1.0), 2.5);
+          float softCore = exp(-d * d * 14.0);
+          float intensity = max(starVal * 2.2, softCore * 1.8);
+          vec3 brightColor = vColor * 1.45 + vec3(0.55) * starVal + vec3(0.35) * softCore;
+          gl_FragColor = vec4(brightColor, clamp(intensity * 1.25 * uAlpha, 0.0, 1.0));
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
+    plexusScene.add(plexusPointsMesh);
+
+    // 4 Orbs: Red, Blue, Yellow, Green (1:1 FloatingPlexusOrbInstance visuals + attached Plexus)
+    const ORB_RADIUS = 26.0;
+    const sphereGeom = new THREE.SphereGeometry(ORB_RADIUS, 48, 48);
+
+    class SliderPlexusOrb {
+      id: BlossomColorId;
       name: string;
-      primary: string;
-      secondary: string;
-      rgb: [number, number, number];
-      shades: string[];
-      cx: number;
-      cy: number;
-      rx: number;
-      ry: number;
-      speed: number;
-      phase: number;
-    }[] = [
-      {
-        id: 'red',
-        name: 'Rot',
-        primary: '#ff2a4b',
-        secondary: '#ff8800',
-        rgb: [255, 42, 75],
-        shades: ['#ff3366', '#ff5577', '#ff2a55', '#ff7088'],
-        cx: 0.63,
-        cy: 0.32,
-        rx: 28,
-        ry: 20,
-        speed: 0.75,
-        phase: 0.2,
-      },
-      {
-        id: 'blue',
-        name: 'Blau',
-        primary: '#00c3ff',
-        secondary: '#6e00ff',
-        rgb: [0, 195, 255],
-        shades: ['#38bdf8', '#0ea5e9', '#60a5fa', '#7dd3fc'],
-        cx: 0.84,
-        cy: 0.30,
-        rx: 30,
-        ry: 22,
-        speed: -0.68,
-        phase: 1.7,
-      },
-      {
-        id: 'yellow',
-        name: 'Gelb',
-        primary: '#ffd000',
-        secondary: '#ff7700',
-        rgb: [255, 208, 0],
-        shades: ['#fbbf24', '#f59e0b', '#fde047', '#ffea00'],
-        cx: 0.65,
-        cy: 0.70,
-        rx: 32,
-        ry: 20,
-        speed: 0.62,
-        phase: 3.1,
-      },
-      {
-        id: 'green',
-        name: 'Grün',
-        primary: '#10e782',
-        secondary: '#0062ff',
-        rgb: [16, 231, 130],
-        shades: ['#34d399', '#10b981', '#6ee7b7', '#00f59b'],
-        cx: 0.85,
-        cy: 0.68,
-        rx: 28,
-        ry: 24,
-        speed: -0.72,
-        phase: 4.5,
-      },
+      homeX: number;
+      homeY: number;
+      orbitRx: number;
+      orbitRy: number;
+      orbitSpeed: number;
+      orbitPhase: number;
+      x: number;
+      y: number;
+      z = 0;
+      vx = 0;
+      vy = 0;
+      internalTime = Math.random() * 10;
+      hoverWobbleTimer = 999.0;
+      dockWobbleTimer = 999.0;
+      impulseTimer = 999.0;
+      preset: (typeof FRACTAL_ORB_PRESETS)[BlossomColorId];
+      mesh: THREE.Mesh;
+      material: THREE.ShaderMaterial;
+      atmosphereMesh: THREE.Mesh;
+      atmosphereMaterial: THREE.ShaderMaterial;
+      starSprite: THREE.Sprite;
+      impulseMesh: THREE.Mesh;
+      impulseMaterial: THREE.ShaderMaterial;
+      attachedNodes: AttachedPlexusNode3D[] = [];
+
+      constructor(
+        id: BlossomColorId,
+        homeX: number,
+        homeY: number,
+        orbitRx: number,
+        orbitRy: number,
+        orbitSpeed: number,
+        orbitPhase: number
+      ) {
+        this.id = id;
+        const config = BLOSSOM_PALETTES[id];
+        this.name = config.name;
+        this.homeX = homeX;
+        this.homeY = homeY;
+        this.orbitRx = orbitRx;
+        this.orbitRy = orbitRy;
+        this.orbitSpeed = orbitSpeed;
+        this.orbitPhase = orbitPhase;
+        this.x = homeX;
+        this.y = homeY;
+
+        const preset = FRACTAL_ORB_PRESETS[id];
+        this.preset = preset;
+
+        this.material = new THREE.ShaderMaterial({
+          vertexShader: fractalOrbVertexShader,
+          fragmentShader: fractalOrbFragmentShader,
+          uniforms: {
+            uTime: { value: this.internalTime },
+            uLocalCamPos: { value: new THREE.Vector3(0, 0, 150) },
+            uPrimaryColor: { value: new THREE.Color(preset.primary) },
+            uSecondaryColor: { value: new THREE.Color(preset.secondary) },
+            uDensity: { value: preset.density },
+            uAlpha: { value: 1.0 },
+            uFractalIters: { value: preset.fractalIters },
+            uFractalScale: { value: preset.fractalScale },
+            uFractalDecay: { value: preset.fractalDecay },
+            uInternalAnim: { value: 0.43 },
+            uSmoothness: { value: preset.smoothness },
+            uAsymmetry: { value: preset.asymmetry },
+            uRadius: { value: ORB_RADIUS },
+          },
+          transparent: true,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+
+        this.mesh = new THREE.Mesh(sphereGeom, this.material);
+        this.mesh.position.set(this.x, this.y, this.z);
+
+        this.atmosphereMaterial = new THREE.ShaderMaterial({
+          vertexShader: atmosphereVertexShader,
+          fragmentShader: atmosphereFragmentShader,
+          uniforms: {
+            uColor: { value: new THREE.Color(preset.primary) },
+            uGlow: { value: preset.atmosphereGlow },
+            uLevel: { value: preset.atmosphereLevel },
+            uAlpha: { value: 1.0 },
+          },
+          transparent: true,
+          side: THREE.FrontSide,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        this.atmosphereMesh = new THREE.Mesh(sphereGeom, this.atmosphereMaterial);
+        this.atmosphereMesh.scale.setScalar(preset.atmosphereScale);
+        this.mesh.add(this.atmosphereMesh);
+
+        // Starburst Glint Sprite
+        const starTex = generateStarCrossTexture(config.uiColor || preset.primary);
+        const spriteMat = new THREE.SpriteMaterial({
+          map: starTex,
+          color: 0xffffff,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        this.starSprite = new THREE.Sprite(spriteMat);
+        this.starSprite.scale.set(44, 44, 1);
+        this.mesh.add(this.starSprite);
+
+        plexusScene.add(this.mesh);
+
+        // 1:1 Dock Impulse Shockwave Ring Mesh from SakuraCanvas.tsx
+        const impulseGeom = new THREE.PlaneGeometry(240, 240);
+        this.impulseMaterial = new THREE.ShaderMaterial({
+          vertexShader: orbMeshVertexShader,
+          fragmentShader: /* glsl */ `
+            varying vec2 vUv;
+            uniform float uProgress;
+            uniform vec3 uColor;
+            void main() {
+              vec2 p = vUv - vec2(0.5);
+              float r = length(p) * 2.0;
+              float targetR = uProgress * 0.92;
+              float ringWidth = 0.07 * (1.0 - uProgress * 0.5);
+              float d = abs(r - targetR);
+              float ring = smoothstep(ringWidth, 0.0, d);
+              float alpha = ring * (1.0 - uProgress) * 0.95;
+              if (alpha < 0.005) discard;
+              gl_FragColor = vec4(uColor * 1.5, alpha);
+            }
+          `,
+          uniforms: {
+            uProgress: { value: 1.0 },
+            uColor: { value: new THREE.Color(config.vortexTint) },
+          },
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        this.impulseMesh = new THREE.Mesh(impulseGeom, this.impulseMaterial);
+        this.impulseMesh.position.set(this.x, this.y, this.z);
+        this.impulseMesh.visible = false;
+        plexusScene.add(this.impulseMesh);
+
+        // Pre-attach a 3D Plexus cloud to every Orb (1:1 attachCluster math)
+        const rgbList = PALETTE_RGB_CACHE[this.id];
+        const nodeCount = 16;
+        for (let i = 0; i < nodeCount; i++) {
+          const angle = (i / nodeCount) * Math.PI * 2 + Math.random() * 0.4;
+          const elevation = (Math.random() - 0.5) * Math.PI * 0.65;
+          const rgb = rgbList[i % rgbList.length];
+          this.attachedNodes.push({
+            radius: 40.0 + (i % 2) * 12.0 + (Math.random() - 0.5) * 6.0,
+            angle,
+            elevation,
+            orbitSpeed: (0.55 + (i % 3) * 0.22) * (i % 2 === 0 ? 1 : -1),
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b,
+            size: 17.0 + Math.random() * 7.0,
+            rot: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 3.0,
+          });
+        }
+      }
+
+      triggerHoverWobble() {
+        if (this.hoverWobbleTimer > 0.4) {
+          this.hoverWobbleTimer = 0.0;
+        }
+      }
+
+      triggerDockWobble() {
+        this.dockWobbleTimer = 0.0;
+        this.impulseTimer = 0.0;
+      }
+
+      update(delta: number, cam: THREE.Camera) {
+        this.internalTime += delta * 0.55;
+        this.material.uniforms.uTime.value = this.internalTime;
+
+        this.mesh.rotation.y += delta * 0.55;
+        this.mesh.rotation.x += delta * 0.28;
+        this.mesh.updateMatrixWorld();
+
+        const localCam = cam.position.clone();
+        this.mesh.worldToLocal(localCam);
+        this.material.uniforms.uLocalCamPos.value.copy(localCam);
+
+        let scaleX = 1.0,
+          scaleY = 1.0,
+          scaleZ = 1.0;
+        let wobbleDispX = 0.0,
+          wobbleDispY = 0.0;
+
+        if (this.hoverWobbleTimer < 0.7) {
+          this.hoverWobbleTimer += delta;
+          const wt = Math.min(1.0, this.hoverWobbleTimer / 0.7);
+          const wobble = Math.sin(wt * Math.PI * 8.0) * Math.exp(-wt * 3.5);
+          scaleX *= 1.0 + wobble * 0.22;
+          scaleY *= 1.0 - wobble * 0.18;
+          scaleZ *= 1.0 + wobble * 0.22;
+        }
+
+        if (this.dockWobbleTimer < 1.0) {
+          this.dockWobbleTimer += delta;
+          const dtW = Math.min(1.0, this.dockWobbleTimer / 1.0);
+          const dockWobble = Math.sin(dtW * Math.PI * 10.0) * Math.exp(-dtW * 3.2);
+          scaleX *= 1.0 + dockWobble * 0.36;
+          scaleY *= 1.0 - dockWobble * 0.28;
+          scaleZ *= 1.0 + dockWobble * 0.36;
+          wobbleDispX += Math.sin(dtW * Math.PI * 12.0) * (1.0 - dtW) * 6.0;
+          wobbleDispY += Math.cos(dtW * Math.PI * 12.0) * (1.0 - dtW) * 6.0;
+
+          const glowBoost = 1.0 + Math.max(0.0, dockWobble * 2.0);
+          this.atmosphereMaterial.uniforms.uGlow.value =
+            this.preset.atmosphereGlow * glowBoost;
+        } else {
+          this.atmosphereMaterial.uniforms.uGlow.value = this.preset.atmosphereGlow;
+        }
+
+        this.mesh.scale.set(scaleX, scaleY, scaleZ);
+        this.mesh.position.set(this.x + wobbleDispX, this.y + wobbleDispY, this.z);
+
+        if (this.impulseTimer < 0.95) {
+          this.impulseTimer += delta;
+          const progress = Math.min(1.0, this.impulseTimer / 0.95);
+          this.impulseMaterial.uniforms.uProgress.value = progress;
+          this.impulseMesh.position.set(this.x, this.y, this.z);
+          this.impulseMesh.visible = true;
+        } else {
+          this.impulseMesh.visible = false;
+        }
+      }
+    }
+
+    // Create the 4 requested Orbs (Red, Blue, Yellow, Green) in the right half of the 3D space
+    const plexusOrbs: SliderPlexusOrb[] = [
+      new SliderPlexusOrb('red', 105, 85, 34, 24, 0.72, 0.2),
+      new SliderPlexusOrb('blue', 245, 78, 36, 26, -0.64, 1.8),
+      new SliderPlexusOrb('yellow', 115, -82, 36, 24, 0.6, 3.3),
+      new SliderPlexusOrb('green', 250, -78, 34, 26, -0.68, 4.7),
     ];
 
-    const plexusOrbs: PlexusOrb[] = orbConfigs.map((cfg) => {
-      const nodes: AttachedPlexusNode[] = [];
-      const nodeCount = 12;
-      for (let i = 0; i < nodeCount; i++) {
-        nodes.push({
-          baseRadius: 24 + (i % 3) * 7 + Math.random() * 4,
-          angle: (i / nodeCount) * Math.PI * 2 + Math.random() * 0.3,
-          elevation: (Math.random() - 0.5) * Math.PI * 0.7,
-          orbitSpeed: (0.7 + (i % 3) * 0.35) * (i % 2 === 0 ? 1 : -1),
-          shade: cfg.shades[i % cfg.shades.length],
-          size: 2.5 + (i % 3) * 0.9,
-          wx: 0,
-          wy: 0,
-          wz: 0,
-        });
-      }
-      return {
-        id: cfg.id,
-        name: cfg.name,
-        primary: cfg.primary,
-        secondary: cfg.secondary,
-        rgb: cfg.rgb,
-        shades: cfg.shades,
-        x: cfg.cx * width,
-        y: cfg.cy * height,
-        vx: 0,
-        vy: 0,
-        orbitCenterX: cfg.cx,
-        orbitCenterY: cfg.cy,
-        orbitRx: cfg.rx,
-        orbitRy: cfg.ry,
-        orbitSpeed: cfg.speed,
-        orbitPhase: cfg.phase,
-        wobbleTimer: 999,
-        trail: [],
-        nodes,
-      };
-    });
+    interface ImpulseNetworkParticle {
+      x: number;
+      y: number;
+      z: number;
+      vx: number;
+      vy: number;
+      vz: number;
+      r: number;
+      g: number;
+      b: number;
+      size: number;
+    }
 
-    let draggedOrb: PlexusOrb | null = null;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
-    const activeImpulses: ActiveOrbImpulse[] = [];
-    // Cooldown map so two separating orbs don't immediately re-trigger before drifting apart
+    interface Active3sImpulse {
+      orbA: SliderPlexusOrb;
+      orbB: SliderPlexusOrb;
+      remaining: number;
+      duration: number;
+      midX: number;
+      midY: number;
+      particles: ImpulseNetworkParticle[];
+    }
+
+    const activeImpulses: Active3sImpulse[] = [];
     const pairCooldowns = new Map<string, number>();
-
-    const getPairKey = (a: PlexusOrb, b: PlexusOrb) =>
+    const getPairKey = (a: SliderPlexusOrb, b: SliderPlexusOrb) =>
       a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`;
 
+    const worldNodeX = new Float32Array(MAX_SLIDER_NODES);
+    const worldNodeY = new Float32Array(MAX_SLIDER_NODES);
+    const worldNodeZ = new Float32Array(MAX_SLIDER_NODES);
+    const worldNodeR = new Float32Array(MAX_SLIDER_NODES);
+    const worldNodeG = new Float32Array(MAX_SLIDER_NODES);
+    const worldNodeB = new Float32Array(MAX_SLIDER_NODES);
+    const worldNodeSize = new Float32Array(MAX_SLIDER_NODES);
+
     // =========================================================================
-    // POINTER INTERACTION ON CANVAS (Sumi-e Circular Gesture & Plexus Orb Drag)
+    // POINTER INTERACTION (Sumi-e Circular Vortex & Plexus Orb Dragging)
     // =========================================================================
-    const getCanvasPos = (e: PointerEvent) => {
+    let draggedOrb: SliderPlexusOrb | null = null;
+    const dragOffset = new THREE.Vector2();
+    const unprojectVec = new THREE.Vector3();
+    const rayDirVec = new THREE.Vector3();
+
+    const screenToPlexusWorld = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
+      const nx = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+      const ny = -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
+      unprojectVec.set(nx, ny, 0.5).unproject(plexusCamera);
+      rayDirVec.copy(unprojectVec).sub(plexusCamera.position).normalize();
+      const dist = -plexusCamera.position.z / rayDirVec.z;
+      return plexusCamera.position.clone().add(rayDirVec.multiplyScalar(dist));
     };
 
-    const onCanvasPointerDown = (e: PointerEvent) => {
-      // Never move slider from canvas click!
-      const pos = getCanvasPos(e);
-      const splitX = width * splitRatioRef.current;
+    const onPointerDown = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const localX = e.clientX - rect.left;
+      const splitPx = width * splitRatioRef.current;
 
-      if (pos.x > splitX) {
-        // Check if user clicked on one of the 4 Plexus Orbs
-        let closest: PlexusOrb | null = null;
-        let minDist = 38; // generous grab radius including attached plexus
+      if (localX > splitPx) {
+        const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
+        let closest: SliderPlexusOrb | null = null;
+        let minDist = 68.0;
+
         for (const orb of plexusOrbs) {
-          const d = Math.hypot(pos.x - orb.x, pos.y - orb.y);
+          const d = Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y);
           if (d < minDist) {
             minDist = d;
             closest = orb;
           }
         }
+
         if (closest) {
           draggedOrb = closest;
-          dragOffsetX = closest.x - pos.x;
-          dragOffsetY = closest.y - pos.y;
-          closest.wobbleTimer = 0;
+          dragOffset.set(closest.x - worldPos.x, closest.y - worldPos.y);
+          closest.triggerHoverWobble();
           setCursorStyle('grabbing');
           canvas.setPointerCapture?.(e.pointerId);
         }
       }
     };
 
-    const onCanvasPointerMove = (e: PointerEvent) => {
-      const pos = getCanvasPos(e);
-      const splitX = width * splitRatioRef.current;
+    const onPointerMove = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const localX = e.clientX - rect.left;
+      const localY = e.clientY - rect.top;
+      const splitPx = width * splitRatioRef.current;
       const now = performance.now();
 
-      // 1. If dragging a Plexus Orb: move it & check for collision with other orbs
       if (draggedOrb) {
-        const minX = splitX + 34;
-        const maxX = width - 34;
-        const minY = 34;
-        const maxY = height - 34;
-        draggedOrb.x = Math.max(minX, Math.min(maxX, pos.x + dragOffsetX));
-        draggedOrb.y = Math.max(minY, Math.min(maxY, pos.y + dragOffsetY));
+        const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
+        const splitWorld = screenToPlexusWorld(rect.left + splitPx + 28, e.clientY);
+        const rightEdgeWorld = screenToPlexusWorld(rect.right - 28, e.clientY);
+        const topEdgeWorld = screenToPlexusWorld(e.clientX, rect.top + 28);
+        const bottomEdgeWorld = screenToPlexusWorld(e.clientX, rect.bottom - 28);
+
+        draggedOrb.x = Math.max(
+          splitWorld.x,
+          Math.min(rightEdgeWorld.x, worldPos.x + dragOffset.x)
+        );
+        draggedOrb.y = Math.max(
+          bottomEdgeWorld.y,
+          Math.min(topEdgeWorld.y, worldPos.y + dragOffset.y)
+        );
         draggedOrb.vx = 0;
         draggedOrb.vy = 0;
-        // Also gently update its home orbit center so it stays near where user placed it
-        draggedOrb.orbitCenterX = Math.max(0.55, Math.min(0.92, draggedOrb.x / width));
-        draggedOrb.orbitCenterY = Math.max(0.20, Math.min(0.80, draggedOrb.y / height));
+        draggedOrb.homeX = draggedOrb.x;
+        draggedOrb.homeY = draggedOrb.y;
+
+        for (const other of plexusOrbs) {
+          if (other !== draggedOrb) {
+            if (Math.hypot(other.x - draggedOrb.x, other.y - draggedOrb.y) < 110) {
+              other.triggerHoverWobble();
+            }
+          }
+        }
         return;
       }
 
-      // 2. If pointer is on Sumi-e side (left of splitX): detect circular mouse motion!
-      if (pos.x < splitX - 10) {
+      // Left side (Sumi-e): Detect circular mouse motion -> 3s Vortex!
+      if (localX < splitPx - 8) {
         setCursorStyle('default');
-        mouseTrailHistory.push({ x: pos.x, y: pos.y, t: now });
-        // Keep last 950ms of points
+        mouseTrailHistory.push({ x: localX, y: localY, t: now });
         while (mouseTrailHistory.length > 0 && now - mouseTrailHistory[0].t > 950) {
           mouseTrailHistory.shift();
         }
 
         if (mouseTrailHistory.length >= 10 && vortexRemaining <= 0.1) {
-          // Filter points with minimum step distance to measure clean angles
           const filtered: { x: number; y: number }[] = [mouseTrailHistory[0]];
           for (let i = 1; i < mouseTrailHistory.length; i++) {
             const prev = filtered[filtered.length - 1];
@@ -478,502 +1546,362 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
               totalAngle += da;
             }
 
-            // ~230 degrees of cumulative circular rotation triggers 3s Vortex
-            if (Math.abs(totalAngle) >= Math.PI * 1.28) {
-              let cx = 0;
-              let cy = 0;
-              for (const p of filtered) {
-                cx += p.x;
-                cy += p.y;
-              }
-              cx /= filtered.length;
-              cy /= filtered.length;
-
-              vortexCenterX = Math.max(60, Math.min(splitX - 60, cx));
-              vortexCenterY = Math.max(60, Math.min(height - 60, cy));
+            if (Math.abs(totalAngle) >= Math.PI * 1.25) {
               vortexRemaining = 3.0; // 3 seconds Vortex!
               setIsVortexUI(true);
-
-              // Initialize each petal's polar coordinates relative to vortexCenter for smooth entry
-              flyingPetals.forEach((p, idx) => {
-                const dx = p.x - vortexCenterX;
-                const dy = p.y - vortexCenterY;
-                p.vortexAngle = Math.atan2(dy, dx);
-                p.vortexRadius = Math.max(16, Math.min(115, Math.hypot(dx, dy) * 0.75 + 15));
-                p.vortexSpeed = (3.2 + (idx % 5) * 0.45) * (totalAngle >= 0 ? 1 : -1);
-              });
-
               mouseTrailHistory.length = 0;
             }
           }
         }
       } else {
-        // Pointer is on Plexus side: check hover over orbs
-        let hoveringOrb = false;
+        // Right side (Plexus): Hover check on the 4 Orbs
+        const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
+        let hovering = false;
         for (const orb of plexusOrbs) {
-          if (Math.hypot(pos.x - orb.x, pos.y - orb.y) < 34) {
-            hoveringOrb = true;
-            if (orb.wobbleTimer > 0.6) orb.wobbleTimer = 0;
+          if (Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y) < 58) {
+            hovering = true;
+            orb.triggerHoverWobble();
             break;
           }
         }
-        setCursorStyle(hoveringOrb ? 'grab' : 'default');
+        setCursorStyle(hovering ? 'grab' : 'default');
       }
     };
 
-    const onCanvasPointerUp = (e: PointerEvent) => {
+    const onPointerUp = (e: PointerEvent) => {
       if (draggedOrb) {
-        canvas.releasePointerCapture?.(e.pointerId);
+        try {
+          canvas.releasePointerCapture?.(e.pointerId);
+        } catch {}
         draggedOrb = null;
         setCursorStyle('default');
       }
     };
 
-    canvas.addEventListener('pointerdown', onCanvasPointerDown);
-    canvas.addEventListener('pointermove', onCanvasPointerMove);
-    canvas.addEventListener('pointerup', onCanvasPointerUp);
-    canvas.addEventListener('pointercancel', onCanvasPointerUp);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
 
-    // =========================================================================
-    // HELPER: DRAW SAKURA PETAL SILHOUETTE (exact bezier shape from SakuraCanvas)
-    // =========================================================================
-    const drawSakuraPetal = (
-      c: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      size: number,
-      angle: number,
-      color: string,
-      alpha = 0.92
-    ) => {
-      c.save();
-      c.translate(x, y);
-      c.rotate(angle);
-      c.scale(size / 14, size / 14);
-      c.globalAlpha = alpha;
-      c.fillStyle = color;
-      c.shadowColor = color;
-      c.shadowBlur = 6;
-      c.beginPath();
-      c.moveTo(0, -10);
-      c.bezierCurveTo(7, -6, 10, 2, 6, 9);
-      c.bezierCurveTo(3, 13, -3, 13, -6, 9);
-      c.bezierCurveTo(-10, 2, -7, -6, 0, -10);
-      c.fill();
-      c.restore();
+    const handleResize = () => {
+      if (!container) return;
+      width = Math.max(320, container.clientWidth);
+      height = Math.max(240, container.clientHeight);
+      renderer.setSize(width, height);
+      bgUniforms.iResolution.value.set(
+        renderer.domElement.width,
+        renderer.domElement.height,
+        1
+      );
+      updateCameras(width, height);
+      plexusCamera.aspect = width / height;
+      plexusCamera.updateProjectionMatrix();
     };
+    updateCameras(width, height);
+    window.addEventListener('resize', handleResize);
 
     // =========================================================================
-    // HELPER: DRAW 4-POINTED STARBURST GLINT (exact match to generateStarCrossTexture)
-    // =========================================================================
-    const drawStarFlare = (
-      c: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      radius: number,
-      colorHex: string,
-      alpha = 1.0
-    ) => {
-      c.save();
-      c.translate(x, y);
-      c.globalAlpha = alpha;
-
-      const angles = [Math.PI / 4, -Math.PI / 4];
-      for (const ang of angles) {
-        c.save();
-        c.rotate(ang);
-        const grad = c.createLinearGradient(-radius, 0, radius, 0);
-        grad.addColorStop(0, 'rgba(255,255,255,0)');
-        grad.addColorStop(0.35, colorHex);
-        grad.addColorStop(0.5, '#ffffff');
-        grad.addColorStop(0.65, colorHex);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        c.strokeStyle = grad;
-        c.lineWidth = 1.8;
-        c.beginPath();
-        c.moveTo(-radius, 0);
-        c.lineTo(radius, 0);
-        c.stroke();
-        c.restore();
-      }
-
-      // Central core glint dot
-      c.fillStyle = '#ffffff';
-      c.beginPath();
-      c.arc(0, 0, 2.2, 0, Math.PI * 2);
-      c.fill();
-      c.restore();
-    };
-
-    // =========================================================================
-    // MAIN RENDER LOOP
+    // ANIMATION LOOP (Scissor Split Render: Left = Sumi-e, Right = Plexus)
     // =========================================================================
     let animId = 0;
-    let lastTime = performance.now();
+    const clock = new THREE.Clock();
+    let totalTime = 0;
 
-    const renderLoop = (now: number) => {
-      const dt = Math.min(0.05, (now - lastTime) / 1000);
-      lastTime = now;
-      const time = now * 0.001;
-      const splitX = width * splitRatioRef.current;
+    const animate = () => {
+      animId = requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.05);
+      totalTime += delta;
 
-      ctx.save();
-      ctx.scale(dpr, dpr);
-
-      // -----------------------------------------------------------------------
-      // PART A: SUMI-E ARTWORK (LEFT OF SPLITX)
-      // -----------------------------------------------------------------------
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, splitX, height);
-      ctx.clip();
-
-      // 1. Shibuya Magenta Metallic Fluid Shader Backdrop
-      const bgGradSumie = ctx.createLinearGradient(0, 0, width * 0.6, height);
-      bgGradSumie.addColorStop(0, '#0d0006');
-      bgGradSumie.addColorStop(0.45, '#470024');
-      bgGradSumie.addColorStop(0.8, '#7a023e');
-      bgGradSumie.addColorStop(1, '#1a000e');
-      ctx.fillStyle = bgGradSumie;
-      ctx.fillRect(0, 0, splitX, height);
-
-      // Moving fluid silk highlights (like pattern() in bgFragmentShader)
-      for (let wIdx = 0; wIdx < 3; wIdx++) {
-        const fx = width * (0.18 + wIdx * 0.14) + Math.sin(time * 0.6 + wIdx * 2.1) * 35;
-        const fy = height * (0.35 + wIdx * 0.18) + Math.cos(time * 0.5 + wIdx * 1.7) * 25;
-        const fGrad = ctx.createRadialGradient(fx, fy, 8, fx, fy, 150);
-        fGrad.addColorStop(0, 'rgba(204, 10, 112, 0.28)');
-        fGrad.addColorStop(0.5, 'rgba(189, 0, 92, 0.12)');
-        fGrad.addColorStop(1, 'rgba(13, 0, 5, 0)');
-        ctx.fillStyle = fGrad;
-        ctx.fillRect(0, 0, splitX, height);
+      bgUniforms.iTime.value = totalTime;
+      if (bgUniforms.uRippleActive.value > 0.5) {
+        bgUniforms.uRippleTime.value += delta;
+        if (bgUniforms.uRippleTime.value > 3.0) {
+          bgUniforms.uRippleActive.value = 0.0;
+          bgUniforms.uBgBlend.value = 0.0;
+        }
       }
 
-      // Helper for branch sway matching sumiVertexShader
-      const getBranchSwayY = (nx: number) => {
-        const normX = Math.max(0, Math.min(1, nx / 0.5));
-        const mainSway = Math.sin(time * 1.25) * 6.5;
-        const subSway = Math.sin(time * 0.6) * 2.5;
-        return (mainSway + subSway) * normX;
-      };
-
-      // 2. Draw Sumi-e Calligraphic Branch & Twigs (ImmersiveStroke style)
-      const drawSumieBranch = (pts: BranchPoint[]) => {
-        if (pts.length < 2) return;
-        for (let i = 0; i < pts.length - 1; i++) {
-          const p0 = pts[i];
-          const p1 = pts[i + 1];
-          const x0 = p0.x * width;
-          const y0 = p0.y * height + getBranchSwayY(p0.x);
-          const x1 = p1.x * width;
-          const y1 = p1.y * height + getBranchSwayY(p1.x);
-
-          // Outer eroded dry-brush ink edge
-          ctx.beginPath();
-          ctx.moveTo(x0, y0);
-          ctx.lineTo(x1, y1);
-          ctx.strokeStyle = 'rgba(195, 202, 214, 0.55)';
-          ctx.lineWidth = (p0.w + p1.w) * 0.58;
-          ctx.lineCap = 'round';
-          ctx.stroke();
-
-          // Inner warm ivory-white Sumi-e core (0xf5e4cf mixed with greyWhiteBase)
-          ctx.beginPath();
-          ctx.moveTo(x0, y0);
-          ctx.lineTo(x1, y1);
-          ctx.strokeStyle = 'rgba(247, 236, 224, 0.94)';
-          ctx.lineWidth = (p0.w + p1.w) * 0.38;
-          ctx.lineCap = 'round';
-          ctx.stroke();
-        }
-      };
-
-      drawSumieBranch(mainTrunk);
-      subBranches.forEach(drawSumieBranch);
-
-      // 3. Draw Pink Sakura Blossom Clusters ("pinke Sakurablütenknollen") on the branches
-      for (const cluster of blossomClusters) {
-        const cx = cluster.nx * width;
-        const cy = cluster.ny * height + getBranchSwayY(cluster.nx);
-
-        // Soft Sakura pink aura behind each blossom cluster (sakuraOrbFragmentShader look)
-        const aura = ctx.createRadialGradient(cx, cy, 1, cx, cy, cluster.radius * 1.45);
-        aura.addColorStop(0, 'rgba(255, 180, 230, 0.55)');
-        aura.addColorStop(0.45, 'rgba(255, 77, 166, 0.28)');
-        aura.addColorStop(1, 'rgba(255, 51, 204, 0)');
-        ctx.fillStyle = aura;
-        ctx.beginPath();
-        ctx.arc(cx, cy, cluster.radius * 1.45, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Layered pink blossom strokes inside the cluster
-        for (const bp of cluster.petals) {
-          drawSakuraPetal(
-            ctx,
-            cx + bp.dx,
-            cy + bp.dy,
-            bp.r * 1.9,
-            bp.angle + Math.sin(time * 1.4 + cluster.nx * 5) * 0.12,
-            bp.color,
-            0.94
-          );
-        }
-
-        // Delicate luminous blossom center pistils
-        ctx.fillStyle = '#fff5fb';
-        ctx.beginPath();
-        ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
-        ctx.fill();
+      // -----------------------------------------------------------------------
+      // UPDATE 1: SUMI-E STROKES & INSTANCED PETALS (Diagonal vs. 3s Vortex)
+      // -----------------------------------------------------------------------
+      for (let i = 0; i < allSumieStrokes.length; i++) {
+        allSumieStrokes[i].setTime(totalTime);
       }
 
-      // 4. Update & Draw Flying Sakura Petals (Diagonal flight vs. 3s Vortex)
       if (vortexRemaining > 0) {
-        vortexRemaining = Math.max(0, vortexRemaining - dt);
-        vortexBlend = Math.min(1, vortexBlend + dt * 4.2);
+        vortexRemaining = Math.max(0, vortexRemaining - delta);
+        vortexBlend = Math.min(1, vortexBlend + delta * 3.8);
         if (vortexRemaining <= 0) {
           setIsVortexUI(false);
         }
-
-        // Subtle glowing vortex swirl ring while active
-        const vRing = ctx.createRadialGradient(
-          vortexCenterX,
-          vortexCenterY,
-          8,
-          vortexCenterX,
-          vortexCenterY,
-          105
-        );
-        vRing.addColorStop(0, 'rgba(255, 170, 230, 0.22)');
-        vRing.addColorStop(0.5, 'rgba(255, 77, 166, 0.14)');
-        vRing.addColorStop(1, 'rgba(255, 77, 166, 0)');
-        ctx.fillStyle = vRing;
-        ctx.beginPath();
-        ctx.arc(vortexCenterX, vortexCenterY, 105, 0, Math.PI * 2);
-        ctx.fill();
       } else {
-        vortexBlend = Math.max(0, vortexBlend - dt * 2.2);
+        vortexBlend = Math.max(0, vortexBlend - delta * 2.2);
       }
 
-      const maxSumieX = Math.max(220, width * 0.55);
-      for (let i = 0; i < flyingPetals.length; i++) {
-        const p = flyingPetals[i];
+      const smoothPower = vortexBlend * vortexBlend * (3.0 - 2.0 * vortexBlend);
+      const vortexCenterX = -5.2;
+      const vortexCenterY = -0.2;
+      const vortexCenterZ = -2.8;
+      const sideTilt = 0.15;
 
-        // Normal diagonal drift position update
-        const diagVx = p.vx + Math.sin(time * p.swaySpeed + p.swayPhase) * 0.35;
-        const diagVy = p.vy + Math.cos(time * p.swaySpeed + p.swayPhase) * 0.25;
+      for (let i = 0; i < SLIDER_PETALS; i++) {
+        petalAge[i] += delta * 0.85;
+        petalPosX[i] += petalSpeedX[i] * delta;
+        petalPosY[i] += petalSpeedY[i] * delta;
 
-        if (vortexBlend > 0.001) {
-          // Advance vortex polar angle
-          p.vortexAngle += p.vortexSpeed * dt;
-          const targetVx =
-            vortexCenterX +
-            Math.cos(p.vortexAngle) * p.vortexRadius * (0.85 + 0.15 * Math.sin(time * 3 + i));
-          const targetVy =
-            vortexCenterY +
-            Math.sin(p.vortexAngle) * (p.vortexRadius * 0.78) * (0.85 + 0.15 * Math.cos(time * 3 + i));
+        if (petalPosX[i] > 2.5) petalPosX[i] = -13.5;
+        if (petalPosX[i] < -14.0) petalPosX[i] = 2.0;
+        if (petalPosY[i] < -6.5) petalPosY[i] = 6.5;
+        if (petalPosY[i] > 6.8) petalPosY[i] = -6.2;
 
-          // Blend between diagonal drift and vortex orbit
-          p.x = p.x * (1 - vortexBlend * 0.18) + targetVx * (vortexBlend * 0.18);
-          p.y = p.y * (1 - vortexBlend * 0.18) + targetVy * (vortexBlend * 0.18);
-          p.angle += p.spin * 2.8;
-        } else {
-          p.x += diagVx;
-          p.y += diagVy;
-          p.angle += p.spin;
+        const normalX =
+          petalPosX[i] +
+          Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+        const normalY =
+          petalPosY[i] +
+          Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+        const normalZ =
+          petalPosZ[i] +
+          Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
 
-          // Wrap around smoothly for continuous diagonal flight
-          if (p.x > maxSumieX + 20) {
-            p.x = -15;
-            p.y = Math.random() * height * 0.85;
-          }
-          if (p.y > height + 18) {
-            p.y = -15;
-            p.x = Math.random() * maxSumieX;
-          }
+        let finalX = normalX;
+        let finalY = normalY;
+        let finalZ = normalZ;
+
+        if (smoothPower > 0.001) {
+          // 1:1 3D Tornado/Vortex math from SakuraCanvas.tsx
+          petalAngle[i] += petalSpeed[i] * delta * (1.2 + smoothPower * 1.6);
+          const a = petalAngle[i];
+          const normH = i / SLIDER_PETALS;
+          const baseTubeRadius = 3.2 + (petalRadiusX[i] % 2.2);
+          const radialWobble =
+            Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalTime * 2.0) * 0.55;
+          const currentRadius = Math.max(1.2, baseTubeRadius + radialWobble);
+          const rawY = (normH - 0.5) * 8.2 + Math.sin(a * 2.2 + totalTime * 1.6) * 0.6;
+          const rawX = Math.cos(a) * (currentRadius * 1.25);
+          const rawZ = Math.sin(a) * currentRadius * 0.5;
+
+          const tornadoX = rawX + vortexCenterX;
+          const tornadoY =
+            vortexCenterY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
+          const tornadoZ =
+            vortexCenterZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
+
+          finalX = THREE.MathUtils.lerp(normalX, tornadoX, smoothPower);
+          finalY = THREE.MathUtils.lerp(normalY, tornadoY, smoothPower);
+          finalZ = THREE.MathUtils.lerp(normalZ, tornadoZ, smoothPower);
         }
 
-        drawSakuraPetal(ctx, p.x, p.y, p.size, p.angle, p.color, 0.9);
+        dummy.position.set(finalX, finalY, finalZ);
+        dummy.rotation.set(
+          petalAge[i] * 0.5 + petalSeed[i],
+          petalAge[i] * 0.6 + petalSeed[i],
+          Math.sin(petalAge[i] * 0.7 + petalSeed[i]) * 0.8 +
+            (smoothPower > 0.01 ? petalAngle[i] : 0)
+        );
+        const zScale = Math.max(
+          0.24,
+          Math.min(0.76, (0.48 + (finalZ + 3.5) * 0.14) * 0.68)
+        );
+        dummy.scale.setScalar(petalScales[i] * zScale);
+        dummy.updateMatrix();
+        instancedPetalMesh.setMatrixAt(i, dummy.matrix);
       }
-
-      ctx.restore();
+      instancedPetalMesh.instanceMatrix.needsUpdate = true;
 
       // -----------------------------------------------------------------------
-      // PART B: PLEXUS ARTWORK (RIGHT OF SPLITX)
+      // UPDATE 2: PLEXUS ORBS, ATTACHED NODES & 3-SECOND DUAL-COLOR IMPULSES
       // -----------------------------------------------------------------------
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(splitX, 0, width - splitX, height);
-      ctx.clip();
-
-      // 1. Deep Cosmic Shibuya-Magenta / Space Background
-      const bgGradPlexus = ctx.createLinearGradient(splitX, 0, width, height);
-      bgGradPlexus.addColorStop(0, '#09000b');
-      bgGradPlexus.addColorStop(0.5, '#1e0016');
-      bgGradPlexus.addColorStop(1, '#060312');
-      ctx.fillStyle = bgGradPlexus;
-      ctx.fillRect(splitX, 0, width - splitX, height);
-
-      // Update pair cooldowns
       for (const [k, cd] of Array.from(pairCooldowns.entries())) {
-        if (cd - dt <= 0) pairCooldowns.delete(k);
-        else pairCooldowns.set(k, cd - dt);
+        if (cd - delta <= 0) pairCooldowns.delete(k);
+        else pairCooldowns.set(k, cd - delta);
       }
 
-      // 2. Update Orb Positions & Check for Orb-to-Orb Docking (triggers 3s Network Impulse)
       for (const orb of plexusOrbs) {
-        if (orb.wobbleTimer < 1.0) {
-          orb.wobbleTimer += dt;
-        }
-
-        // Check if this orb is currently in an active 3s impulse
-        const activeImp = activeImpulses.find((imp) => imp.orbA === orb || imp.orbB === orb);
+        const activeImp = activeImpulses.find(
+          (imp) => imp.orbA === orb || imp.orbB === orb
+        );
 
         if (orb !== draggedOrb) {
           if (activeImp) {
-            // While in 3s Network Impulse: orbit gently around the shared impulse midpoint
             const isA = activeImp.orbA === orb;
-            const pairAngle = time * 2.2 + (isA ? 0 : Math.PI);
-            const targetX = activeImp.midX + Math.cos(pairAngle) * 26;
-            const targetY = activeImp.midY + Math.sin(pairAngle) * 20;
-            orb.x += (targetX - orb.x) * 0.12;
-            orb.y += (targetY - orb.y) * 0.12;
+            const pairAngle = totalTime * 2.4 + (isA ? 0 : Math.PI);
+            const targetX = activeImp.midX + Math.cos(pairAngle) * 44.0;
+            const targetY = activeImp.midY + Math.sin(pairAngle) * 34.0;
+            orb.x = THREE.MathUtils.lerp(orb.x, targetX, 0.1);
+            orb.y = THREE.MathUtils.lerp(orb.y, targetY, 0.1);
           } else {
-            // Normal floating along its own elliptical path + any separation drift velocity
-            const homeX =
-               Math.max(splitX + 42, Math.min(width - 42, orb.orbitCenterX * width)) +
-              Math.cos(time * orb.orbitSpeed + orb.orbitPhase) * orb.orbitRx;
-            const homeY =
-              orb.orbitCenterY * height +
-              Math.sin(time * orb.orbitSpeed * 1.15 + orb.orbitPhase) * orb.orbitRy;
+            const targetX =
+              orb.homeX +
+              Math.cos(totalTime * orb.orbitSpeed + orb.orbitPhase) * orb.orbitRx;
+            const targetY =
+              orb.homeY +
+              Math.sin(totalTime * orb.orbitSpeed * 1.15 + orb.orbitPhase) *
+                orb.orbitRy;
 
-            orb.x += orb.vx * dt + (homeX - orb.x) * 0.035;
-            orb.y += orb.vy * dt + (homeY - orb.y) * 0.035;
-            orb.vx *= 0.94;
-            orb.vy *= 0.94;
-
-            // Keep inside Plexus bounds
-            const minX = splitX + 34;
-            const maxX = width - 34;
-            if (orb.x < minX) orb.x = minX;
-            if (orb.x > maxX) orb.x = maxX;
-            if (orb.y < 34) orb.y = 34;
-            if (orb.y > height - 34) orb.y = height - 34;
+            orb.x += orb.vx * delta + (targetX - orb.x) * 0.04;
+            orb.y += orb.vy * delta + (targetY - orb.y) * 0.04;
+            orb.vx *= 0.93;
+            orb.vy *= 0.93;
           }
         }
 
-        // Record comet ribbon trail
-        orb.trail.unshift({ x: orb.x, y: orb.y });
-        if (orb.trail.length > 22) orb.trail.pop();
-
-        // Update 3D attached plexus nodes around this orb
-        for (const n of orb.nodes) {
-          n.angle += n.orbitSpeed * dt;
-          const rProj = n.baseRadius * Math.cos(n.elevation);
-          n.wx = orb.x + Math.cos(n.angle) * rProj;
-          n.wy = orb.y + Math.sin(n.angle) * rProj * 0.85 + Math.sin(n.elevation) * 12;
-          n.wz = Math.sin(n.angle) * rProj;
-        }
+        orb.update(delta, plexusCamera);
       }
 
-      // Check pairwise distance to trigger 3s Network Impulse when pushed together
+      // Check pairwise collision between any 2 Orbs -> Trigger 3-second Dual-Color Network Impulse!
       for (let i = 0; i < plexusOrbs.length; i++) {
         for (let j = i + 1; j < plexusOrbs.length; j++) {
           const a = plexusOrbs[i];
           const b = plexusOrbs[j];
           const key = getPairKey(a, b);
           const alreadyActive = activeImpulses.some(
-            (imp) => (imp.orbA === a && imp.orbB === b) || (imp.orbA === b && imp.orbB === a)
+            (imp) =>
+              (imp.orbA === a && imp.orbB === b) ||
+              (imp.orbA === b && imp.orbB === a)
           );
           if (alreadyActive || pairCooldowns.has(key)) continue;
 
           const dist = Math.hypot(a.x - b.x, a.y - b.y);
-          if (dist < 64) {
-            // Release dragged orb so the 3s impulse & subsequent separation play out cleanly
+          if (dist < 92.0) {
             if (draggedOrb === a || draggedOrb === b) {
               draggedOrb = null;
               setCursorStyle('default');
             }
-            a.wobbleTimer = 0;
-            b.wobbleTimer = 0;
+            a.triggerDockWobble();
+            b.triggerDockWobble();
+
+            const midX = (a.x + b.x) * 0.5;
+            const midY = (a.y + b.y) * 0.5;
+
+            // Trigger background water-ripple in the colliding orbs' colors
+            const bgPal = BG_COLOR_PALETTES[a.id] || BG_COLOR_PALETTES.default;
+            bgUniforms.uBgColor1.value.copy(bgPal.c1);
+            bgUniforms.uBgColor2.value.copy(bgPal.c2);
+            bgUniforms.uBgColor3.value.copy(bgPal.c3);
+            bgUniforms.uRippleCrest.value.copy(bgPal.crest);
+            bgUniforms.uBgBlend.value = 0.55;
+            bgUniforms.uRippleActive.value = 1.0;
+            bgUniforms.uRippleTime.value = 0.0;
+
+            // Spawn 56 dual-color network impulse nodes streaming between the two orbs
+            const palA = PALETTE_RGB_CACHE[a.id];
+            const palB = PALETTE_RGB_CACHE[b.id];
+            const particles: ImpulseNetworkParticle[] = [];
+            for (let p = 0; p < 56; p++) {
+              const useA = p % 2 === 0;
+              const pal = useA ? palA : palB;
+              const col = pal[p % pal.length];
+              const ang = (p / 56) * Math.PI * 2 + Math.random() * 0.4;
+              const rSpread = 25 + Math.random() * 95;
+              particles.push({
+                x: midX + Math.cos(ang) * rSpread * 0.4,
+                y: midY + Math.sin(ang) * rSpread * 0.4,
+                z: (Math.random() - 0.5) * 40,
+                vx: Math.cos(ang) * (25 + Math.random() * 45),
+                vy: Math.sin(ang) * (25 + Math.random() * 45),
+                vz: (Math.random() - 0.5) * 20,
+                r: col.r,
+                g: col.g,
+                b: col.b,
+                size: 20.0 + Math.random() * 10.0,
+              });
+            }
+
             activeImpulses.push({
               orbA: a,
               orbB: b,
               remaining: 3.0,
               duration: 3.0,
-              midX: (a.x + b.x) * 0.5,
-              midY: (a.y + b.y) * 0.5,
+              midX,
+              midY,
+              particles,
             });
             setIsImpulseUI(true);
           }
         }
       }
 
-      // 3. Render & Update Active 3-Second Dual-Color Network Impulses!
+      // Collect all 3D Plexus Nodes (Attached Orb shells + active 3s Impulse networks)
+      let worldNodeCount = 0;
+      const linePosAttr = plexusLinesMesh.geometry.attributes.position;
+      const lineColAttr = plexusLinesMesh.geometry.attributes.color;
+      const linePositions = linePosAttr.array as Float32Array;
+      const lineColors = lineColAttr.array as Float32Array;
+
+      const nodePosAttr = plexusPointsMesh.geometry.attributes.position;
+      const nodeColAttr = plexusPointsMesh.geometry.attributes.color;
+      const nodeSizeAttr = plexusPointsMesh.geometry.attributes.size;
+      const nodePositions = nodePosAttr.array as Float32Array;
+      const nodeColors = nodeColAttr.array as Float32Array;
+      const nodeSizes = nodeSizeAttr.array as Float32Array;
+
+      // 1. Attached Plexus Nodes around each of the 4 Orbs (1:1 from SakuraCanvas.tsx)
+      for (let o = 0; o < plexusOrbs.length; o++) {
+        const orb = plexusOrbs[o];
+        const attNodes = orb.attachedNodes;
+        for (let n = 0; n < attNodes.length; n++) {
+          if (worldNodeCount >= MAX_SLIDER_NODES) break;
+          const node = attNodes[n];
+          node.angle += node.orbitSpeed * delta;
+          node.rot += delta * node.rotSpeed;
+
+          const localRadius = node.radius;
+          const localX =
+            orb.x + Math.cos(node.angle) * Math.cos(node.elevation) * localRadius;
+          const localY =
+            orb.y +
+            Math.sin(node.angle) * Math.cos(node.elevation) * localRadius * 0.85;
+          const localZ = orb.z + Math.sin(node.elevation) * localRadius;
+
+          const idx = worldNodeCount++;
+          worldNodeX[idx] = localX;
+          worldNodeY[idx] = localY;
+          worldNodeZ[idx] = localZ;
+          worldNodeR[idx] = node.r;
+          worldNodeG[idx] = node.g;
+          worldNodeB[idx] = node.b;
+          worldNodeSize[idx] = node.size;
+        }
+      }
+
+      // 2. Active 3-Second Dual-Color Impulse Particles & Separation after 3.0s
       for (let idx = activeImpulses.length - 1; idx >= 0; idx--) {
         const imp = activeImpulses[idx];
-        imp.remaining -= dt;
+        imp.remaining -= delta;
         imp.midX = (imp.orbA.x + imp.orbB.x) * 0.5;
         imp.midY = (imp.orbA.y + imp.orbB.y) * 0.5;
 
-        const progress = 1 - Math.max(0, imp.remaining) / imp.duration;
-        const env = Math.sin(Math.min(1, progress) * Math.PI); // smooth fade in/out over 3s
-        const [r1, g1, b1] = imp.orbA.rgb;
-        const [r2, g2, b2] = imp.orbB.rgb;
+        const progress = 1.0 - Math.max(0, imp.remaining) / imp.duration;
+        const env = Math.sin(Math.min(1.0, progress) * Math.PI);
 
-        // a) Dual-color background aura glow representing both orbs' colors
-        const bgPulse = ctx.createRadialGradient(imp.midX, imp.midY, 5, imp.midX, imp.midY, 150);
-        bgPulse.addColorStop(0, `rgba(${r1}, ${g1}, ${b1}, ${0.32 * env})`);
-        bgPulse.addColorStop(0.5, `rgba(${r2}, ${g2}, ${b2}, ${0.24 * env})`);
-        bgPulse.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = bgPulse;
-        ctx.beginPath();
-        ctx.arc(imp.midX, imp.midY, 150, 0, Math.PI * 2);
-        ctx.fill();
+        for (let p = 0; p < imp.particles.length; p++) {
+          if (worldNodeCount >= MAX_SLIDER_NODES) break;
+          const pt = imp.particles[p];
+          pt.x += pt.vx * delta * 0.65;
+          pt.y += pt.vy * delta * 0.65;
+          pt.z += pt.vz * delta * 0.65;
 
-        // b) Concentric expanding dual-color shockwave rings (impulseMesh style)
-        for (let w = 0; w < 3; w++) {
-          const waveP = (progress * 2.2 + w * 0.33) % 1;
-          const waveR = 14 + waveP * 115;
-          const waveAlpha = (1 - waveP) * (0.75 * env + 0.2);
-          ctx.beginPath();
-          ctx.arc(imp.midX, imp.midY, waveR, 0, Math.PI * 2);
-          ctx.strokeStyle =
-            w % 2 === 0
-              ? `rgba(${r1}, ${g1}, ${b1}, ${waveAlpha})`
-              : `rgba(${r2}, ${g2}, ${b2}, ${waveAlpha})`;
-          ctx.lineWidth = 2.2 * (1 - waveP * 0.5);
-          ctx.stroke();
+          // Gentle orbital curl around midpoint
+          const dx = pt.x - imp.midX;
+          const dy = pt.y - imp.midY;
+          const dist = Math.hypot(dx, dy) || 1;
+          if (dist > 135) {
+            pt.vx -= (dx / dist) * 65 * delta;
+            pt.vy -= (dy / dist) * 65 * delta;
+          }
+
+          const nIdx = worldNodeCount++;
+          worldNodeX[nIdx] = pt.x;
+          worldNodeY[nIdx] = pt.y;
+          worldNodeZ[nIdx] = pt.z;
+          worldNodeR[nIdx] = Math.min(1.0, pt.r * 1.45);
+          worldNodeG[nIdx] = Math.min(1.0, pt.g * 1.45);
+          worldNodeB[nIdx] = Math.min(1.0, pt.b * 1.45);
+          worldNodeSize[nIdx] = pt.size * (0.45 + 0.65 * env);
         }
 
-        // c) Inter-Orb Plexus Bridge Filaments & Traveling Color Data Pulses
-        const nodesA = imp.orbA.nodes;
-        const nodesB = imp.orbB.nodes;
-        for (let i = 0; i < nodesA.length; i++) {
-          const na = nodesA[i];
-          const nb = nodesB[(i * 3) % nodesB.length];
-          const gradLine = ctx.createLinearGradient(na.wx, na.wy, nb.wx, nb.wy);
-          gradLine.addColorStop(0, `rgba(${r1}, ${g1}, ${b1}, ${0.75 * env + 0.15})`);
-          gradLine.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
-          gradLine.addColorStop(1, `rgba(${r2}, ${g2}, ${b2}, ${0.75 * env + 0.15})`);
-
-          ctx.beginPath();
-          ctx.moveTo(na.wx, na.wy);
-          ctx.lineTo(nb.wx, nb.wy);
-          ctx.strokeStyle = gradLine;
-          ctx.lineWidth = 1.35;
-          ctx.stroke();
-
-          // Traveling spark along the bridge
-          const sparkT = (time * 2.4 + i * 0.17) % 1;
-          const sx = na.wx + (nb.wx - na.wx) * sparkT;
-          const sy = na.wy + (nb.wy - na.wy) * sparkT;
-          ctx.fillStyle = i % 2 === 0 ? imp.orbA.primary : imp.orbB.primary;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 2.3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        //When 3 seconds are over -> Gently push the two orbs apart so they drift into their own orbits!
+        // After 3 seconds: gently separate the two orbs so they drift apart into their own orbits!
         if (imp.remaining <= 0) {
           const dx = imp.orbB.x - imp.orbA.x;
           const dy = imp.orbB.y - imp.orbA.y;
@@ -981,13 +1909,21 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           const nx = dx / d;
           const ny = dy / d;
 
-          const sepSpeed = 95;
-          imp.orbA.vx = -nx * sepSpeed;
-          imp.orbA.vy = -ny * sepSpeed;
-          imp.orbB.vx = nx * sepSpeed;
-          imp.orbB.vy = ny * sepSpeed;
+          const sepImpulse = 165.0;
+          imp.orbA.vx = -nx * sepImpulse;
+          imp.orbA.vy = -ny * sepImpulse;
+          imp.orbB.vx = nx * sepImpulse;
+          imp.orbB.vy = ny * sepImpulse;
 
-          pairCooldowns.set(getPairKey(imp.orbA, imp.orbB), 2.2);
+          // Nudge home centers slightly apart if user dragged them onto the exact same spot
+          if (Math.hypot(imp.orbA.homeX - imp.orbB.homeX, imp.orbA.homeY - imp.orbB.homeY) < 95) {
+            imp.orbA.homeX -= nx * 55;
+            imp.orbA.homeY -= ny * 45;
+            imp.orbB.homeX += nx * 55;
+            imp.orbB.homeY += ny * 45;
+          }
+
+          pairCooldowns.set(getPairKey(imp.orbA, imp.orbB), 2.4);
           activeImpulses.splice(idx, 1);
           if (activeImpulses.length === 0) {
             setIsImpulseUI(false);
@@ -995,153 +1931,115 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         }
       }
 
-      // 4. Draw Each of the 4 Orbs + Their Attached Plexus Networks
-      for (const orb of plexusOrbs) {
-        const [r, g, b] = orb.rgb;
+      // Populate GPU Node Buffers
+      for (let k = 0; k < worldNodeCount; k++) {
+        const k3 = k * 3;
+        nodePositions[k3] = worldNodeX[k];
+        nodePositions[k3 + 1] = worldNodeY[k];
+        nodePositions[k3 + 2] = worldNodeZ[k];
 
-        // a) Silky Comet Ribbon Trail
-        if (orb.trail.length > 2) {
-          for (let tIdx = 0; tIdx < orb.trail.length - 1; tIdx++) {
-            const p0 = orb.trail[tIdx];
-            const p1 = orb.trail[tIdx + 1];
-            const ratio = 1 - tIdx / orb.trail.length;
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y);
-            ctx.lineTo(p1.x, p1.y);
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${ratio * 0.42})`;
-            ctx.lineWidth = ratio * 8;
-            ctx.lineCap = 'round';
-            ctx.stroke();
-          }
-        }
+        nodeColors[k3] = worldNodeR[k];
+        nodeColors[k3 + 1] = worldNodeG[k];
+        nodeColors[k3 + 2] = worldNodeB[k];
 
-        // b) Attached Plexus Filaments (connecting orb's plexus nodes to each other & to orb center)
-        const nodes = orb.nodes;
-        for (let i = 0; i < nodes.length; i++) {
-          const n1 = nodes[i];
-          // Filament to orb core
-          if (i % 2 === 0) {
-            ctx.beginPath();
-            ctx.moveTo(orb.x, orb.y);
-            ctx.lineTo(n1.wx, n1.wy);
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.35)`;
-            ctx.lineWidth = 0.9;
-            ctx.stroke();
-          }
-
-          // Filaments to neighbor nodes in same attached plexus
-          for (let j = i + 1; j < nodes.length; j++) {
-            const n2 = nodes[j];
-            const nd = Math.hypot(n1.wx - n2.wx, n1.wy - n2.wy);
-            if (nd < 34) {
-              const alpha = (1 - nd / 34) * 0.78;
-              ctx.beginPath();
-              ctx.moveTo(n1.wx, n1.wy);
-              ctx.lineTo(n2.wx, n2.wy);
-              ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-              ctx.lineWidth = 1.1;
-              ctx.stroke();
-            }
-          }
-        }
-
-        // c) Attached Plexus Star Nodes
-        for (const n of nodes) {
-          ctx.save();
-          ctx.fillStyle = n.shade;
-          ctx.shadowColor = orb.primary;
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.arc(n.wx, n.wy, n.size, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Crisp white pinpoint core
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          ctx.arc(n.wx, n.wy, n.size * 0.45, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        // d) Volumetric Fractal Energy Orb Core + Atmosphere Halo Ring + Starburst Glint
-        let scaleX = 1;
-        let scaleY = 1;
-        if (orb.wobbleTimer < 0.8) {
-          const wt = orb.wobbleTimer / 0.8;
-          const wob = Math.sin(wt * Math.PI * 6) * Math.exp(-wt * 3.5);
-          scaleX = 1 + wob * 0.22;
-          scaleY = 1 - wob * 0.18;
-        }
-
-        ctx.save();
-        ctx.translate(orb.x, orb.y);
-        ctx.scale(scaleX, scaleY);
-
-        const orbRadius = 15.5;
-
-        // Outer soft atmosphere glow
-        const outerHalo = ctx.createRadialGradient(0, 0, orbRadius * 0.4, 0, 0, orbRadius * 2.2);
-        outerHalo.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.55)`);
-        outerHalo.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.18)`);
-        outerHalo.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-        ctx.fillStyle = outerHalo;
-        ctx.beginPath();
-        ctx.arc(0, 0, orbRadius * 2.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Dark sphere base with fractal plasma lobes inside
-        const sphereGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, orbRadius);
-        sphereGrad.addColorStop(0, '#ffffff');
-        sphereGrad.addColorStop(0.35, orb.primary);
-        sphereGrad.addColorStop(0.75, orb.secondary);
-        sphereGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.15)`);
-        ctx.fillStyle = sphereGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, orbRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Internal rotating fractal energy filaments
-        for (let f = 0; f < 3; f++) {
-          const fAng = time * (1.2 + f * 0.4) + f * 2.1;
-          ctx.save();
-          ctx.rotate(fAng);
-          ctx.strokeStyle = f % 2 === 0 ? 'rgba(255,255,255,0.55)' : orb.secondary;
-          ctx.lineWidth = 1.6;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, orbRadius * 0.72, orbRadius * 0.35, 0, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Atmosphere Fresnel Rim Ring (atmosphereFragmentShader look)
-        ctx.strokeStyle = orb.primary;
-        ctx.lineWidth = 1.8;
-        ctx.shadowColor = orb.primary;
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(0, 0, orbRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-        // 45deg / -45deg Starburst Cross Glint on top of the orb
-        drawStarFlare(ctx, orb.x, orb.y, 20, orb.primary, 0.95);
+        nodeSizes[k] = worldNodeSize[k];
       }
 
-      ctx.restore();
-      ctx.restore();
+      // Populate GPU Line Buffers (1:1 distance-based laser filaments from SakuraCanvas.tsx)
+      let lineVertexIdx = 0;
+      let lineColorIdx = 0;
+      const maxLineVertices = linePositions.length - 6;
+      const maxDistCutoff = activeImpulses.length > 0 ? 92.0 : 76.0;
+      const maxDistCutoff2 = maxDistCutoff * maxDistCutoff;
 
-      animId = requestAnimationFrame(renderLoop);
+      for (let i = 0; i < worldNodeCount; i++) {
+        const ax = worldNodeX[i];
+        const ay = worldNodeY[i];
+        const az = worldNodeZ[i];
+        const ar = worldNodeR[i];
+        const ag = worldNodeG[i];
+        const ab = worldNodeB[i];
+
+        for (let j = i + 1; j < worldNodeCount; j++) {
+          if (lineVertexIdx >= maxLineVertices) break;
+
+          const dx = ax - worldNodeX[j];
+          if (dx > maxDistCutoff || dx < -maxDistCutoff) continue;
+          const dy = ay - worldNodeY[j];
+          if (dy > maxDistCutoff || dy < -maxDistCutoff) continue;
+          const dz = az - worldNodeZ[j];
+          if (dz > maxDistCutoff || dz < -maxDistCutoff) continue;
+
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 >= maxDistCutoff2) continue;
+
+          const dist = Math.sqrt(d2);
+          const alpha = (1.0 - dist / maxDistCutoff) * 0.95;
+          const effAlpha = Math.pow(alpha, 0.7) * 1.45;
+
+          linePositions[lineVertexIdx++] = ax;
+          linePositions[lineVertexIdx++] = ay;
+          linePositions[lineVertexIdx++] = az;
+
+          linePositions[lineVertexIdx++] = worldNodeX[j];
+          linePositions[lineVertexIdx++] = worldNodeY[j];
+          linePositions[lineVertexIdx++] = worldNodeZ[j];
+
+          lineColors[lineColorIdx++] = Math.min(1.0, ar * effAlpha);
+          lineColors[lineColorIdx++] = Math.min(1.0, ag * effAlpha);
+          lineColors[lineColorIdx++] = Math.min(1.0, ab * effAlpha);
+
+          lineColors[lineColorIdx++] = Math.min(1.0, worldNodeR[j] * effAlpha);
+          lineColors[lineColorIdx++] = Math.min(1.0, worldNodeG[j] * effAlpha);
+          lineColors[lineColorIdx++] = Math.min(1.0, worldNodeB[j] * effAlpha);
+        }
+      }
+
+      lineGeo.setDrawRange(0, lineVertexIdx / 3);
+      nodeGeo.setDrawRange(0, worldNodeCount);
+      linePosAttr.needsUpdate = true;
+      lineColAttr.needsUpdate = true;
+      nodePosAttr.needsUpdate = true;
+      nodeColAttr.needsUpdate = true;
+      nodeSizeAttr.needsUpdate = true;
+
+      // -----------------------------------------------------------------------
+      // DUAL SCISSOR RENDER PASS
+      // -----------------------------------------------------------------------
+      const splitX = Math.round(width * splitRatioRef.current);
+
+      renderer.setViewport(0, 0, width, height);
+      renderer.setScissorTest(true);
+
+      // 1. LEFT SCISSOR: Sumi-e (Background Shader + 3D Sumi-e Scene)
+      if (splitX > 0) {
+        renderer.setScissor(0, 0, splitX, height);
+        renderer.clear();
+        renderer.render(bgScene, bgCamera);
+        renderer.render(blutenScene, blutenCamera);
+      }
+
+      // 2. RIGHT SCISSOR: Plexus (Background Shader + 3D Plexus Scene)
+      if ( width - splitX > 0) {
+        renderer.setScissor(splitX, 0, width - splitX, height);
+        renderer.clear();
+        renderer.render(bgScene, bgCamera);
+        renderer.render(plexusScene, plexusCamera);
+      }
+
+      renderer.setScissorTest(false);
     };
 
-    animId = requestAnimationFrame(renderLoop);
+    animId = requestAnimationFrame(animate);
 
     return () => {
       cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
-      canvas.removeEventListener('pointerdown', onCanvasPointerDown);
-      canvas.removeEventListener('pointermove', onCanvasPointerMove);
-      canvas.removeEventListener('pointerup', onCanvasPointerUp);
-      canvas.removeEventListener('pointercancel', onCanvasPointerUp);
+      window.removeEventListener('resize', handleResize);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerUp);
+      renderer.dispose();
     };
   }, []);
 
@@ -1149,7 +2047,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     <div className="mb-10 sm:mb-12">
       <div
         ref={containerRef}
-        className="relative h-64 sm:h-80 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.22)] select-none"
+        className="relative h-72 sm:h-96 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.22)] select-none"
       >
         <canvas
           ref={canvasRef}
@@ -1163,31 +2061,31 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         />
 
         {/* Top-Left Badge: Sumi-e */}
-        <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 flex flex-col gap-1.5 pointer-events-none">
+        <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 flex flex-col gap-1.5 pointer-events-none z-10">
           <div className="px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shadow-lg">
             <span>{t.sliderSumieBadge}</span>
           </div>
           {isVortexUI && (
-            <div className="px-3 py-1 rounded-full bg-pink-500/80 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#ff2a9d]">
+            <div className="px-3 py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#ff2a9d]">
               {t.sliderVortexActive}
             </div>
           )}
         </div>
 
         {/* Top-Right Badge: Plexus */}
-        <div className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 flex flex-col items-end gap-1.5 pointer-events-none">
+        <div className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 flex flex-col items-end gap-1.5 pointer-events-none z-10">
           <div className="px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shadow-lg">
             <span>{t.sliderPlexusBadge}</span>
           </div>
           {isImpulseUI && (
-            <div className="px-3 py-1 rounded-full bg-cyan-500/80 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#00c3ff]">
+            <div className="px-3 py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#00c3ff]">
               {t.sliderPulseActive}
             </div>
           )}
         </div>
 
         {/* Bottom Interaction Hints */}
-        <div className="absolute bottom-3 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <div className="absolute bottom-3 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-10">
           <span className="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-xs text-pink-100/90 font-light">
             🔄 {t.sliderHintSumie}
           </span>
@@ -1199,7 +2097,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         {/* Divider Line (non-interactive visual line) */}
         <div
           style={{ left: `${splitRatio * 100}%` }}
-          className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none"
+          className="absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none z-10"
         />
 
         {/* Interactive Handle Button — ONLY dragging this handle moves the slider! */}
@@ -1220,4 +2118,3 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     </div>
   );
 }
-
