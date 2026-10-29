@@ -39,23 +39,53 @@ function createNoiseTexture(): THREE.DataTexture {
 
 function generatePetalTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 64;
-  c.height = 64;
+  c.width = 128;
+  c.height = 128;
   const ctx = c.getContext('2d');
   if (ctx) {
-    ctx.filter = 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.9))';
-    const grad = ctx.createLinearGradient(0, 0, 64, 64);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.3, '#f5f5f5');
-    grad.addColorStop(0.7, '#e0e0e0');
-    grad.addColorStop(1, '#c0c0c0');
-    ctx.fillStyle = grad;
+    const cx = 64;
+    const cy = 64;
+
+    // Soft outer glow halo (matching Variant 3's shadowBlur = 8 / #ff2a9d glow)
+    const aura = ctx.createRadialGradient(cx, cy, 4, cx, cy, 52);
+    aura.addColorStop(0, 'rgba(255, 190, 240, 0.45)');
+    aura.addColorStop(0.45, 'rgba(255, 42, 157, 0.22)');
+    aura.addColorStop(1, 'rgba(255, 42, 157, 0)');
+    ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.moveTo(32, 4);
-    ctx.bezierCurveTo(50, 12, 60, 32, 50, 52);
-    ctx.bezierCurveTo(40, 62, 24, 62, 14, 52);
-    ctx.bezierCurveTo(4, 32, 14, 12, 32, 4);
+    ctx.arc(cx, cy, 52, 0, Math.PI * 2);
     ctx.fill();
+
+    // Delicate, fine Sakura petal silhouette with soft glow
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.shadowColor = '#ff2a9d';
+    ctx.shadowBlur = 16;
+
+    const grad = ctx.createLinearGradient(0, -28, 0, 28);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.45, '#ffe6f7');
+    grad.addColorStop(1, '#ffb8eb');
+    ctx.fillStyle = grad;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -26);
+    ctx.bezierCurveTo(15, -16, 20, 4, 12, 21);
+    ctx.bezierCurveTo(6, 29, -6, 29, -12, 21);
+    ctx.bezierCurveTo(-20, 4, -15, -16, 0, -26);
+    ctx.closePath();
+    ctx.fill();
+
+    // Fine luminous central vein/highlight for delicate petal structure
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.quadraticCurveTo(2, 0, 0, 18);
+    ctx.stroke();
+
+    ctx.restore();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
@@ -173,37 +203,12 @@ const bgFragmentShader = /* glsl */ `
   void main() {
     vec2 fragCoord = gl_FragCoord.xy;
     vec2 uv = clamp(fragCoord / max(iResolution.xy, vec2(1.0)), 0.0, 1.0);
-    
-    vec2 rippleOffset = vec2(0.0);
-    float waveNormal = 0.0;
-    float waveFade = 0.0;
-    float insideWave = 0.0;
 
-    if (uRippleActive > 0.5) {
-      vec2 centerUv = uv - vec2(0.5);
-      centerUv.x *= iResolution.x / iResolution.y;
-      float dist = length(centerUv);
+    float noiseVal = pattern(fragCoord * vec2(0.004), iTime * 0.007, uv);
 
-      float waveRadius = (uRippleTime / 3.0) * 1.8;
-      float waveDist = abs(dist - waveRadius);
-
-      float wavePhase = waveDist * 32.0 - uRippleTime * 9.0;
-      waveNormal = cos(wavePhase) * exp(-waveDist * waveDist * 110.0);
-      waveFade = smoothstep(3.0, 2.2, uRippleTime) * smoothstep(0.0, 0.1, uRippleTime);
-
-      insideWave = smoothstep(waveRadius + 0.15, waveRadius - 0.15, dist) * waveFade;
-      rippleOffset = normalize(centerUv + vec2(0.0001)) * waveNormal * 0.045 * waveFade;
-    }
-
-    vec2 distortedFragCoord = fragCoord + rippleOffset * iResolution.xy;
-    vec2 distortedUv = clamp(uv + rippleOffset, 0.0, 1.0);
-
-    float noiseVal = pattern(distortedFragCoord * vec2(0.004), iTime * 0.007, distortedUv);
-    
-    float effectiveBlend = clamp(max(uBgBlend, insideWave), 0.0, 1.0);
-    vec3 baseC1 = mix(vec3(0.05, 0.00, 0.02), uBgColor1, effectiveBlend);
-    vec3 baseC2 = mix(vec3(0.74, 0.00, 0.36), uBgColor2, effectiveBlend);
-    vec3 baseC3 = mix(vec3(0.80, 0.04, 0.44), uBgColor3, effectiveBlend);
+    vec3 baseC1 = vec3(0.05, 0.00, 0.02);
+    vec3 baseC2 = vec3(0.74, 0.00, 0.36);
+    vec3 baseC3 = vec3(0.80, 0.04, 0.44);
 
     vec3 col = mix(baseC1, baseC2, smoothstep(0.0, 1.0, noiseVal));
     col = mix(col, baseC1 * 2.2, noiseVal * 0.8);
@@ -212,10 +217,6 @@ const bgFragmentShader = /* glsl */ `
     col = mix(col, baseC3 * 1.1, 0.12 * noiseVal);
     
     col *= noiseVal * 1.68;
-
-    if (uRippleActive > 0.5) {
-      col += uRippleCrest * waveNormal * waveFade * 0.65;
-    }
 
     float vignetteVal = max(0.0, 70.0 * uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y));
     col *= (0.80 * (0.70 + 0.65 * sqrt(vignetteVal))) * uBgDim;
@@ -986,15 +987,16 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       }
     });
 
-    // 1:1 Instanced Sakura Petals (from SakuraCanvas.tsx)
-    const SLIDER_PETALS = 180;
-    const petalGeo = new THREE.PlaneGeometry(0.9, 0.9);
+    // Instanced Sakura Petals with soft glow & fine structure (from Variant 3)
+    const SLIDER_PETALS = 44;
+    const VARIANT3_PETAL_SHADES = [0xff80df, 0xff2a9d, 0xffb3ec, 0xffaae6, 0xff77dd];
+    const petalGeo = new THREE.PlaneGeometry(0.58, 0.58);
     const petalTex = generatePetalTexture();
     const petalMat = new THREE.MeshBasicMaterial({
       map: petalTex,
       color: new THREE.Color(0xffffff),
       transparent: true,
-      opacity: 0.95,
+      opacity: 0.96,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -1026,19 +1028,18 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     const dummy = new THREE.Object3D();
 
     for (let i = 0; i < SLIDER_PETALS; i++) {
-      const shadeHex =
-        BLOSSOM_PALETTES.pink.shades[i % BLOSSOM_PALETTES.pink.shades.length];
+      const shadeHex = VARIANT3_PETAL_SHADES[i % VARIANT3_PETAL_SHADES.length];
       instancedPetalMesh.setColorAt(i, new THREE.Color(shadeHex));
 
       petalPosX[i] = -6.0 + (Math.random() - 0.5) * 14.0;
       petalPosY[i] = -0.3 + (Math.random() - 0.5) * 10.0;
-      petalPosZ[i] = -2.5 - Math.random() * 1.5;
+      petalPosZ[i] = -2.2 - Math.random() * 1.2;
       // Diagonal flight (top-left to bottom-right)
       petalSpeedX[i] = 1.1 + Math.random() * 0.9;
       petalSpeedY[i] = -(0.55 + Math.random() * 0.65);
-      petalAmpX[i] = 0.8 + Math.random() * 1.2;
-      petalAmpY[i] = 0.6 + Math.random() * 1.0;
-      petalAmpZ[i] = (0.6 + Math.random() * 0.9) * 0.5;
+      petalAmpX[i] = 0.65 + Math.random() * 0.95;
+      petalAmpY[i] = 0.5 + Math.random() * 0.85;
+      petalAmpZ[i] = (0.4 + Math.random() * 0.6) * 0.4;
       petalFreqX[i] = 0.35 + Math.random() * 0.4;
       petalFreqY[i] = 0.3 + Math.random() * 0.35;
       petalFreqZ[i] = 0.4 + Math.random() * 0.5;
@@ -1047,7 +1048,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       petalPhaseZ[i] = Math.random() * Math.PI * 2;
       petalSeed[i] = Math.random() * 100.0;
       petalAge[i] = Math.random() * 4.0;
-      petalScales[i] = 0.55 + Math.random() * 0.45;
+      petalScales[i] = 0.48 + Math.random() * 0.36;
 
       petalAngle[i] = Math.random() * Math.PI * 2;
       petalSpeed[i] = (1.6 + Math.random() * 1.4) * (i % 2 === 0 ? 1 : -1);
@@ -1371,16 +1372,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
 
         this.mesh.scale.set(scaleX, scaleY, scaleZ);
         this.mesh.position.set(this.x + wobbleDispX, this.y + wobbleDispY, this.z);
-
-        if (this.impulseTimer < 0.95) {
-          this.impulseTimer += delta;
-          const progress = Math.min(1.0, this.impulseTimer / 0.95);
-          this.impulseMaterial.uniforms.uProgress.value = progress;
-          this.impulseMesh.position.set(this.x, this.y, this.z);
-          this.impulseMesh.visible = true;
-        } else {
-          this.impulseMesh.visible = false;
-        }
+        this.impulseMesh.visible = false;
       }
     }
 
@@ -1432,6 +1424,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     // POINTER INTERACTION (Sumi-e Circular Vortex & Plexus Orb Dragging)
     // =========================================================================
     let draggedOrb: SliderPlexusOrb | null = null;
+    let hasActivelyDraggedOrb = false;
     const dragOffset = new THREE.Vector2();
     const unprojectVec = new THREE.Vector3();
     const rayDirVec = new THREE.Vector3();
@@ -1466,6 +1459,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
 
         if (closest) {
           draggedOrb = closest;
+          hasActivelyDraggedOrb = false;
           dragOffset.set(closest.x - worldPos.x, closest.y - worldPos.y);
           closest.triggerHoverWobble();
           setCursorStyle('grabbing');
@@ -1488,14 +1482,21 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         const topEdgeWorld = screenToPlexusWorld(e.clientX, rect.top + 28);
         const bottomEdgeWorld = screenToPlexusWorld(e.clientX, rect.bottom - 28);
 
-        draggedOrb.x = Math.max(
+        const nextX = Math.max(
           splitWorld.x,
           Math.min(rightEdgeWorld.x, worldPos.x + dragOffset.x)
         );
-        draggedOrb.y = Math.max(
+        const nextY = Math.max(
           bottomEdgeWorld.y,
           Math.min(topEdgeWorld.y, worldPos.y + dragOffset.y)
         );
+
+        if (Math.hypot(nextX - draggedOrb.x, nextY - draggedOrb.y) > 0.5) {
+          hasActivelyDraggedOrb = true;
+        }
+
+        draggedOrb.x = nextX;
+        draggedOrb.y = nextY;
         draggedOrb.vx = 0;
         draggedOrb.vy = 0;
         draggedOrb.homeX = draggedOrb.x;
@@ -1574,6 +1575,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           canvas.releasePointerCapture?.(e.pointerId);
         } catch {}
         draggedOrb = null;
+        hasActivelyDraggedOrb = false;
         setCursorStyle('default');
       }
     };
@@ -1613,13 +1615,6 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       totalTime += delta;
 
       bgUniforms.iTime.value = totalTime;
-      if (bgUniforms.uRippleActive.value > 0.5) {
-        bgUniforms.uRippleTime.value += delta;
-        if (bgUniforms.uRippleTime.value > 3.0) {
-          bgUniforms.uRippleActive.value = 0.0;
-          bgUniforms.uBgBlend.value = 0.0;
-        }
-      }
 
       // -----------------------------------------------------------------------
       // UPDATE 1: SUMI-E STROKES & INSTANCED PETALS (Diagonal vs. 3s Vortex)
@@ -1694,14 +1689,15 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
 
         dummy.position.set(finalX, finalY, finalZ);
         dummy.rotation.set(
-          petalAge[i] * 0.5 + petalSeed[i],
-          petalAge[i] * 0.6 + petalSeed[i],
-          Math.sin(petalAge[i] * 0.7 + petalSeed[i]) * 0.8 +
+          Math.sin(petalAge[i] * 0.55 + petalSeed[i]) * 0.25,
+          Math.cos(petalAge[i] * 0.5 + petalSeed[i]) * 0.25,
+          petalAge[i] * 0.65 +
+            petalSeed[i] +
             (smoothPower > 0.01 ? petalAngle[i] : 0)
         );
         const zScale = Math.max(
-          0.24,
-          Math.min(0.76, (0.48 + (finalZ + 3.5) * 0.14) * 0.68)
+          0.35,
+          Math.min(0.85, (0.58 + (finalZ + 3.0) * 0.14) * 0.78)
         );
         dummy.scale.setScalar(petalScales[i] * zScale);
         dummy.updateMatrix();
@@ -1749,11 +1745,14 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         orb.update(delta, plexusCamera);
       }
 
-      // Check pairwise collision between any 2 Orbs -> Trigger 3-second Dual-Color Network Impulse!
-      for (let i = 0; i < plexusOrbs.length; i++) {
-        for (let j = i + 1; j < plexusOrbs.length; j++) {
-          const a = plexusOrbs[i];
-          const b = plexusOrbs[j];
+      // Trigger 3-second Dual-Color Network Impulse ONLY when an Orb is actively pushed onto another Orb!
+      if (draggedOrb && hasActivelyDraggedOrb) {
+        for (let i = 0; i < plexusOrbs.length; i++) {
+          const other = plexusOrbs[i];
+          if (other === draggedOrb) continue;
+
+          const a = draggedOrb;
+          const b = other;
           const key = getPairKey(a, b);
           const alreadyActive = activeImpulses.some(
             (imp) =>
@@ -1763,26 +1762,16 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           if (alreadyActive || pairCooldowns.has(key)) continue;
 
           const dist = Math.hypot(a.x - b.x, a.y - b.y);
-          if (dist < 92.0) {
-            if (draggedOrb === a || draggedOrb === b) {
-              draggedOrb = null;
-              setCursorStyle('default');
-            }
+          if (dist < 78.0) {
+            draggedOrb = null;
+            hasActivelyDraggedOrb = false;
+            setCursorStyle('default');
+
             a.triggerDockWobble();
             b.triggerDockWobble();
 
             const midX = (a.x + b.x) * 0.5;
             const midY = (a.y + b.y) * 0.5;
-
-            // Trigger background water-ripple in the colliding orbs' colors
-            const bgPal = BG_COLOR_PALETTES[a.id] || BG_COLOR_PALETTES.default;
-            bgUniforms.uBgColor1.value.copy(bgPal.c1);
-            bgUniforms.uBgColor2.value.copy(bgPal.c2);
-            bgUniforms.uBgColor3.value.copy(bgPal.c3);
-            bgUniforms.uRippleCrest.value.copy(bgPal.crest);
-            bgUniforms.uBgBlend.value = 0.55;
-            bgUniforms.uRippleActive.value = 1.0;
-            bgUniforms.uRippleTime.value = 0.0;
 
             // Spawn 56 dual-color network impulse nodes streaming between the two orbs
             const palA = PALETTE_RGB_CACHE[a.id];
@@ -1818,6 +1807,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
               particles,
             });
             setIsImpulseUI(true);
+            break;
           }
         }
       }
