@@ -1590,45 +1590,109 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         return;
       }
 
-      // Left side (Sumi-e): Detect circular mouse motion -> 3s Vortex!
+      // Left side (Sumi-e): Strict circular mouse gesture detection -> 3s Vortex!
       if (localX < splitPx - 8) {
         setCursorStyle('default');
         mouseTrailHistory.push({ x: localX, y: localY, t: now });
-        while (mouseTrailHistory.length > 0 && now - mouseTrailHistory[0].t > 950) {
+        while (mouseTrailHistory.length > 0 && now - mouseTrailHistory[0].t > 1100) {
           mouseTrailHistory.shift();
         }
 
-        if (mouseTrailHistory.length >= 10 && vortexRemaining <= 0.1) {
+        if (mouseTrailHistory.length >= 12 && vortexRemaining <= 0.1) {
           const filtered: { x: number; y: number }[] = [mouseTrailHistory[0]];
           for (let i = 1; i < mouseTrailHistory.length; i++) {
             const prev = filtered[filtered.length - 1];
             const cur = mouseTrailHistory[i];
-            if (Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 6) {
-              filtered.push(cur);
+            if (Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 10) {
+              filtered.push({ x: cur.x, y: cur.y });
             }
           }
 
-          if (filtered.length >= 7) {
-            let totalAngle = 0;
-            for (let i = 1; i < filtered.length - 1; i++) {
-              const a1 = Math.atan2(
-                filtered[i].y - filtered[i - 1].y,
-                filtered[i].x - filtered[i - 1].x
-              );
-              const a2 = Math.atan2(
-                filtered[i + 1].y - filtered[i].y,
-                filtered[i + 1].x - filtered[i].x
-              );
-              let da = a2 - a1;
-              while (da > Math.PI) da -= Math.PI * 2;
-              while (da < -Math.PI) da += Math.PI * 2;
-              totalAngle += da;
+          if (filtered.length >= 10) {
+            const n = filtered.length;
+            let cx = 0;
+            let cy = 0;
+            for (let i = 0; i < n; i++) {
+              cx += filtered[i].x;
+              cy += filtered[i].y;
             }
+            cx /= n;
+            cy /= n;
 
-            if (Math.abs(totalAngle) >= Math.PI * 1.25) {
-              vortexRemaining = 3.0; // 3 seconds Vortex!
-              setIsVortexUI(true);
-              mouseTrailHistory.length = 0;
+            // 1. 2D PCA Covariance Check: reject flat/diagonal lines & back-and-forth strokes
+            let sxx = 0;
+            let syy = 0;
+            let sxy = 0;
+            let avgRadius = 0;
+            const radii = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+              const dx = filtered[i].x - cx;
+              const dy = filtered[i].y - cy;
+              sxx += dx * dx;
+              syy += dy * dy;
+              sxy += dx * dy;
+              const r = Math.hypot(dx, dy);
+              radii[i] = r;
+              avgRadius += r;
+            }
+            sxx /= n;
+            syy /= n;
+            sxy /= n;
+            avgRadius /= n;
+
+            const trace = sxx + syy;
+            const det = sxx * syy - sxy * sxy;
+            const disc = Math.sqrt(Math.max(0, trace * trace * 0.25 - det));
+            const lambda1 = trace * 0.5 + disc; // Major axis variance
+            const lambda2 = Math.max(0, trace * 0.5 - disc); // Minor axis variance
+            const axisRatio = Math.sqrt(lambda2 / Math.max(1e-5, lambda1));
+
+            // Require true 2D circular/oval spread (lines have axisRatio near 0)
+            if (avgRadius >= 22 && Math.sqrt(lambda2) >= 14 && axisRatio >= 0.36) {
+              // 2. Centroid Angular Sweep & Directional Consistency Check
+              let netAngle = 0;
+              let posSteps = 0;
+              let negSteps = 0;
+              let cutsThroughCenter = false;
+
+              for (let i = 0; i < n; i++) {
+                if (radii[i] < avgRadius * 0.35) {
+                  cutsThroughCenter = true;
+                  break;
+                }
+                if (i > 0) {
+                  const a1 = Math.atan2(filtered[i - 1].y - cy, filtered[i - 1].x - cx);
+                  const a2 = Math.atan2(filtered[i].y - cy, filtered[i].x - cx);
+                  let da = a2 - a1;
+                  while (da > Math.PI) da -= Math.PI * 2;
+                  while (da < -Math.PI) da += Math.PI * 2;
+
+                  // Single step cannot jump more than 110 deg in a smooth circle
+                  if (Math.abs(da) > Math.PI * 0.62) {
+                    cutsThroughCenter = true;
+                    break;
+                  }
+
+                  netAngle += da;
+                  if (da > 0.02) posSteps++;
+                  else if (da < -0.02) negSteps++;
+                }
+              }
+
+              const activeSteps = posSteps + negSteps;
+              const directionalConsistency =
+                activeSteps > 0 ? Math.max(posSteps, negSteps) / activeSteps : 0;
+
+              // Require ~300 deg (1.65 * PI) continuous rotation around centroid in one direction
+              if (
+                !cutsThroughCenter &&
+                Math.abs(netAngle) >= Math.PI * 1.65 &&
+                directionalConsistency >= 0.78
+              ) {
+                vortexRemaining = 3.0; // 3 seconds Vortex!
+                setIsVortexUI(true);
+                mouseTrailHistory.length = 0;
+              }
             }
           }
         }
