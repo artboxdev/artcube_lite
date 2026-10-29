@@ -732,15 +732,36 @@ class ImmersiveStroke {
   }
 }
 
-function reduceWhiteBy70(r: number, g: number, b: number): { r: number; g: number; b: number } {
-  const minW = Math.min(r, g, b);
-  const remove = minW * 0.7;
-  return {
-    r: Math.min(1.0, (r - remove) * 1.15),
-    g: Math.min(1.0, (g - remove) * 1.15),
-    b: Math.min(1.0, (b - remove) * 1.15),
-  };
-}
+const SATURATED_PLEXUS_PALETTES: Record<
+  BlossomColorId,
+  { r: number; g: number; b: number }[]
+> = {
+  pink: [
+    { r: 1.0, g: 0.05, b: 0.52 },
+    { r: 0.95, g: 0.0, b: 0.45 },
+    { r: 1.0, g: 0.12, b: 0.62 },
+  ],
+  red: [
+    { r: 1.0, g: 0.04, b: 0.14 },
+    { r: 0.96, g: 0.12, b: 0.02 },
+    { r: 1.0, g: 0.0, b: 0.22 },
+  ],
+  blue: [
+    { r: 0.0, g: 0.62, b: 1.0 },
+    { r: 0.0, g: 0.42, b: 1.0 },
+    { r: 0.05, g: 0.75, b: 1.0 },
+  ],
+  green: [
+    { r: 0.0, g: 0.88, b: 0.38 },
+    { r: 0.0, g: 0.76, b: 0.28 },
+    { r: 0.06, g: 0.95, b: 0.45 },
+  ],
+  yellow: [
+    { r: 1.0, g: 0.72, b: 0.0 },
+    { r: 1.0, g: 0.6, b: 0.0 },
+    { r: 1.0, g: 0.82, b: 0.02 },
+  ],
+};
 
 interface AttachedPlexusNode3D {
   radius: number;
@@ -1013,10 +1034,10 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       }
     });
 
-    // Instanced Sakura Petals with soft glow & fine structure (2x size, 70% slower vortex)
+    // Instanced Sakura Petals with soft glow & fine structure (4x original size / doubled again, 70% slower vortex)
     const SLIDER_PETALS = 44;
     const VARIANT3_PETAL_SHADES = [0xff80df, 0xff2a9d, 0xffb3ec, 0xffaae6, 0xff77dd];
-    const petalGeo = new THREE.PlaneGeometry(1.16, 1.16);
+    const petalGeo = new THREE.PlaneGeometry(2.32, 2.32);
     const petalTex = generatePetalTexture();
     const petalMat = new THREE.MeshBasicMaterial({
       map: petalTex,
@@ -1111,11 +1132,32 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       'color',
       new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_LINES * 6), 3)
     );
-    const lineMat = new THREE.LineBasicMaterial({
-      vertexColors: true,
+    lineGeo.setAttribute(
+      'alpha',
+      new THREE.BufferAttribute(new Float32Array(MAX_SLIDER_LINES * 2), 1)
+    );
+    const lineMat = new THREE.ShaderMaterial({
+      vertexShader: /* glsl */ `
+        attribute vec3 color;
+        attribute float alpha;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          vColor = color;
+          vAlpha = alpha;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          if (vAlpha < 0.01) discard;
+          gl_FragColor = vec4(vColor, clamp(vAlpha, 0.0, 1.0));
+        }
+      `,
       transparent: true,
-      opacity: 0.9,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false,
     });
     const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
@@ -1160,19 +1202,18 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           float starVal = pow(clamp(1.0 - abs(p.x) * 2.0, 0.0, 1.0) * clamp(1.0 - abs(p.y) * 2.0, 0.0, 1.0), 2.5);
           float softCore = exp(-d * d * 14.0);
           float intensity = max(starVal * 2.2, softCore * 1.8);
-          // 70% reduced white component so node colors stay deeply saturated
-          vec3 brightColor = vColor * 1.40 + vec3(0.165) * starVal + vec3(0.105) * softCore;
-          gl_FragColor = vec4(brightColor, clamp(intensity * 1.25 * uAlpha, 0.0, 1.0));
+          vec3 brightColor = clamp(vColor * 1.15 + vec3(0.04) * starVal, 0.0, 1.0);
+          gl_FragColor = vec4(brightColor, clamp(intensity * 1.15 * uAlpha, 0.0, 1.0));
         }
       `,
       transparent: true,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false,
     });
     const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
     plexusScene.add(plexusPointsMesh);
 
-    // 4 Orbs: Red, Blue, Yellow, Green (1:1 FloatingPlexusOrbInstance visuals + attached Finale-style Plexus)
+    // 4 Orbs: Red, Blue, Yellow, Green (1:1 FloatingPlexusOrbInstance visuals + attached Plexus)
     const ORB_RADIUS = 26.0;
     const sphereGeom = new THREE.SphereGeometry(ORB_RADIUS, 48, 48);
 
@@ -1322,28 +1363,28 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         this.impulseMesh.visible = false;
         plexusScene.add(this.impulseMesh);
 
-        // Pre-attach a multi-tiered & freestanding 3D Plexus cloud to every Orb (SakuraCanvas Finale behavior)
-        const rgbList = PALETTE_RGB_CACHE[this.id];
-        const nodeCount = 26;
+        // Pre-attach 1:1 Local Orb Shell (exact attachCluster behavior outside finale in SakuraCanvas.tsx)
+        const rgbList = SATURATED_PLEXUS_PALETTES[this.id];
+        const nodeCount = 18;
         for (let i = 0; i < nodeCount; i++) {
-          const tier = i < 12 ? 0 : i < 20 ? 1 : 2;
-          const baseLayerRadius = tier === 0 ? 40.0 : tier === 1 ? 64.0 : 92.0;
-          const angle = (i / nodeCount) * Math.PI * 2 + Math.random() * 0.5;
-          const elevation = (Math.random() - 0.5) * Math.PI * 0.72;
-          const rawRgb = rgbList[i % rgbList.length];
-          const rgb = reduceWhiteBy70(rawRgb.r, rawRgb.g, rawRgb.b);
+          const tier = i < 10 ? 1 : 2;
+          const layerRadius = 38.0 + (tier - 1) * 14.0;
+          const speedMul = 1.0 + (tier % 2 === 0 ? 0.35 : -0.25);
+          const angle = (i / nodeCount) * Math.PI * 2 + Math.random() * 0.4;
+          const elevation = (Math.random() - 0.5) * Math.PI * 0.6;
+          const rgb = rgbList[i % rgbList.length];
           this.attachedNodes.push({
-            radius: baseLayerRadius + (Math.random() - 0.5) * 14.0,
+            radius: layerRadius + (Math.random() - 0.5) * 6.0,
             angle,
             elevation,
-            orbitSpeed: (0.45 + (i % 3) * 0.2) * (i % 2 === 0 ? 1 : -1) * (tier === 2 ? 0.65 : 1.0),
+            orbitSpeed: (0.45 + (i % 3) * 0.2) * (i % 2 === 0 ? 1 : -1) * speedMul,
             r: rgb.r,
             g: rgb.g,
             b: rgb.b,
             size: 16.0 + Math.random() * 8.0,
             rot: Math.random() * Math.PI * 2,
             rotSpeed: (Math.random() - 0.5) * 3.0,
-            waveAmp: tier === 0 ? 5.0 : tier === 1 ? 14.0 : 24.0,
+            waveAmp: tier === 1 ? 14.0 : 24.0,
             waveFreq: 0.8 + Math.random() * 1.1,
             wavePhase: Math.random() * Math.PI * 2,
           });
@@ -1419,48 +1460,6 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       new SliderPlexusOrb('green', 250, -78, 34, 26, -0.68, 4.7),
     ];
 
-    // Freestanding Finale-Style Plexus Nodes (ported from FinaleMeshParticle in SakuraCanvas.tsx)
-    interface FreestandingPlexusNode {
-      x: number;
-      y: number;
-      z: number;
-      vx: number;
-      vy: number;
-      vz: number;
-      curlPhase: number;
-      curlSpeed: number;
-      r: number;
-      g: number;
-      b: number;
-      size: number;
-    }
-
-    const freestandingNodes: FreestandingPlexusNode[] = [];
-    const orbIds: BlossomColorId[] = ['red', 'blue', 'yellow', 'green'];
-    for (let i = 0; i < 36; i++) {
-      const cid = orbIds[i % orbIds.length];
-      const pal = PALETTE_RGB_CACHE[cid];
-      const rawCol = pal[i % pal.length];
-      const col = reduceWhiteBy70(rawCol.r, rawCol.g, rawCol.b);
-      const dirAngle = Math.random() * Math.PI * 2;
-      const pitch = (Math.random() - 0.5) * Math.PI * 0.65;
-      const spd = 14.0 + Math.random() * 18.0;
-      freestandingNodes.push({
-        x: 55 + Math.random() * 255,
-        y: (Math.random() - 0.5) * 240,
-        z: (Math.random() - 0.5) * 80,
-        vx: Math.cos(dirAngle) * Math.cos(pitch) * spd,
-        vy: Math.sin(dirAngle) * Math.cos(pitch) * spd,
-        vz: Math.sin(pitch) * spd * 0.6,
-        curlPhase: Math.random() * Math.PI * 2,
-        curlSpeed: 1.6 + Math.random() * 1.2,
-        r: col.r,
-        g: col.g,
-        b: col.b,
-        size: 15.0 + Math.random() * 8.0,
-      });
-    }
-
     interface ImpulseNetworkParticle {
       x: number;
       y: number;
@@ -1497,6 +1496,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     const worldNodeB = new Float32Array(MAX_SLIDER_NODES);
     const worldNodeSize = new Float32Array(MAX_SLIDER_NODES);
     const worldNodeActivated = new Uint8Array(MAX_SLIDER_NODES);
+    const worldNodeGroup = new Int16Array(MAX_SLIDER_NODES);
 
     // =========================================================================
     // POINTER INTERACTION (Sumi-e Circular Vortex & Plexus Orb Dragging)
@@ -1851,21 +1851,20 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
             const midX = (a.x + b.x) * 0.5;
             const midY = (a.y + b.y) * 0.5;
 
-            // Spawn 72 dual-color network impulse nodes streaming between the two orbs
-            const palA = PALETTE_RGB_CACHE[a.id];
-            const palB = PALETTE_RGB_CACHE[b.id];
+            // Spawn 72 dual-color network impulse nodes streaming between the two orbs (SakuraCanvas Finale behavior)
+            const palA = SATURATED_PLEXUS_PALETTES[a.id];
+            const palB = SATURATED_PLEXUS_PALETTES[b.id];
             const particles: ImpulseNetworkParticle[] = [];
             for (let p = 0; p < 72; p++) {
               const useA = p % 2 === 0;
               const pal = useA ? palA : palB;
-              const rawCol = pal[p % pal.length];
-              const col = reduceWhiteBy70(rawCol.r, rawCol.g, rawCol.b);
+              const col = pal[p % pal.length];
               const ang = (p / 72) * Math.PI * 2 + Math.random() * 0.4;
-              const rSpread = 25 + Math.random() * 110;
+              const rSpread = 25 + Math.random() * 115;
               particles.push({
-                x: midX + Math.cos(ang) * rSpread * 0.45,
-                y: midY + Math.sin(ang) * rSpread * 0.45,
-                z: (Math.random() - 0.5) * 48,
+                x: midX + Math.cos(ang) * rSpread * 0.48,
+                y: midY + Math.sin(ang) * rSpread * 0.48,
+                z: (Math.random() - 0.5) * 52,
                 vx: Math.cos(ang) * (28 + Math.random() * 48),
                 vy: Math.sin(ang) * (28 + Math.random() * 48),
                 vz: (Math.random() - 0.5) * 24,
@@ -1891,12 +1890,14 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         }
       }
 
-      // Collect all 3D Plexus Nodes (Attached + Freestanding Finale-style + Active 3s Impulse)
+      // Collect all 3D Plexus Nodes
       let worldNodeCount = 0;
       const linePosAttr = plexusLinesMesh.geometry.attributes.position;
       const lineColAttr = plexusLinesMesh.geometry.attributes.color;
+      const lineAlphaAttr = plexusLinesMesh.geometry.attributes.alpha;
       const linePositions = linePosAttr.array as Float32Array;
       const lineColors = lineColAttr.array as Float32Array;
+      const lineAlphas = lineAlphaAttr.array as Float32Array;
 
       const nodePosAttr = plexusPointsMesh.geometry.attributes.position;
       const nodeColAttr = plexusPointsMesh.geometry.attributes.color;
@@ -1905,18 +1906,18 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       const nodeColors = nodeColAttr.array as Float32Array;
       const nodeSizes = nodeSizeAttr.array as Float32Array;
 
-      // 1. Attached & Outer Satellite Plexus Nodes around each of the 4 Orbs + Orbs as network hubs
+      // 1. Attached Plexus Nodes around each of the 4 Orbs
+      // Outside impulse: 1:1 non-finale Local Orb Shell from SakuraCanvas.tsx (lines 4357-4384)
+      // During 3s impulse: Finale unfolding + Orb hub nodes (lines 4105-4144)
       for (let o = 0; o < plexusOrbs.length; o++) {
         const orb = plexusOrbs[o];
-        const isOrbActive =
-          orb === draggedOrb ||
-          activeImpulses.some((imp) => imp.orbA === orb || imp.orbB === orb);
+        const isOrbInImpulse = activeImpulses.some(
+          (imp) => imp.orbA === orb || imp.orbB === orb
+        );
 
-        // Add the Orb center itself as a hub node (exact SakuraCanvas finale behavior)
-        if (worldNodeCount < MAX_SLIDER_NODES) {
+        if (isOrbInImpulse && worldNodeCount < MAX_SLIDER_NODES) {
           const hubIdx = worldNodeCount++;
-          const hubRaw = PALETTE_RGB_CACHE[orb.id][0];
-          const hubCol = reduceWhiteBy70(hubRaw.r, hubRaw.g, hubRaw.b);
+          const hubCol = SATURATED_PLEXUS_PALETTES[orb.id][0];
           worldNodeX[hubIdx] = orb.x;
           worldNodeY[hubIdx] = orb.y;
           worldNodeZ[hubIdx] = orb.z;
@@ -1924,7 +1925,8 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           worldNodeG[hubIdx] = hubCol.g;
           worldNodeB[hubIdx] = hubCol.b;
           worldNodeSize[hubIdx] = 28.0;
-          worldNodeActivated[hubIdx] = isOrbActive ? 1 : 0;
+          worldNodeActivated[hubIdx] = 1;
+          worldNodeGroup[hubIdx] = -1;
         }
 
         const attNodes = orb.attachedNodes;
@@ -1934,26 +1936,43 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           node.angle += node.orbitSpeed * delta;
           node.rot += delta * node.rotSpeed;
 
-          const waveOffX =
-            Math.sin(totalTime * node.waveFreq + node.wavePhase) * node.waveAmp;
-          const waveOffY =
-            Math.cos(totalTime * (node.waveFreq * 0.85) + node.wavePhase * 1.3) *
-            (node.waveAmp * 0.85);
-          const waveOffZ =
-            Math.sin(totalTime * (node.waveFreq * 1.15) + node.wavePhase * 2.1) *
-            (node.waveAmp * 0.6);
+          let localX: number;
+          let localY: number;
+          let localZ: number;
+          let pointSize = node.size;
 
-          const localRadius = node.radius;
-          const localX =
-            orb.x +
-            Math.cos(node.angle) * Math.cos(node.elevation) * localRadius +
-            waveOffX;
-          const localY =
-            orb.y +
-            Math.sin(node.angle) * Math.cos(node.elevation) * localRadius * 0.85 +
-            waveOffY;
-          const localZ =
-            orb.z + Math.sin(node.elevation) * localRadius + waveOffZ;
+          if (isOrbInImpulse) {
+            const waveOffX =
+              Math.sin(totalTime * node.waveFreq + node.wavePhase) * node.waveAmp;
+            const waveOffY =
+              Math.cos(totalTime * (node.waveFreq * 0.85) + node.wavePhase * 1.3) *
+              (node.waveAmp * 0.85);
+            const waveOffZ =
+              Math.sin(totalTime * (node.waveFreq * 1.15) + node.wavePhase * 2.1) *
+              (node.waveAmp * 0.6);
+
+            const expandedRadius = node.radius * 1.35;
+            localX =
+              orb.x +
+              Math.cos(node.angle) * Math.cos(node.elevation) * expandedRadius +
+              waveOffX;
+            localY =
+              orb.y +
+              Math.sin(node.angle) * Math.cos(node.elevation) * expandedRadius * 0.85 +
+              waveOffY;
+            localZ =
+              orb.z + Math.sin(node.elevation) * expandedRadius + waveOffZ;
+            pointSize = node.size + Math.sin(totalTime * 3.2 + n) * 3.0;
+          } else {
+            // Exact non-finale Local Orb Shell from SakuraCanvas.tsx (lines 4369-4373)
+            const localRadius = node.radius;
+            localX =
+              orb.x + Math.cos(node.angle) * Math.cos(node.elevation) * localRadius;
+            localY =
+              orb.y +
+              Math.sin(node.angle) * Math.cos(node.elevation) * localRadius * 0.85;
+            localZ = orb.z + Math.sin(node.elevation) * localRadius;
+          }
 
           const idx = worldNodeCount++;
           worldNodeX[idx] = localX;
@@ -1962,58 +1981,13 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           worldNodeR[idx] = node.r;
           worldNodeG[idx] = node.g;
           worldNodeB[idx] = node.b;
-          worldNodeSize[idx] =
-            node.size + Math.sin(totalTime * 3.0 + n) * 2.5;
-          worldNodeActivated[idx] = isOrbActive ? 1 : 0;
+          worldNodeSize[idx] = pointSize;
+          worldNodeActivated[idx] = isOrbInImpulse ? 1 : 0;
+          worldNodeGroup[idx] = isOrbInImpulse ? -1 : o;
         }
       }
 
-      // 2. Freestanding Finale-Style Plexus Nodes drifting across the Plexus space
-      for (let f = 0; f < freestandingNodes.length; f++) {
-        if (worldNodeCount >= MAX_SLIDER_NODES) break;
-        const fn = freestandingNodes[f];
-        fn.x += fn.vx * delta;
-        fn.y += fn.vy * delta;
-        fn.z += fn.vz * delta;
-
-        // Soft boundary bounce in the right half of the 3D space
-        if (fn.x < 35) {
-          fn.x = 35;
-          fn.vx = Math.abs(fn.vx);
-        } else if (fn.x > 315) {
-          fn.x = 315;
-          fn.vx = -Math.abs(fn.vx);
-        }
-        if (fn.y < -145) {
-          fn.y = -145;
-          fn.vy = Math.abs(fn.vy);
-        } else if (fn.y > 145) {
-          fn.y = 145;
-          fn.vy = -Math.abs(fn.vy);
-        }
-        if (fn.z < -55) {
-          fn.z = -55;
-          fn.vz = Math.abs(fn.vz);
-        } else if (fn.z > 55) {
-          fn.z = 55;
-          fn.vz = -Math.abs(fn.vz);
-        }
-
-        const curlX = Math.sin(totalTime * fn.curlSpeed + fn.curlPhase) * 8.0;
-        const curlY = Math.cos(totalTime * (fn.curlSpeed * 0.85) + fn.curlPhase) * 8.0;
-
-        const idx = worldNodeCount++;
-        worldNodeX[idx] = fn.x + curlX;
-        worldNodeY[idx] = fn.y + curlY;
-        worldNodeZ[idx] = fn.z;
-        worldNodeR[idx] = fn.r;
-        worldNodeG[idx] = fn.g;
-        worldNodeB[idx] = fn.b;
-        worldNodeSize[idx] = fn.size + Math.sin(totalTime * 2.8 + f) * 2.2;
-        worldNodeActivated[idx] = activeImpulses.length > 0 ? 1 : 0;
-      }
-
-      // 3. Active 3-Second Dual-Color Impulse Particles & Separation after 3.0s
+      // 2. Active 3-Second Dual-Color Impulse Particles (Freestanding Finale Nodes) & Separation after 3.0s
       for (let idx = activeImpulses.length - 1; idx >= 0; idx--) {
         const imp = activeImpulses[idx];
         imp.remaining -= delta;
@@ -2048,6 +2022,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           worldNodeB[nIdx] = pt.b;
           worldNodeSize[nIdx] = pt.size * (0.48 + 0.62 * env);
           worldNodeActivated[nIdx] = 1;
+          worldNodeGroup[nIdx] = -1;
         }
 
         // After 3 seconds: gently separate the two orbs so they drift apart into their own orbits!
@@ -2080,153 +2055,180 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         }
       }
 
-      // Populate GPU Node Buffers (70% less white washout)
+      // Populate GPU Node Buffers (Pure saturated colors without white washout)
       for (let k = 0; k < worldNodeCount; k++) {
         const k3 = k * 3;
         nodePositions[k3] = worldNodeX[k];
         nodePositions[k3 + 1] = worldNodeY[k];
         nodePositions[k3 + 2] = worldNodeZ[k];
 
-        nodeColors[k3] = Math.min(1.0, worldNodeR[k] * 1.25);
-        nodeColors[k3 + 1] = Math.min(1.0, worldNodeG[k] * 1.25);
-        nodeColors[k3 + 2] = Math.min(1.0, worldNodeB[k] * 1.25);
+        nodeColors[k3] = worldNodeR[k];
+        nodeColors[k3 + 1] = worldNodeG[k];
+        nodeColors[k3 + 2] = worldNodeB[k];
 
         nodeSizes[k] = worldNodeSize[k];
       }
 
-      // Populate GPU Line Buffers (SakuraCanvas Finale behavior: more freestanding lines, 3-filament thickness, subtle flickering of activated plexus, 70% less white)
+      // Populate GPU Line Buffers:
+      // - Normal Orbs: 1:1 non-finale SakuraCanvas.tsx lines (steady, single line, maxDistCutoff = 85.0, zero white)
+      // - Pushed-together Orbs (3s impulse): Finale flickering lines + 3-filament thickness + linkRadius = 112.0
       let lineVertexIdx = 0;
       let lineColorIdx = 0;
+      let lineAlphaIdx = 0;
       const maxLineVertices = linePositions.length - 18;
-      const linkRadius = activeImpulses.length > 0 ? 114.0 : 96.0;
-      const linkRadiusSq = linkRadius * linkRadius;
-      const maxLinksPerNode = 5;
       const nodeLinkCounts = new Uint8Array(worldNodeCount);
 
       for (let i = 0; i < worldNodeCount; i++) {
-        if (nodeLinkCounts[i] >= maxLinksPerNode) continue;
+        const actA = worldNodeActivated[i];
+        const maxLinksForA = actA === 1 ? 5 : 8;
+        if (nodeLinkCounts[i] >= maxLinksForA) continue;
+
         const x1 = worldNodeX[i];
         const y1 = worldNodeY[i];
         const z1 = worldNodeZ[i];
         const ar = worldNodeR[i];
         const ag = worldNodeG[i];
         const ab = worldNodeB[i];
-        const actA = worldNodeActivated[i];
+        const grpA = worldNodeGroup[i];
 
         for (let j = i + 1; j < worldNodeCount; j++) {
           if (lineVertexIdx >= maxLineVertices) break;
-          if (nodeLinkCounts[i] >= maxLinksPerNode) break;
-          if (nodeLinkCounts[j] >= maxLinksPerNode) continue;
+          if (nodeLinkCounts[i] >= maxLinksForA) break;
+          if (worldNodeGroup[j] !== grpA) continue;
+
+          const isActivatedLine = actA === 1 && worldNodeActivated[j] === 1;
+          const maxLinksForB = isActivatedLine ? 5 : 8;
+          if (nodeLinkCounts[j] >= maxLinksForB) continue;
+
+          const cutoff = isActivatedLine ? 112.0 : 85.0;
+          const cutoffSq = cutoff * cutoff;
 
           const x2 = worldNodeX[j];
           const y2 = worldNodeY[j];
           const z2 = worldNodeZ[j];
 
           const dx = x2 - x1;
-          if (dx > linkRadius || dx < -linkRadius) continue;
+          if (dx > cutoff || dx < -cutoff) continue;
           const dy = y2 - y1;
-          if (dy > linkRadius || dy < -linkRadius) continue;
+          if (dy > cutoff || dy < -cutoff) continue;
           const dz = z2 - z1;
-          if (dz > linkRadius || dz < -linkRadius) continue;
+          if (dz > cutoff || dz < -cutoff) continue;
 
           const distSq = dx * dx + dy * dy + dz * dz;
-          if (distSq >= linkRadiusSq) continue;
+          if (distSq >= cutoffSq) continue;
 
           const distance = Math.sqrt(distSq);
-          const opacity = 1.0 - distance / linkRadius;
+          const opacity = 1.0 - distance / cutoff;
           if (opacity <= 0.01) continue;
 
-          // Subtle twinkling flicker from SakuraCanvas.tsx finale (lines 4189-4201)
-          const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
-          const flickerA = Math.sin(totalTime * 14.0 + lineSeed);
-          const flickerB = Math.cos(totalTime * 25.0 + lineSeed * 1.7);
-          const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
+          const r2 = worldNodeR[j];
+          const g2 = worldNodeG[j];
+          const b2 = worldNodeB[j];
 
-          const isActivatedLine = actA === 1 || worldNodeActivated[j] === 1;
-          let flickerMul = 1.0;
           if (isActivatedLine) {
+            // Finale flickering ONLY when Orbs are pushed together (SakuraCanvas.tsx lines 4189-4201)
+            const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
+            const flickerA = Math.sin(totalTime * 14.0 + lineSeed);
+            const flickerB = Math.cos(totalTime * 25.0 + lineSeed * 1.7);
+            const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
+
+            let flickerMul = 1.0;
             if (flickerNoise < -0.32) {
               flickerMul = (flickerNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35;
             } else if (flickerNoise > 0.68) {
               flickerMul = 1.65;
             }
-          } else {
-            // Gentle ambient shimmer on resting Orb Plexus lines as well
-            if (flickerNoise < -0.48) {
-              flickerMul = 0.42;
-            } else if (flickerNoise > 0.72) {
-              flickerMul = 1.35;
+            if (flickerMul <= 0.02) continue;
+
+            nodeLinkCounts[i]++;
+            nodeLinkCounts[j]++;
+
+            const lineAlpha = Math.min(0.96, Math.pow(opacity, 0.55) * 1.15 * flickerMul);
+
+            const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
+            const perpX = (-dy / pLen) * 0.85;
+            const perpY = (dx / pLen) * 0.85;
+
+            // 1. Center Line (zero white added)
+            linePositions[lineVertexIdx++] = x1;
+            linePositions[lineVertexIdx++] = y1;
+            linePositions[lineVertexIdx++] = z1;
+            linePositions[lineVertexIdx++] = x2;
+            linePositions[lineVertexIdx++] = y2;
+            linePositions[lineVertexIdx++] = z2;
+
+            lineColors[lineColorIdx++] = ar;
+            lineColors[lineColorIdx++] = ag;
+            lineColors[lineColorIdx++] = ab;
+            lineColors[lineColorIdx++] = r2;
+            lineColors[lineColorIdx++] = g2;
+            lineColors[lineColorIdx++] = b2;
+
+            lineAlphas[lineAlphaIdx++] = lineAlpha;
+            lineAlphas[lineAlphaIdx++] = lineAlpha;
+
+            // 2. Positive Perpendicular Filament
+            if (lineVertexIdx < maxLineVertices) {
+              linePositions[lineVertexIdx++] = x1 + perpX;
+              linePositions[lineVertexIdx++] = y1 + perpY;
+              linePositions[lineVertexIdx++] = z1;
+              linePositions[lineVertexIdx++] = x2 + perpX;
+              linePositions[lineVertexIdx++] = y2 + perpY;
+              linePositions[lineVertexIdx++] = z2;
+
+              lineColors[lineColorIdx++] = ar;
+              lineColors[lineColorIdx++] = ag;
+              lineColors[lineColorIdx++] = ab;
+              lineColors[lineColorIdx++] = r2;
+              lineColors[lineColorIdx++] = g2;
+              lineColors[lineColorIdx++] = b2;
+
+              lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
+              lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
             }
-          }
 
-          if (flickerMul <= 0.02) continue;
+            // 3. Negative Perpendicular Filament
+            if (lineVertexIdx < maxLineVertices) {
+              linePositions[lineVertexIdx++] = x1 - perpX;
+              linePositions[lineVertexIdx++] = y1 - perpY;
+              linePositions[lineVertexIdx++] = z1;
+              linePositions[lineVertexIdx++] = x2 - perpX;
+              linePositions[lineVertexIdx++] = y2 - perpY;
+              linePositions[lineVertexIdx++] = z2;
 
-          nodeLinkCounts[i]++;
-          nodeLinkCounts[j]++;
+              lineColors[lineColorIdx++] = ar;
+              lineColors[lineColorIdx++] = ag;
+              lineColors[lineColorIdx++] = ab;
+              lineColors[lineColorIdx++] = r2;
+              lineColors[lineColorIdx++] = g2;
+              lineColors[lineColorIdx++] = b2;
 
-          const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.58) * 1.65 * flickerMul);
-          // 70% reduced white component (0.50 * 0.30 = 0.15) so line colors remain vivid
-          const coreWhite = 0.15 * lineAlpha;
+              lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
+              lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
+            }
+          } else {
+            // Outside Finale Animation (SakuraCanvas.tsx lines 4432-4454): steady single line, zero white
+            nodeLinkCounts[i]++;
+            nodeLinkCounts[j]++;
 
-          const r1 = Math.min(1.0, ar * lineAlpha * 1.45 + coreWhite);
-          const g1 = Math.min(1.0, ag * lineAlpha * 1.45 + coreWhite);
-          const b1 = Math.min(1.0, ab * lineAlpha * 1.45 + coreWhite);
-          const r2 = Math.min(1.0, worldNodeR[j] * lineAlpha * 1.45 + coreWhite);
-          const g2 = Math.min(1.0, worldNodeG[j] * lineAlpha * 1.45 + coreWhite);
-          const b2 = Math.min(1.0, worldNodeB[j] * lineAlpha * 1.45 + coreWhite);
+            const effAlpha = Math.min(0.92, Math.pow(opacity * 0.92, 0.72) * 1.15);
 
-          const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
-          const perpX = (-dy / pLen) * 0.85;
-          const perpY = (dx / pLen) * 0.85;
-
-          // 1. Center Line
-          linePositions[lineVertexIdx++] = x1;
-          linePositions[lineVertexIdx++] = y1;
-          linePositions[lineVertexIdx++] = z1;
-          linePositions[lineVertexIdx++] = x2;
-          linePositions[lineVertexIdx++] = y2;
-          linePositions[lineVertexIdx++] = z2;
-
-          lineColors[lineColorIdx++] = r1;
-          lineColors[lineColorIdx++] = g1;
-          lineColors[lineColorIdx++] = b1;
-          lineColors[lineColorIdx++] = r2;
-          lineColors[lineColorIdx++] = g2;
-          lineColors[lineColorIdx++] = b2;
-
-          // 2. Positive Perpendicular Filament (70% reduced white glow: 0.32 * 0.30 = 0.096)
-          const perpGlow = 0.096 * lineAlpha;
-          if (lineVertexIdx < maxLineVertices) {
-            linePositions[lineVertexIdx++] = x1 + perpX;
-            linePositions[lineVertexIdx++] = y1 + perpY;
+            linePositions[lineVertexIdx++] = x1;
+            linePositions[lineVertexIdx++] = y1;
             linePositions[lineVertexIdx++] = z1;
-            linePositions[lineVertexIdx++] = x2 + perpX;
-            linePositions[lineVertexIdx++] = y2 + perpY;
+            linePositions[lineVertexIdx++] = x2;
+            linePositions[lineVertexIdx++] = y2;
             linePositions[lineVertexIdx++] = z2;
 
-            lineColors[lineColorIdx++] = Math.min(1.0, r1 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, g1 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, b1 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, r2 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, g2 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, b2 * 0.95 + perpGlow);
-          }
+            lineColors[lineColorIdx++] = ar;
+            lineColors[lineColorIdx++] = ag;
+            lineColors[lineColorIdx++] = ab;
+            lineColors[lineColorIdx++] = r2;
+            lineColors[lineColorIdx++] = g2;
+            lineColors[lineColorIdx++] = b2;
 
-          // 3. Negative Perpendicular Filament
-          if (lineVertexIdx < maxLineVertices) {
-            linePositions[lineVertexIdx++] = x1 - perpX;
-            linePositions[lineVertexIdx++] = y1 - perpY;
-            linePositions[lineVertexIdx++] = z1;
-            linePositions[lineVertexIdx++] = x2 - perpX;
-            linePositions[lineVertexIdx++] = y2 - perpY;
-            linePositions[lineVertexIdx++] = z2;
-
-            lineColors[lineColorIdx++] = Math.min(1.0, r1 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, g1 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, b1 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, r2 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, g2 * 0.95 + perpGlow);
-            lineColors[lineColorIdx++] = Math.min(1.0, b2 * 0.95 + perpGlow);
+            lineAlphas[lineAlphaIdx++] = effAlpha;
+            lineAlphas[lineAlphaIdx++] = effAlpha;
           }
         }
       }
@@ -2235,6 +2237,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       nodeGeo.setDrawRange(0, worldNodeCount);
       linePosAttr.needsUpdate = true;
       lineColAttr.needsUpdate = true;
+      lineAlphaAttr.needsUpdate = true;
       nodePosAttr.needsUpdate = true;
       nodeColAttr.needsUpdate = true;
       nodeSizeAttr.needsUpdate = true;
