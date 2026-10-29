@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>art.cube — Experience Station: 3 Visual-Varianten (Sumi-e & Plexus)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    body {
+      background-color: #08000c;
+      color: #ffffff;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+    .glass-console {
+      background: rgba(16, 10, 26, 0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+    .text-gradient-sakura {
+      background: linear-gradient(to right, #ff80df, #ff2a9d, #4ee2ec);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    canvas {
+      display: block;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #08000c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3b1d54;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #ff2a9d;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-pink-500 selection:text-white pb-28">
+
+  <!-- STICKY QUICK-NAVIGATION FÜR DIE 3 VARIANTEN -->
+  <nav class="sticky top-0 z-50 bg-[#08000c]/85 backdrop-blur-xl border-b border-white/10 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d]"></span>
+        <span class="font-extrabold tracking-wider text-xs sm:text-sm uppercase text-white">
+          art.cube <span class="text-white/40 font-normal">| Experience Station Konzepte</span>
+        </span>
+      </div>
+      <div class="flex items-center gap-2 text-xs font-bold">
+        <a href="#variante-1" class="px-3 py-1.5 rounded-full bg-pink-500/15 border border-pink-500/40 text-pink-200 hover:bg-pink-500/30 transition">
+          1. Dual-Preview Cards
+        </a>
+        <a href="#variante-2" class="px-3 py-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30 transition">
+          2. Split-Stage & Konsole
+        </a>
+        <a href="#variante-3" class="px-3 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/40 text-purple-200 hover:bg-purple-500/30 transition">
+          3. Yin-Yang Slider-Header
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===================================================================== -->
+  <!-- VARIANTE 1: INTERAKTIVE DUAL-PREVIEW-KARTEN IN DER KONSOLE            -->
+  <!-- ===================================================================== -->
+  <div id="variante-1" class="pt-12 pb-20 border-b border-white/10 relative">
+    <!-- Varianten-Erklärungs-Banner -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-cyan-500/10 border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="inline-block text-xs font-extrabold uppercase tracking-widest text-[#ff80df] mb-1">
+            Variante 1 — Interaktive Dual-Karten (Stil-Entdecker & Direktwahl)
+          </span>
+          <p class="text-xs sm:text-sm text-white/80 leading-relaxed">
+            Zwei lebendige Mini-Leinwände für <strong>Sumi-e</strong> und <strong>Plexus</strong> sitzen direkt oberhalb der Konsole (oder als erster Schritt). Besucher können mit der Maus / dem Finger direkt darin zeichnen & klicken und optional wählen, mit welcher Welt sie starten möchten.
+          </p>
+        </div>
+        <span class="shrink-0 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-cyan-300 font-semibold self-start sm:self-center">
+          ✨ Klicke & bewege die Maus in den Fenstern!
+        </span>
+      </div>
+    </div>
+
+    <!-- Nachbau der ExperienceStation Section -->
+    <section class="relative py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+      <!-- Glow Center Background -->
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] sm:w-[700px] h-[350px] sm:h-[700px] bg-gradient-to-tr from-[#ff2a9d]/20 via-[#7928ca]/20 to-[#4ee2ec]/20 blur-[110px] pointer-events-none -z-10"></div>
+
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-10">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-300 text-xs font-bold tracking-[0.2em] uppercase mb-4">
+          Jetzt das Kunstwerk erleben
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          Willkommen im <span class="text-gradient-sakura">Sakuraverse.</span>
+        </h2>
+        <p class="mt-4 text-sm sm:text-base text-white/85 font-light leading-relaxed">
+          Sakuraverse ist ein art.cube-Kunstwerk der ersten Generation. Inspiriert wurde es von der Bedeutung der Kirschblüte (Sakura) für Schönheit und Vergänglichkeit. In zwei unterschiedlichen Modi (Sumi-e und Plexus) werden Entstehung und Zerfall auf besondere Art und Weise dargestellt.
+        </p>
+      </div>
+
+      <!-- NEU IN VARIANTE 1: DIE BEIDEN INTERAKTIVEN MINI-WELTEN -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+        
+        <!-- Karte 1: SUMI-E -->
+        <div id="v1-card-sumie" onclick="selectV1World('sumie')" class="group relative rounded-[28px] overflow-hidden border-2 border-[#ff2a9d] shadow-[0_0_30px_rgba(255,42,157,0.25)] transition-all duration-300 bg-[#140c1c] cursor-pointer">
+          <div class="relative h-48 sm:h-52 w-full overflow-hidden">
+            <canvas id="canvas-v1-sumie" class="w-full h-full"></canvas>
+            <!-- Top Badges -->
+            <div class="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
+              <span class="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-pink-400/40 text-pink-200 text-xs font-bold tracking-wider uppercase flex items-center gap-1.5">
+                🌸 Welt I: Sumi-e
+              </span>
+              <span id="v1-badge-sumie" class="px-2.5 py-1 rounded-full bg-[#ff2a9d] text-white text-xs font-bold tracking-wider uppercase shadow-[0_0_12px_#ff2a9d]">
+                Aktiv ausgewählt
+              </span>
+            </div>
+            <!-- Interactive Hint Pill -->
+            <div class="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-xs text-white/80 pointer-events-none group-hover:border-pink-400/50 transition">
+              👆 Klicken für Blüten-Impuls
+            </div>
+          </div>
+          <div class="p-4 sm:p-5 bg-gradient-to-b from-[#1a0f24] to-[#120a1a] flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-bold uppercase tracking-wider text-pink-200">Organische Tusche & Kirschblüten</h3>
+              <p class="text-xs text-white/65 mt-0.5 font-light">Wachsende Äste auf Washi-Pergament, sanftes Erblühen und Verwehen im Wind.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Karte 2: PLEXUS -->
+        <div id="v1-card-plexus" onclick="selectV1World('plexus')" class="group relative rounded-[28px] overflow-hidden border border-white/15 hover:border-[#4ee2ec]/70 transition-all duration-300 bg-[#0b101e] cursor-pointer">
+          <div class="relative h-48 sm:h-52 w-full overflow-hidden">
+            <canvas id="canvas-v1-plexus" class="w-full h-full"></canvas>
+            <!-- Top Badges -->
+            <div class="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between pointer-events-none">
+              <span class="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-xs font-bold tracking-wider uppercase flex items-center gap-1.5">
+                🔮 Welt II: Plexus
+              </span>
+              <span id="v1-badge-plexus" class="px-2.5 py-1 rounded-full bg-white/10 text-white/60 text-xs font-bold tracking-wider uppercase">
+                Vorschau
+              </span>
+            </div>
+            <!-- Interactive Hint Pill -->
+            <div class="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-xs text-white/80 pointer-events-none group-hover:border-cyan-400/50 transition">
+              👆 Klicken für Energie-Welle
+            </div>
+          </div>
+          <div class="p-4 sm:p-5 bg-gradient-to-b from-[#0d1526] to-[#090d18] flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-bold uppercase tracking-wider text-cyan-200">Kosmisches 3D-Netzwerk & Morphing</h3>
+              <p class="text-xs text-white/65 mt-0.5 font-light">Reaktive Lichtknoten, geometrische Konstellationen und leuchtende Datenströme.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Consolidated Start Console -->
+      <div class="relative rounded-[32px] sm:rounded-[38px] p-6 sm:p-10 glass-console border border-pink-500/40 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(255,42,157,0.2)] flex flex-col gap-6">
+        <!-- Name Input -->
+        <div class="flex flex-col gap-2">
+          <label class="flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-pink-200/90">
+            <span>👤 Dein Name (Optional)</span>
+          </label>
+          <input type="text" placeholder="Wie heißt du? (z.B. Host oder dein Name)" class="w-full px-5 py-3.5 rounded-2xl bg-white/[0.06] border border-pink-500/30 text-white text-sm font-semibold placeholder:text-white/30 outline-none focus:border-[#ff2a9d]" />
+        </div>
+
+        <!-- Mode Selection -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="p-4 rounded-2xl border bg-cyan-500/15 border-[#4ee2ec] shadow-[0_0_20px_rgba(78,226,236,0.2)] flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold tracking-wider uppercase text-[#4ee2ec]">🤝 Testmodus</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-[#4ee2ec]"></span>
+            </div>
+            <p class="text-xs text-white/75 font-light">Freies, unbegrenztes Erkunden und Zeichnen. Ideal zum Kennenlernen allein oder zu zweit.</p>
+          </div>
+          <div class="p-4 rounded-2xl border bg-white/[0.03] border-white/10 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold tracking-wider uppercase text-[#ff80df]">🎨 Souvenirmodus</span>
+            </div>
+            <p class="text-xs text-white/75 font-light">Gezielte Interaktionsphase mit anschließendem 14s Video-Souvenir eurer Schöpfung.</p>
+          </div>
+        </div>
+
+        <!-- Start Button -->
+        <button id="v1-start-btn" class="w-full py-4 px-8 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#4ee2ec] shadow-[0_10px_35px_rgba(255,42,157,0.4)] hover:scale-[1.01] transition flex items-center justify-center gap-3 cursor-pointer">
+          <span>▶ Testmodus mit Sumi-e starten</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+
+  <!-- ===================================================================== -->
+  <!-- VARIANTE 2: 2-SPALTEN SPLIT-STAGE ("INTERAKTIVES LABOR + KONSOLE")    -->
+  <!-- ===================================================================== -->
+  <div id="variante-2" class="pt-16 pb-20 border-b border-white/10 relative">
+    <!-- Varianten-Erklärungs-Banner -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-pink-500/10 border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="inline-block text-xs font-extrabold uppercase tracking-widest text-[#4ee2ec] mb-1">
+            Variante 2 — Split-Screen: Interaktive Live-Bühne links & Start-Konsole rechts
+          </span>
+          <p class="text-xs sm:text-sm text-white/80 leading-relaxed">
+            Links befindet sich ein großes <strong>interaktives Sakuraverse-Fenster</strong> mit Modus-Umschalter (Sumi-e / Plexus / Hybrid-Morph) und klickbaren „Mini-Experimenten“. Rechts daneben liegt aufgeräumt die Einstiegskonsole.
+          </p>
+        </div>
+        <span class="shrink-0 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-pink-300 font-semibold self-start sm:self-center">
+          ✨ Probiere die Buttons im linken Kunst-Fenster!
+        </span>
+      </div>
+    </div>
+
+    <section class="relative py-10 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-12">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-300 text-xs font-bold tracking-[0.2em] uppercase mb-4">
+          Jetzt das Kunstwerk erleben
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          Willkommen im <span class="text-gradient-sakura">Sakuraverse.</span>
+        </h2>
+        <p class="mt-4 text-sm sm:text-base text-white/85 font-light leading-relaxed">
+          Teste schon hier im Kleinen, wie deine Berührungen Entstehung und Zerfall formen — und starte anschließend allein oder zu zweit in das volle Erlebnis.
+        </p>
+      </div>
+
+      <!-- 2-SPALTEN GRID -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-7 items-stretch">
+        
+        <!-- LINKE SPALTE (7 Cols): INTERAKTIVES SHOWCASE-PORTAL -->
+        <div class="lg:col-span-7 rounded-[34px] p-5 sm:p-6 glass-console border border-cyan-400/35 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(78,226,236,0.15)] flex flex-col justify-between gap-4">
+          
+          <!-- Top Bar mit Modus-Switch -->
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-xs font-bold uppercase tracking-widest text-white/90">Live Mini-Leinwand</span>
+            </div>
+            <!-- Mode Tabs -->
+            <div class="inline-flex p-1 rounded-xl bg-black/60 border border-white/10">
+              <button onclick="setV2Mode('sumie')" id="v2-tab-sumie" class="px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#ff2a9d] text-white shadow-[0_0_12px_#ff2a9d] transition cursor-pointer">
+                🌸 Sumi-e
+              </button>
+              <button onclick="setV2Mode('plexus')" id="v2-tab-plexus" class="px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white transition cursor-pointer">
+                🔮 Plexus
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Canvas Container -->
+          <div class="relative flex-1 min-h-[280px] sm:min-h-[330px] rounded-2xl overflow-hidden border border-white/15 bg-black">
+            <canvas id="canvas-v2-stage" class="w-full h-full cursor-crosshair"></canvas>
+            
+            <!-- Floating Overlay Caption -->
+            <div class="absolute bottom-3 left-3 right-3 p-3 rounded-xl bg-black/65 backdrop-blur-md border border-white/10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+              <span id="v2-stage-desc" class="text-xs text-white/85 font-light">
+                <strong class="text-pink-300 font-semibold">Sumi-e Modus:</strong> Ziehe mit der Maus, um Tusche-Zweige und Kirschblüten wachsen zu lassen.
+              </span>
+              <span class="text-xs text-cyan-300 font-mono">INTERAKTIV</span>
+            </div>
+          </div>
+
+          <!-- Schnelle Interaktions-Trigger unter dem Canvas -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <span class="text-xs text-white/60">Elemente auslösen:</span>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="triggerV2Burst('blossom')" class="px-3 py-1.5 rounded-xl bg-pink-500/15 hover:bg-pink-500/30 border border-pink-500/30 text-xs font-semibold text-pink-200 transition cursor-pointer">
+                🌸 Blütensturm
+              </button>
+              <button onclick="triggerV2Burst('pulse')" class="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/30 text-xs font-semibold text-cyan-200 transition cursor-pointer">
+                ⚡ Plexus-Impuls
+              </button>
+              <button onclick="triggerV2Burst('clear')" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-xs text-white/70 transition cursor-pointer">
+                ↺ Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RECHTE SPALTE (5 Cols): KOMPAKTE START-KONSOLE -->
+        <div class="lg:col-span-5 rounded-[34px] p-6 sm:p-8 glass-console border border-pink-500/40 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(255,42,157,0.2)] flex flex-col justify-between gap-5">
+          <div class="flex flex-col gap-5">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-widest text-pink-300">Session Konfiguration</span>
+              <h3 class="text-xl font-extrabold text-white mt-0.5">Bereit für den Vollbild-Raum?</h3>
+            </div>
+
+            <!-- Name -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold tracking-[2px] uppercase text-pink-200/90">Dein Name (Optional)</label>
+              <input type="text" placeholder="z.B. Host oder dein Künstlername" class="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-pink-500/30 text-white text-sm outline-none focus:border-[#ff2a9d]" />
+            </div>
+
+            <!-- Modus-Wahl -->
+            <div class="flex flex-col gap-2.5">
+              <label class="text-xs font-bold tracking-[2px] uppercase text-pink-200/90">Wähle deinen Modus</label>
+              <div class="p-3.5 rounded-xl border bg-cyan-500/15 border-[#4ee2ec] flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase text-[#4ee2ec]">🤝 Testmodus (Aktiv)</span>
+                <p class="text-xs text-white/70 font-light">Freies Erkunden & Zeichnen allein oder zu zweit.</p>
+              </div>
+              <div class="p-3.5 rounded-xl border bg-white/[0.03] border-white/10 flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase text-[#ff80df]">🎨 Souvenirmodus</span>
+                <p class="text-xs text-white/70 font-light">Mit 14-sekündigem Video-Souvenir am Ende.</p>
+              </div>
+            </div>
+
+            <!-- Invite Link Box -->
+            <div class="p-3.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between gap-2">
+              <span class="text-xs text-white/80 font-semibold">🔗 Mitspieler einladen</span>
+              <button class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold uppercase text-cyan-200 transition cursor-pointer">
+                Link kopieren
+              </button>
+            </div>
+          </div>
+
+          <button class="w-full py-4 px-6 rounded-2xl font-extrabold text-sm tracking-[2px] uppercase text-white bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_30px_rgba(78,226,236,0.4)] hover:scale-[1.01] transition cursor-pointer">
+            ▶ Kunstwerk im Vollbild starten
+          </button>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+
+  <!-- ===================================================================== -->
+  <!-- VARIANTE 3: FREISTEHENDER INTERAKTIVER DUAL-SLIDER UNTER DEM TEXT     -->
+  <!-- ===================================================================== -->
+  <div id="variante-3" class="pt-16 pb-16 relative">
+    <!-- Varianten-Erklärungs-Banner -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-cyan-500/15 border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="inline-block text-xs font-extrabold uppercase tracking-widest text-purple-300 mb-1">
+            Variante 3 (Ausgewählt) — Freistehender Sumi-e ↔ Plexus Slider unter dem Beschreibungstext
+          </span>
+          <p class="text-xs sm:text-sm text-white/80 leading-relaxed">
+            Freistehend zwischen Einleitungstext und Start-Konsole: Links der <strong>Sumi-e Ast mit Zweigen, pinken Sakurablütenknollen & fliegenden Blüten</strong> (Kreisbewegung = 3s Vortex). Rechts die <strong>4 farbigen Orbs (Rot, Blau, Gelb, Grün) mit angedocktem Plexus</strong> (2 Orbs zusammenschieben = 3s farbiger Netzwerk-Impuls). Der Regler bewegt sich nur, wenn man direkt den Griff zieht.
+          </p>
+        </div>
+        <span class="shrink-0 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-purple-200 font-semibold self-start sm:self-center">
+          ↔️ Griff ziehen · 🔄 Kreisen · ✨ Orbs schieben
+        </span>
+      </div>
+    </div>
+
+    <section class="relative py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-300 text-xs font-bold tracking-[0.2em] uppercase mb-4">
+          Jetzt das Kunstwerk erleben
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          Willkommen im <span class="text-gradient-sakura">Sakuraverse.</span>
+        </h2>
+        <p class="mt-4 text-sm sm:text-base text-white/85 font-light leading-relaxed text-left sm:text-center">
+          Sakuraverse ist ein art.cube-Kunstwerk der ersten Generation. Inspiriert wurde es von der Bedeutung der Kirschblüte (Sakura) für Schönheit und Vergänglichkeit. In zwei unterschiedlichen Modi (Sumi-e und Plexus) werden Entstehung und Zerfall auf besondere Art und Weise dargestellt, die, wenn Künstler oder Künstlerin (ihr) es wünscht, nie dem vorherigen Erlebnis gleicht. Verschiedene Elemente können in den Kunstwerken angeklickt werden, wodurch sie im Endergebnis unterschiedliche Erscheinungen haben können.
+        </p>
+      </div>
+
+      <!-- FREISTEHENDER INTERAKTIVER DUAL-ARTWORK SLIDER -->
+      <div class="mb-10 sm:mb-12">
+        <div id="v3-split-container" class="relative h-64 sm:h-80 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.22)] select-none">
+          <canvas id="canvas-v3-dual" class="w-full h-full block touch-none"></canvas>
+
+          <!-- Links Label: Sumi-e -->
+          <div class="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 flex flex-col gap-1.5 pointer-events-none">
+            <div class="px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shadow-lg">
+              🌸 Sumi-e · Entstehung
+            </div>
+            <div id="v3-vortex-badge" class="hidden px-3 py-1 rounded-full bg-pink-500/80 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#ff2a9d]">
+              🌸 3s Blüten-Vortex aktiv!
+            </div>
+          </div>
+
+          <!-- Rechts Label: Plexus -->
+          <div class="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 flex flex-col items-end gap-1.5 pointer-events-none">
+            <div class="px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 shadow-lg">
+              🔮 Plexus · Transformation
+            </div>
+            <div id="v3-impulse-badge" class="hidden px-3 py-1 rounded-full bg-cyan-500/80 backdrop-blur-md text-white text-xs font-bold tracking-wide animate-pulse shadow-[0_0_15px_#00c3ff]">
+              ⚡ 3s Netzwerk-Impuls aktiv!
+            </div>
+          </div>
+
+          <!-- Bottom Interaction Hints -->
+          <div class="absolute bottom-3 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+            <span class="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-xs text-pink-100/90 font-light">
+              🔄 Kreisbewegung = 3s Blüten-Vortex
+            </span>
+            <span class="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-xs text-cyan-100/90 font-light">
+              ✨ Orbs zusammenschieben = 3s Netzwerk-Impuls
+            </span>
+          </div>
+
+          <!-- Divider Line (rein visuell) -->
+          <div id="v3-divider-line" style="left: 50%;" class="absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none"></div>
+
+          <!-- Slider Handle Button (NUR dieser Griff verschiebt den Slider!) -->
+          <button id="v3-handle-btn" type="button" style="left: 50%;" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#12091c]/95 border-2 border-white shadow-[0_0_22px_rgba(255,42,157,0.85)] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center text-xs text-white font-bold cursor-ew-resize touch-none z-20">
+            ↔
+          </button>
+        </div>
+      </div>
+
+      <!-- Separate Consolidated Start Console darunter -->
+      <div class="relative rounded-[32px] sm:rounded-[38px] p-6 sm:p-10 glass-console border border-pink-500/40 shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.25)] flex flex-col gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold tracking-[2px] uppercase text-pink-200/90">Dein Name (Optional)</label>
+            <input type="text" placeholder="Wie heißt du?" class="w-full px-4 py-3.5 rounded-2xl bg-white/[0.06] border border-pink-500/30 text-white text-sm outline-none focus:border-[#ff2a9d]" />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold tracking-[2px] uppercase text-pink-200/90">Mitspieler einladen</label>
+            <button class="w-full py-3.5 px-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-xs font-bold uppercase tracking-wider text-cyan-200 transition cursor-pointer">
+              🔗 Einladungslink kopieren (Max. 2)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="p-4 rounded-2xl border bg-cyan-500/15 border-[#4ee2ec] flex items-center justify-between">
+            <div>
+              <div class="text-sm font-bold uppercase text-[#4ee2ec]">🤝 Testmodus</div>
+              <div class="text-xs text-white/70 font-light mt-0.5">Freies Erkunden ohne Zeitlimit</div>
+            </div>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#4ee2ec]"></span>
+          </div>
+          <div class="p-4 rounded-2xl border bg-white/[0.03] border-white/10 flex items-center justify-between">
+            <div>
+              <div class="text-sm font-bold uppercase text-[#ff80df]">🎨 Souvenirmodus</div>
+              <div class="text-xs text-white/70 font-light mt-0.5">14s Video-Souvenir deiner Schöpfung</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="w-full py-4 px-8 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:scale-[1.01] transition cursor-pointer">
+          ▶ Testmodus starten
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- INTERAKTIVE CANVAS-ENGINES FÜR SUMI-E & PLEXUS                        -->
+  <!-- ===================================================================== -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. SUMI-E MINI ENGINE (Tusche-Partikel, Washi-Flair & Kirschblüten)
+    // -------------------------------------------------------------------------
+    function createSumieEngine(canvas) {
+      const ctx = canvas.getContext('2d');
+      let width = 0, height = 0;
+      const petals = [];
+      const inkDrops = [];
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        width = canvas.width = rect.width || 400;
+        height = canvas.height = rect.height || 220;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // Initial petals
+      for (let i = 0; i < 28; i++) {
+        petals.push({
+          x: Math.random() * 500,
+          y: Math.random() * 300,
+          r: 3 + Math.random() * 4.5,
+          vx: 0.4 + Math.random() * 0.7,
+          vy: 0.3 + Math.random() * 0.6,
+          angle: Math.random() * Math.PI * 2,
+          spin: (Math.random() - 0.5) * 0.04,
+          color: Math.random() > 0.35 ? '#ff80df' : '#ff2a9d'
+        });
+      }
+
+      function spawnBlossomBurst(x, y, count = 12) {
+        inkDrops.push({ x, y, r: 2, maxR: 26 + Math.random() * 20, alpha: 0.55 });
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const speed = 0.8 + Math.random() * 2.5;
+          petals.push({
+            x, y,
+            r: 3.5 + Math.random() * 4,
+            vx: Math.cos(a) * speed,
+            vy: Math.sin(a) * speed,
+            angle: Math.random() * Math.PI * 2,
+            spin: (Math.random() - 0.5) * 0.08,
+            color: Math.random() > 0.4 ? '#ffb3ec' : '#ff2a9d',
+            life: 140
+          });
+        }
+      }
+
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        if (Math.random() > 0.45) {
+          spawnBlossomBurst(e.clientX - rect.left, e.clientY - rect.top, 2);
+        }
+      });
+
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        spawnBlossomBurst(e.clientX - rect.left, e.clientY - rect.top, 16);
+      });
+
+      function render(ctxTarget, w, h, time) {
+        // Warm-Dark Washi Ink Gradient
+        const grad = ctxTarget.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#1e1324');
+        grad.addColorStop(0.5, '#2b192e');
+        grad.addColorStop(1, '#140b18');
+        ctxTarget.fillStyle = grad;
+        ctxTarget.fillRect(0, 0, w, h);
+
+        // Soft glowing moon/sun aura
+        const moon = ctxTarget.createRadialGradient(w * 0.75, h * 0.3, 5, w * 0.75, h * 0.3, h * 0.55);
+        moon.addColorStop(0, 'rgba(255, 128, 223, 0.25)');
+        moon.addColorStop(1, 'rgba(255, 42, 157, 0)');
+        ctxTarget.fillStyle = moon;
+        ctxTarget.fillRect(0, 0, w, h);
+
+        // Procedural Sumi-e ink branch silhouette
+        ctxTarget.save();
+        ctxTarget.strokeStyle = 'rgba(12, 5, 15, 0.85)';
+        ctxTarget.lineCap = 'round';
+        ctxTarget.lineWidth = 5;
+        ctxTarget.beginPath();
+        ctxTarget.moveTo(0, h * 0.78);
+        ctxTarget.quadraticCurveTo(w * 0.28, h * 0.55, w * 0.58, h * 0.36 + Math.sin(time * 0.0015) * 4);
+        ctxTarget.stroke();
+
+        ctxTarget.lineWidth = 2.5;
+        ctxTarget.beginPath();
+        ctxTarget.moveTo(w * 0.28, h * 0.62);
+        ctxTarget.quadraticCurveTo(w * 0.42, h * 0.72, w * 0.52, h * 0.65);
+        ctxTarget.stroke();
+        ctxTarget.restore();
+
+        // Ink ripple drops
+        for (let i = inkDrops.length - 1; i >= 0; i--) {
+          const d = inkDrops[i];
+          d.r += 0.8;
+          d.alpha *= 0.95;
+          ctxTarget.beginPath();
+          ctxTarget.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+          ctxTarget.fillStyle = `rgba(255, 42, 157, ${d.alpha * 0.25})`;
+          ctxTarget.fill();
+          ctxTarget.strokeStyle = `rgba(255, 160, 230, ${d.alpha})`;
+          ctxTarget.lineWidth = 1;
+          ctxTarget.stroke();
+          if (d.alpha < 0.03) inkDrops.splice(i, 1);
+        }
+
+        // Draw Sakura petals
+        for (let i = petals.length - 1; i >= 0; i--) {
+          const p = petals[i];
+          p.x += p.vx;
+          p.y += p.vy + Math.sin(time * 0.003 + i) * 0.2;
+          p.angle += p.spin;
+
+          if (p.life !== undefined) {
+            p.life--;
+            if (p.life <= 0) {
+              petals.splice(i, 1);
+              continue;
+            }
+          } else {
+            if (p.x > w + 15) p.x = -10;
+            if (p.y > h + 15) p.y = -10;
+          }
+
+          ctxTarget.save();
+          ctxTarget.translate(p.x, p.y);
+          ctxTarget.rotate(p.angle);
+          ctxTarget.fillStyle = p.color;
+          ctxTarget.shadowColor = '#ff2a9d';
+          ctxTarget.shadowBlur = 8;
+          ctxTarget.beginPath();
+          ctxTarget.ellipse(0, 0, p.r, p.r * 0.6, 0, 0, Math.PI * 2);
+          ctxTarget.fill();
+          ctxTarget.restore();
+        }
+      }
+
+      function loop(time) {
+        render(ctx, width, height, time);
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+
+      return { spawnBlossomBurst, render };
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. PLEXUS MINI ENGINE (3D-inspirierte Knoten, Linien & Schockwellen)
+    // -------------------------------------------------------------------------
+    function createPlexusEngine(canvas) {
+      const ctx = canvas.getContext('2d');
+      let width = 0, height = 0;
+      const nodes = [];
+      const waves = [];
+      let mouse = { x: -999, y: -999 };
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        width = canvas.width = rect.width || 400;
+        height = canvas.height = rect.height || 220;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      for (let i = 0; i < 36; i++) {
+        nodes.push({
+          x: Math.random() * 500,
+          y: Math.random() * 300,
+          vx: (Math.random() - 0.5) * 0.9,
+          vy: (Math.random() - 0.5) * 0.9,
+          r: 2 + Math.random() * 2.2,
+          cyan: Math.random() > 0.35
+        });
+      }
+
+      function triggerWave(x, y) {
+        waves.push({ x, y, r: 4, alpha: 0.9 });
+        nodes.forEach(n => {
+          const dx = n.x - x;
+          const dy = n.y - y;
+          const dist = Math.hypot(dx, dy) || 1;
+          if (dist < 120) {
+            n.vx += (dx / dist) * 2.6;
+            n.vy += (dy / dist) * 2.6;
+          }
+        });
+      }
+
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = e.clientX - rect.left;
+        mouse.y = e.clientY - rect.top;
+      });
+      canvas.addEventListener('mouseleave', () => {
+        mouse.x = -999;
+        mouse.y = -999;
+      });
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        triggerWave(e.clientX - rect.left, e.clientY - rect.top);
+      });
+
+      function render(ctxTarget, w, h) {
+        const grad = ctxTarget.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#050814');
+        grad.addColorStop(0.5, '#091326');
+        grad.addColorStop(1, '#120824');
+        ctxTarget.fillStyle = grad;
+        ctxTarget.fillRect(0, 0, w, h);
+
+        // Shockwaves
+        for (let i = waves.length - 1; i >= 0; i--) {
+          const wv = waves[i];
+          wv.r += 3.2;
+          wv.alpha *= 0.94;
+          ctxTarget.beginPath();
+          ctxTarget.arc(wv.x, wv.y, wv.r, 0, Math.PI * 2);
+          ctxTarget.strokeStyle = `rgba(78, 226, 236, ${wv.alpha})`;
+          ctxTarget.lineWidth = 2;
+          ctxTarget.stroke();
+          if (wv.alpha < 0.03) waves.splice(i, 1);
+        }
+
+        // Update & connect nodes
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i];
+          a.x += a.vx;
+          a.y += a.vy;
+          // Damping back to normal speed
+          a.vx *= 0.99;
+          a.vy *= 0.99;
+          if (Math.hypot(a.vx, a.vy) < 0.35) {
+            a.vx *= 1.05;
+            a.vy *= 1.05;
+          }
+
+          if (a.x < 0 || a.x > w) a.vx *= -1;
+          if (a.y < 0 || a.y > h) a.vy *= -1;
+          a.x = Math.max(0, Math.min(w, a.x));
+          a.y = Math.max(0, Math.min(h, a.y));
+
+          // Connect to mouse
+          const md = Math.hypot(a.x - mouse.x, a.y - mouse.y);
+          if (md < 110) {
+            ctxTarget.beginPath();
+            ctxTarget.moveTo(a.x, a.y);
+            ctxTarget.lineTo(mouse.x, mouse.y);
+            ctxTarget.strokeStyle = `rgba(255, 42, 157, ${1 - md / 110})`;
+            ctxTarget.lineWidth = 1.2;
+            ctxTarget.stroke();
+          }
+
+          // Connect to neighbors
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (d < 85) {
+              ctxTarget.beginPath();
+              ctxTarget.moveTo(a.x, a.y);
+              ctxTarget.lineTo(b.x, b.y);
+              ctxTarget.strokeStyle = `rgba(78, 226, 236, ${(1 - d / 85) * 0.55})`;
+              ctxTarget.lineWidth = 1;
+              ctxTarget.stroke();
+            }
+          }
+
+          // Draw node glow
+          ctxTarget.beginPath();
+          ctxTarget.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+          ctxTarget.fillStyle = a.cyan ? '#4ee2ec' : '#ff2a9d';
+          ctxTarget.shadowColor = a.cyan ? '#4ee2ec' : '#ff2a9d';
+          ctxTarget.shadowBlur = 8;
+          ctxTarget.fill();
+          ctxTarget.shadowBlur = 0;
+        }
+      }
+
+      function loop() {
+        render(ctx, width, height);
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+
+      return { triggerWave, render };
+    }
+
+    // Initialize Variant 1 Canvases
+    const v1Sumie = createSumieEngine(document.getElementById('canvas-v1-sumie'));
+    const v1Plexus = createPlexusEngine(document.getElementById('canvas-v1-plexus'));
+
+    function selectV1World(world) {
+      const cardS = document.getElementById('v1-card-sumie');
+      const cardP = document.getElementById('v1-card-plexus');
+      const badgeS = document.getElementById('v1-badge-sumie');
+      const badgeP = document.getElementById('v1-badge-plexus');
+      const btn = document.getElementById('v1-start-btn');
+
+      if (world === 'sumie') {
+        cardS.className = 'group relative rounded-[28px] overflow-hidden border-2 border-[#ff2a9d] shadow-[0_0_30px_rgba(255,42,157,0.25)] transition-all duration-300 bg-[#140c1c] cursor-pointer';
+        cardP.className = 'group relative rounded-[28px] overflow-hidden border border-white/15 hover:border-[#4ee2ec]/70 transition-all duration-300 bg-[#0b101e] cursor-pointer';
+        badgeS.textContent = 'Aktiv ausgewählt';
+        badgeS.className = 'px-2.5 py-1 rounded-full bg-[#ff2a9d] text-white text-xs font-bold tracking-wider uppercase shadow-[0_0_12px_#ff2a9d]';
+        badgeP.textContent = 'Vorschau';
+        badgeP.className = 'px-2.5 py-1 rounded-full bg-white/10 text-white/60 text-xs font-bold tracking-wider uppercase';
+        btn.innerHTML = '<span>▶ Testmodus mit Sumi-e starten</span>';
+      } else {
+        cardP.className = 'group relative rounded-[28px] overflow-hidden border-2 border-[#4ee2ec] shadow-[0_0_30px_rgba(78,226,236,0.25)] transition-all duration-300 bg-[#0b101e] cursor-pointer';
+        cardS.className = 'group relative rounded-[28px] overflow-hidden border border-white/15 hover:border-[#ff2a9d]/70 transition-all duration-300 bg-[#140c1c] cursor-pointer';
+        badgeP.textContent = 'Aktiv ausgewählt';
+        badgeP.className = 'px-2.5 py-1 rounded-full bg-[#06b6d4] text-white text-xs font-bold tracking-wider uppercase shadow-[0_0_12px_#4ee2ec]';
+        badgeS.textContent = 'Vorschau';
+        badgeS.className = 'px-2.5 py-1 rounded-full bg-white/10 text-white/60 text-xs font-bold tracking-wider uppercase';
+        btn.innerHTML = '<span>▶ Testmodus mit Plexus starten</span>';
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Initialize Variant 2 Stage Canvas (Switchable Sumi-e / Plexus)
+    // -------------------------------------------------------------------------
+    const canvasV2 = document.getElementById('canvas-v2-stage');
+    const ctxV2 = canvasV2.getContext('2d');
+    let v2Mode = 'sumie';
+    const v2SumieHelper = createSumieEngine(document.createElement('canvas'));
+    const v2PlexusHelper = createPlexusEngine(document.createElement('canvas'));
+
+    function resizeV2() {
+      const r = canvasV2.getBoundingClientRect();
+      canvasV2.width = r.width || 500;
+      canvasV2.height = r.height || 320;
+    }
+    resizeV2();
+    window.addEventListener('resize', resizeV2);
+
+    canvasV2.addEventListener('click', (e) => {
+      const r = canvasV2.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      if (v2Mode === 'sumie') v2SumieHelper.spawnBlossomBurst(x, y, 18);
+      else v2PlexusHelper.triggerWave(x, y);
+    });
+
+    canvasV2.addEventListener('mousemove', (e) => {
+      const r = canvasV2.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      if (v2Mode === 'sumie' && Math.random() > 0.5) {
+        v2SumieHelper.spawnBlossomBurst(x, y, 2);
+      }
+    });
+
+    function loopV2(time) {
+      if (v2Mode === 'sumie') {
+        v2SumieHelper.render(ctxV2, canvasV2.width, canvasV2.height, time);
+      } else {
+        v2PlexusHelper.render(ctxV2, canvasV2.width, canvasV2.height);
+      }
+      requestAnimationFrame(loopV2);
+    }
+    requestAnimationFrame(loopV2);
+
+    function setV2Mode(m) {
+      v2Mode = m;
+      const tabS = document.getElementById('v2-tab-sumie');
+      const tabP = document.getElementById('v2-tab-plexus');
+      const desc = document.getElementById('v2-stage-desc');
+      if (m === 'sumie') {
+        tabS.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#ff2a9d] text-white shadow-[0_0_12px_#ff2a9d] transition cursor-pointer';
+        tabP.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white transition cursor-pointer';
+        desc.innerHTML = '<strong class="text-pink-300 font-semibold">Sumi-e Modus:</strong> Ziehe mit der Maus, um Tusche-Zweige und Kirschblüten wachsen zu lassen.';
+      } else {
+        tabP.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#06b6d4] text-white shadow-[0_0_12px_#4ee2ec] transition cursor-pointer';
+        tabS.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white transition cursor-pointer';
+        desc.innerHTML = '<strong class="text-cyan-300 font-semibold">Plexus Modus:</strong> Klicke in das Netzwerk, um 3D-Energiewellen durch die Knoten zu senden.';
+      }
+    }
+
+    function triggerV2Burst(type) {
+      const cx = canvasV2.width / 2;
+      const cy = canvasV2.height / 2;
+      if (type === 'blossom') {
+        setV2Mode('sumie');
+        v2SumieHelper.spawnBlossomBurst(cx, cy, 28);
+      } else if (type === 'pulse') {
+        setV2Mode('plexus');
+        v2PlexusHelper.triggerWave(cx, cy);
+      } else {
+        v2SumieHelper.spawnBlossomBurst(cx, cy, 8);
+        v2PlexusHelper.triggerWave(cx, cy);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Initialize Variant 3 Freestanding Dual Split-Slider Canvas
+    // (Exact SakuraCanvas Sumi-e Branch + 3s Vortex & 4 Plexus Orbs + 3s Impulse)
+    // -------------------------------------------------------------------------
+    (function initV3AuthenticSlider() {
+      const containerV3 = document.getElementById('v3-split-container');
+      const canvasV3 = document.getElementById('canvas-v3-dual');
+      const ctxV3 = canvasV3.getContext('2d');
+      const dividerLineV3 = document.getElementById('v3-divider-line');
+      const handleBtnV3 = document.getElementById('v3-handle-btn');
+      const vortexBadge = document.getElementById('v3-vortex-badge');
+      const impulseBadge = document.getElementById('v3-impulse-badge');
+
+      let splitRatio = 0.5;
+      let isDraggingHandle = false;
+      let width = 800, height = 320, dpr = 1;
+
+      function resizeV3() {
+        const r = canvasV3.getBoundingClientRect();
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(300, r.width || 800);
+        height = Math.max(240, r.height || 320);
+        canvasV3.width = Math.round(width * dpr);
+        canvasV3.height = Math.round(height * dpr);
+      }
+      resizeV3();
+      window.addEventListener('resize', resizeV3);
+
+      // Slider moves ONLY when handleBtnV3 is grabbed!
+      handleBtnV3.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        isDraggingHandle = true;
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (!isDraggingHandle) return;
+        const r = containerV3.getBoundingClientRect();
+        splitRatio = Math.max(0.12, Math.min(0.88, (e.clientX - r.left) / Math.max(1, r.width)));
+        const pct = (splitRatio * 100) + '%';
+        dividerLineV3.style.left = pct;
+        handleBtnV3.style.left = pct;
+      });
+      window.addEventListener('pointerup', () => { isDraggingHandle = false; });
+      window.addEventListener('pointercancel', () => { isDraggingHandle = false; });
+
+      const PINK_SHADES = ['#ffaae6', '#ff77dd', '#ff55cc', '#ff88ee', '#ffccee'];
+      const mainTrunk = [
+        { x: -0.02, y: 0.78, w: 14 },
+        { x: 0.06, y: 0.68, w: 12 },
+        { x: 0.13, y: 0.69, w: 10.5 },
+        { x: 0.21, y: 0.54, w: 8.5 },
+        { x: 0.29, y: 0.46, w: 6.8 },
+        { x: 0.36, y: 0.35, w: 5.0 },
+        { x: 0.43, y: 0.38, w: 3.4 },
+        { x: 0.48, y: 0.30, w: 2.0 },
+      ];
+      const subBranches = [
+        [
+          { x: 0.13, y: 0.69, w: 7.0 },
+          { x: 0.16, y: 0.52, w: 5.0 },
+          { x: 0.20, y: 0.38, w: 3.2 },
+          { x: 0.24, y: 0.27, w: 1.8 },
+        ],
+        [
+          { x: 0.21, y: 0.54, w: 6.2 },
+          { x: 0.27, y: 0.64, w: 4.5 },
+          { x: 0.34, y: 0.68, w: 2.8 },
+          { x: 0.39, y: 0.63, w: 1.6 },
+        ],
+        [
+          { x: 0.29, y: 0.46, w: 5.2 },
+          { x: 0.32, y: 0.31, w: 3.6 },
+          { x: 0.37, y: 0.21, w: 2.2 },
+          { x: 0.41, y: 0.16, w: 1.3 },
+        ],
+        [
+          { x: 0.36, y: 0.35, w: 4.0 },
+          { x: 0.41, y: 0.47, w: 2.6 },
+          { x: 0.46, y: 0.51, w: 1.5 },
+        ],
+      ];
+
+      const clusterAnchors = [
+        { nx: 0.16, ny: 0.52, r: 16 },
+        { nx: 0.20, ny: 0.38, r: 19 },
+        { nx: 0.24, ny: 0.27, r: 15 },
+        { nx: 0.21, ny: 0.54, r: 21 },
+        { nx: 0.29, ny: 0.46, r: 22 },
+        { nx: 0.34, ny: 0.68, r: 16 },
+        { nx: 0.37, ny: 0.21, r: 18 },
+        { nx: 0.41, ny: 0.16, r: 14 },
+        { nx: 0.36, ny: 0.35, r: 20 },
+        { nx: 0.43, ny: 0.38, r: 17 },
+        { nx: 0.48, ny: 0.30, r: 15 },
+        { nx: 0.46, ny: 0.51, r: 14 },
+      ];
+
+      const blossomClusters = clusterAnchors.map((a) => {
+        const petals = [];
+        const count = 12;
+        for (let i = 0; i < count; i++) {
+          const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+          const dist = Math.random() * a.r * 0.85;
+          petals.push({
+            dx: Math.cos(ang) * dist,
+            dy: Math.sin(ang) * dist,
+            r: 3.5 + Math.random() * 4.5,
+            angle: Math.random() * Math.PI * 2,
+            color: PINK_SHADES[i % PINK_SHADES.length],
+          });
+        }
+        return { nx: a.nx, ny: a.ny, radius: a.r, petals };
+      });
+
+      const flyingPetals = [];
+      for (let i = 0; i < 44; i++) {
+        flyingPetals.push({
+          x: Math.random() * 450,
+          y: Math.random() * 320,
+          vx: 0.65 + Math.random() * 0.85,
+          vy: 0.38 + Math.random() * 0.65,
+          size: 4.2 + Math.random() * 4.8,
+          angle: Math.random() * Math.PI * 2,
+          spin: (Math.random() - 0.5) * 0.045,
+          swayPhase: Math.random() * Math.PI * 2,
+          swaySpeed: 1.5 + Math.random() * 1.8,
+          color: PINK_SHADES[i % PINK_SHADES.length],
+          vortexAngle: Math.random() * Math.PI * 2,
+          vortexRadius: 18 + Math.random() * 95,
+          vortexSpeed: (2.8 + Math.random() * 2.2) * (i % 2 === 0 ? 1 : -1),
+        });
+      }
+
+      let vortexRemaining = 0;
+      let vortexBlend = 0;
+      let vortexCenterX = 180, vortexCenterY = 160;
+      const mouseTrailHistory = [];
+
+      // 4 Plexus Orbs: Red, Blue, Yellow, Green
+      const orbConfigs = [
+        { id: 'red', primary: '#ff2a4b', secondary: '#ff8800', rgb: [255, 42, 75], shades: ['#ff3366', '#ff5577', '#ff2a55', '#ff7088'], cx: 0.63, cy: 0.32, rx: 28, ry: 20, speed: 0.75, phase: 0.2 },
+        { id: 'blue', primary: '#00c3ff', secondary: '#6e00ff', rgb: [0, 195, 255], shades: ['#38bdf8', '#0ea5e9', '#60a5fa', '#7dd3fc'], cx: 0.84, cy: 0.30, rx: 30, ry: 22, speed: -0.68, phase: 1.7 },
+        { id: 'yellow', primary: '#ffd000', secondary: '#ff7700', rgb: [255, 208, 0], shades: ['#fbbf24', '#f59e0b', '#fde047', '#ffea00'], cx: 0.65, cy: 0.70, rx: 32, ry: 20, speed: 0.62, phase: 3.1 },
+        { id: 'green', primary: '#10e782', secondary: '#0062ff', rgb: [16, 231, 130], shades: ['#34d399', '#10b981', '#6ee7b7', '#00f59b'], cx: 0.85, cy: 0.68, rx: 28, ry: 24, speed: -0.72, phase: 4.5 },
+      ];
+
+      const plexusOrbs = orbConfigs.map((cfg) => {
+        const nodes = [];
+        for (let i = 0; i < 12; i++) {
+          nodes.push({
+            baseRadius: 24 + (i % 3) * 7 + Math.random() * 4,
+            angle: (i / 12) * Math.PI * 2 + Math.random() * 0.3,
+            elevation: (Math.random() - 0.5) * Math.PI * 0.7,
+            orbitSpeed: (0.7 + (i % 3) * 0.35) * (i % 2 === 0 ? 1 : -1),
+            shade: cfg.shades[i % cfg.shades.length],
+            size: 2.5 + (i % 3) * 0.9,
+            wx: 0, wy: 0
+          });
+        }
+        return {
+          ...cfg,
+          x: cfg.cx * width,
+          y: cfg.cy * height,
+          vx: 0, vy: 0,
+          orbitCenterX: cfg.cx,
+          orbitCenterY: cfg.cy,
+          orbitRx: cfg.rx,
+          orbitRy: cfg.ry,
+          orbitSpeed: cfg.speed,
+          orbitPhase: cfg.phase,
+          wobbleTimer: 999,
+          trail: [],
+          nodes
+        };
+      });
+
+      let draggedOrb = null;
+      let dragOffsetX = 0, dragOffsetY = 0;
+      const activeImpulses = [];
+      const pairCooldowns = new Map();
+      const getPairKey = (a, b) => a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`;
+
+      canvasV3.addEventListener('pointerdown', (e) => {
+        const r = canvasV3.getBoundingClientRect();
+        const px = e.clientX - r.left;
+        const py = e.clientY - r.top;
+        const splitX = width * splitRatio;
+        if (px > splitX) {
+          let closest = null, minDist = 38;
+          for (const orb of plexusOrbs) {
+            const d = Math.hypot(px - orb.x, py - orb.y);
+            if (d < minDist) { minDist = d; closest = orb; }
+          }
+          if (closest) {
+            draggedOrb = closest;
+            dragOffsetX = closest.x - px;
+            dragOffsetY = closest.y - py;
+            closest.wobbleTimer = 0;
+            canvasV3.style.cursor = 'grabbing';
+            if (canvasV3.setPointerCapture) canvasV3.setPointerCapture(e.pointerId);
+          }
+        }
+      });
+
+      canvasV3.addEventListener('pointermove', (e) => {
+        const r = canvasV3.getBoundingClientRect();
+        const px = e.clientX - r.left;
+        const py = e.clientY - r.top;
+        const splitX = width * splitRatio;
+        const now = performance.now();
+
+        if (draggedOrb) {
+          draggedOrb.x = Math.max(splitX + 34, Math.min(width - 34, px + dragOffsetX));
+          draggedOrb.y = Math.max(34, Math.min(height - 34, py + dragOffsetY));
+          draggedOrb.vx = 0;
+          draggedOrb.vy = 0;
+          draggedOrb.orbitCenterX = Math.max(0.55, Math.min(0.92, draggedOrb.x / width));
+          draggedOrb.orbitCenterY = Math.max(0.20, Math.min(0.80, draggedOrb.y / height));
+          return;
+        }
+
+        if (px < splitX - 10) {
+          canvasV3.style.cursor = 'default';
+          mouseTrailHistory.push({ x: px, y: py, t: now });
+          while (mouseTrailHistory.length > 0 && now - mouseTrailHistory[0].t > 950) {
+            mouseTrailHistory.shift();
+          }
+          if (mouseTrailHistory.length >= 10 && vortexRemaining <= 0.1) {
+            const filtered = [mouseTrailHistory[0]];
+            for (let i = 1; i < mouseTrailHistory.length; i++) {
+              const prev = filtered[filtered.length - 1];
+              const cur = mouseTrailHistory[i];
+              if (Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 6) filtered.push(cur);
+            }
+            if (filtered.length >= 7) {
+              let totalAngle = 0;
+              for (let i = 1; i < filtered.length - 1; i++) {
+                const a1 = Math.atan2(filtered[i].y - filtered[i - 1].y, filtered[i].x - filtered[i - 1].x);
+                const a2 = Math.atan2(filtered[i + 1].y - filtered[i].y, filtered[i + 1].x - filtered[i].x);
+                let da = a2 - a1;
+                while (da > Math.PI) da -= Math.PI * 2;
+                while (da < -Math.PI) da += Math.PI * 2;
+                totalAngle += da;
+              }
+              if (Math.abs(totalAngle) >= Math.PI * 1.28) {
+                let cx = 0, cy = 0;
+                for (const p of filtered) { cx += p.x; cy += p.y; }
+                cx /= filtered.length; cy /= filtered.length;
+                vortexCenterX = Math.max(60, Math.min(splitX - 60, cx));
+                vortexCenterY = Math.max(60, Math.min(height - 60, cy));
+                vortexRemaining = 3.0;
+                vortexBadge.classList.remove('hidden');
+                flyingPetals.forEach((p, idx) => {
+                  const dx = p.x - vortexCenterX, dy = p.y - vortexCenterY;
+                  p.vortexAngle = Math.atan2(dy, dx);
+                  p.vortexRadius = Math.max(16, Math.min(115, Math.hypot(dx, dy) * 0.75 + 15));
+                  p.vortexSpeed = (3.2 + (idx % 5) * 0.45) * (totalAngle >= 0 ? 1 : -1);
+                });
+                mouseTrailHistory.length = 0;
+              }
+            }
+          }
+        } else {
+          let hover = false;
+          for (const orb of plexusOrbs) {
+            if (Math.hypot(px - orb.x, py - orb.y) < 34) { hover = true; break; }
+          }
+          canvasV3.style.cursor = hover ? 'grab' : 'default';
+        }
+      });
+
+      const releaseOrb = (e) => {
+        if (draggedOrb) {
+          if (canvasV3.releasePointerCapture) try { canvasV3.releasePointerCapture(e.pointerId); } catch {}
+          draggedOrb = null;
+          canvasV3.style.cursor = 'default';
+        }
+      };
+      canvasV3.addEventListener('pointerup', releaseOrb);
+      canvasV3.addEventListener('pointercancel', releaseOrb);
+
+      function drawSakuraPetal(c, x, y, size, angle, color, alpha = 0.92) {
+        c.save();
+        c.translate(x, y);
+        c.rotate(angle);
+        c.scale(size / 14, size / 14);
+        c.globalAlpha = alpha;
+        c.fillStyle = color;
+        c.shadowColor = color;
+        c.shadowBlur = 6;
+        c.beginPath();
+        c.moveTo(0, -10);
+        c.bezierCurveTo(7, -6, 10, 2, 6, 9);
+        c.bezierCurveTo(3, 13, -3, 13, -6, 9);
+        c.bezierCurveTo(-10, 2, -7, -6, 0, -10);
+        c.fill();
+        c.restore();
+      }
+
+      function drawStarFlare(c, x, y, radius, colorHex, alpha = 1.0) {
+        c.save();
+        c.translate(x, y);
+        c.globalAlpha = alpha;
+        for (const ang of [Math.PI / 4, -Math.PI / 4]) {
+          c.save();
+          c.rotate(ang);
+          const grad = c.createLinearGradient(-radius, 0, radius, 0);
+          grad.addColorStop(0, 'rgba(255,255,255,0)');
+          grad.addColorStop(0.35, colorHex);
+          grad.addColorStop(0.5, '#ffffff');
+          grad.addColorStop(0.65, colorHex);
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          c.strokeStyle = grad;
+          c.lineWidth = 1.8;
+          c.beginPath();
+          c.moveTo(-radius, 0);
+          c.lineTo(radius, 0);
+          c.stroke();
+          c.restore();
+        }
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        c.arc(0, 0, 2.2, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
+
+      let lastTime = performance.now();
+      function loopV3(now) {
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+        const time = now * 0.001;
+        const splitX = width * splitRatio;
+
+        ctxV3.save();
+        ctxV3.scale(dpr, dpr);
+
+        // LEFT: SUMI-E
+        ctxV3.save();
+        ctxV3.beginPath();
+        ctxV3.rect(0, 0, splitX, height);
+        ctxV3.clip();
+
+        const bgGradSumie = ctxV3.createLinearGradient(0, 0, width * 0.6, height);
+        bgGradSumie.addColorStop(0, '#0d0006');
+        bgGradSumie.addColorStop(0.45, '#470024');
+        bgGradSumie.addColorStop(0.8, '#7a023e');
+        bgGradSumie.addColorStop(1, '#1a000e');
+        ctxV3.fillStyle = bgGradSumie;
+        ctxV3.fillRect(0, 0, splitX, height);
+
+        const getBranchSwayY = (nx) => {
+          const normX = Math.max(0, Math.min(1, nx / 0.5));
+          return (Math.sin(time * 1.25) * 6.5 + Math.sin(time * 0.6) * 2.5) * normX;
+        };
+
+        const drawSumieBranch = (pts) => {
+          for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[i], p1 = pts[i + 1];
+            const x0 = p0.x * width, y0 = p0.y * height + getBranchSwayY(p0.x);
+            const x1 = p1.x * width, y1 = p1.y * height + getBranchSwayY(p1.x);
+            ctxV3.beginPath();
+            ctxV3.moveTo(x0, y0); ctxV3.lineTo(x1, y1);
+            ctxV3.strokeStyle = 'rgba(195, 202, 214, 0.55)';
+            ctxV3.lineWidth = (p0.w + p1.w) * 0.58;
+            ctxV3.lineCap = 'round';
+            ctxV3.stroke();
+
+            ctxV3.beginPath();
+            ctxV3.moveTo(x0, y0); ctxV3.lineTo(x1, y1);
+            ctxV3.strokeStyle = 'rgba(247, 236, 224, 0.94)';
+            ctxV3.lineWidth = (p0.w + p1.w) * 0.38;
+            ctxV3.lineCap = 'round';
+            ctxV3.stroke();
+          }
+        };
+        drawSumieBranch(mainTrunk);
+        subBranches.forEach(drawSumieBranch);
+
+        for (const cluster of blossomClusters) {
+          const cx = cluster.nx * width;
+          const cy = cluster.ny * height + getBranchSwayY(cluster.nx);
+          const aura = ctxV3.createRadialGradient(cx, cy, 1, cx, cy, cluster.radius * 1.45);
+          aura.addColorStop(0, 'rgba(255, 180, 230, 0.55)');
+          aura.addColorStop(0.45, 'rgba(255, 77, 166, 0.28)');
+          aura.addColorStop(1, 'rgba(255, 51, 204, 0)');
+          ctxV3.fillStyle = aura;
+          ctxV3.beginPath();
+          ctxV3.arc(cx, cy, cluster.radius * 1.45, 0, Math.PI * 2);
+          ctxV3.fill();
+
+          for (const bp of cluster.petals) {
+            drawSakuraPetal(ctxV3, cx + bp.dx, cy + bp.dy, bp.r * 1.9, bp.angle + Math.sin(time * 1.4 + cluster.nx * 5) * 0.12, bp.color, 0.94);
+          }
+          ctxV3.fillStyle = '#fff5fb';
+          ctxV3.beginPath();
+          ctxV3.arc(cx, cy, 2.2, 0, Math.PI * 2);
+          ctxV3.fill();
+        }
+
+        if (vortexRemaining > 0) {
+          vortexRemaining = Math.max(0, vortexRemaining - dt);
+          vortexBlend = Math.min(1, vortexBlend + dt * 4.2);
+          if (vortexRemaining <= 0) vortexBadge.classList.add('hidden');
+        } else {
+          vortexBlend = Math.max(0, vortexBlend - dt * 2.2);
+        }
+
+        const maxSumieX = Math.max(220, width * 0.55);
+        for (let i = 0; i < flyingPetals.length; i++) {
+          const p = flyingPetals[i];
+          const diagVx = p.vx + Math.sin(time * p.swaySpeed + p.swayPhase) * 0.35;
+          const diagVy = p.vy + Math.cos(time * p.swaySpeed + p.swayPhase) * 0.25;
+          if (vortexBlend > 0.001) {
+            p.vortexAngle += p.vortexSpeed * dt;
+            const tx = vortexCenterX + Math.cos(p.vortexAngle) * p.vortexRadius * (0.85 + 0.15 * Math.sin(time * 3 + i));
+            const ty = vortexCenterY + Math.sin(p.vortexAngle) * (p.vortexRadius * 0.78) * (0.85 + 0.15 * Math.cos(time * 3 + i));
+            p.x = p.x * (1 - vortexBlend * 0.18) + tx * (vortexBlend * 0.18);
+            p.y = p.y * (1 - vortexBlend * 0.18) + ty * (vortexBlend * 0.18);
+            p.angle += p.spin * 2.8;
+          } else {
+            p.x += diagVx;
+            p.y += diagVy;
+            p.angle += p.spin;
+            if (p.x > maxSumieX + 20) { p.x = -15; p.y = Math.random() * height * 0.85; }
+            if (p.y > height + 18) { p.y = -15; p.x = Math.random() * maxSumieX; }
+          }
+          drawSakuraPetal(ctxV3, p.x, p.y, p.size, p.angle, p.color, 0.9);
+        }
+        ctxV3.restore();
+
+        // RIGHT: PLEXUS
+        ctxV3.save();
+        ctxV3.beginPath();
+        ctxV3.rect(splitX, 0, width - splitX, height);
+        ctxV3.clip();
+
+        const bgGradPlexus = ctxV3.createLinearGradient(splitX, 0, width, height);
+        bgGradPlexus.addColorStop(0, '#09000b');
+        bgGradPlexus.addColorStop(0.5, '#1e0016');
+        bgGradPlexus.addColorStop(1, '#060312');
+        ctxV3.fillStyle = bgGradPlexus;
+        ctxV3.fillRect(splitX, 0, width - splitX, height);
+
+        for (const [k, cd] of Array.from(pairCooldowns.entries())) {
+          if (cd - dt <= 0) pairCooldowns.delete(k);
+          else pairCooldowns.set(k, cd - dt);
+        }
+
+        for (const orb of plexusOrbs) {
+          if (orb.wobbleTimer < 1.0) orb.wobbleTimer += dt;
+          const activeImp = activeImpulses.find((imp) => imp.orbA === orb || imp.orbB === orb);
+          if (orb !== draggedOrb) {
+            if (activeImp) {
+              const isA = activeImp.orbA === orb;
+              const pairAngle = time * 2.2 + (isA ? 0 : Math.PI);
+              orb.x += (activeImp.midX + Math.cos(pairAngle) * 26 - orb.x) * 0.12;
+              orb.y += (activeImp.midY + Math.sin(pairAngle) * 20 - orb.y) * 0.12;
+            } else {
+              const homeX = Math.max(splitX + 42, Math.min(width - 42, orb.orbitCenterX * width)) + Math.cos(time * orb.orbitSpeed + orb.orbitPhase) * orb.orbitRx;
+              const homeY = orb.orbitCenterY * height + Math.sin(time * orb.orbitSpeed * 1.15 + orb.orbitPhase) * orb.orbitRy;
+              orb.x += orb.vx * dt + (homeX - orb.x) * 0.035;
+              orb.y += orb.vy * dt + (homeY - orb.y) * 0.035;
+              orb.vx *= 0.94; orb.vy *= 0.94;
+              orb.x = Math.max(splitX + 34, Math.min(width - 34, orb.x));
+              orb.y = Math.max(34, Math.min(height - 34, orb.y));
+            }
+          }
+          orb.trail.unshift({ x: orb.x, y: orb.y });
+          if (orb.trail.length > 22) orb.trail.pop();
+          for (const n of orb.nodes) {
+            n.angle += n.orbitSpeed * dt;
+            const rProj = n.baseRadius * Math.cos(n.elevation);
+            n.wx = orb.x + Math.cos(n.angle) * rProj;
+            n.wy = orb.y + Math.sin(n.angle) * rProj * 0.85 + Math.sin(n.elevation) * 12;
+          }
+        }
+
+        for (let i = 0; i < plexusOrbs.length; i++) {
+          for (let j = i + 1; j < plexusOrbs.length; j++) {
+            const a = plexusOrbs[i], b = plexusOrbs[j];
+            const key = getPairKey(a, b);
+            const alreadyActive = activeImpulses.some((imp) => (imp.orbA === a && imp.orbB === b) || (imp.orbA === b && imp.orbB === a));
+            if (alreadyActive || pairCooldowns.has(key)) continue;
+            if (Math.hypot(a.x - b.x, a.y - b.y) < 64) {
+              if (draggedOrb === a || draggedOrb === b) { draggedOrb = null; canvasV3.style.cursor = 'default'; }
+              a.wobbleTimer = 0; b.wobbleTimer = 0;
+              activeImpulses.push({ orbA: a, orbB: b, remaining: 3.0, duration: 3.0, midX: (a.x + b.x) * 0.5, midY: (a.y + b.y) * 0.5 });
+              impulseBadge.classList.remove('hidden');
+            }
+          }
+        }
+
+        for (let idx = activeImpulses.length - 1; idx >= 0; idx--) {
+          const imp = activeImpulses[idx];
+          imp.remaining -= dt;
+          imp.midX = (imp.orbA.x + imp.orbB.x) * 0.5;
+          imp.midY = (imp.orbA.y + imp.orbB.y) * 0.5;
+          const progress = 1 - Math.max(0, imp.remaining) / imp.duration;
+          const env = Math.sin(Math.min(1, progress) * Math.PI);
+          const [r1, g1, b1] = imp.orbA.rgb;
+          const [r2, g2, b2] = imp.orbB.rgb;
+
+          for (let w = 0; w < 3; w++) {
+            const waveP = (progress * 2.2 + w * 0.33) % 1;
+            const waveR = 14 + waveP * 115;
+            const waveAlpha = (1 - waveP) * (0.75 * env + 0.2);
+            ctxV3.beginPath();
+            ctxV3.arc(imp.midX, imp.midY, waveR, 0, Math.PI * 2);
+            ctxV3.strokeStyle = w % 2 === 0 ? `rgba(${r1}, ${g1}, ${b1}, ${waveAlpha})` : `rgba(${r2}, ${g2}, ${b2}, ${waveAlpha})`;
+            ctxV3.lineWidth = 2.2 * (1 - waveP * 0.5);
+            ctxV3.stroke();
+          }
+
+          for (let i = 0; i < imp.orbA.nodes.length; i++) {
+            const na = imp.orbA.nodes[i];
+            const nb = imp.orbB.nodes[(i * 3) % imp.orbB.nodes.length];
+            const gradLine = ctxV3.createLinearGradient(na.wx, na.wy, nb.wx, nb.wy);
+            gradLine.addColorStop(0, `rgba(${r1}, ${g1}, ${b1}, ${0.75 * env + 0.15})`);
+            gradLine.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
+            gradLine.addColorStop(1, `rgba(${r2}, ${g2}, ${b2}, ${0.75 * env + 0.15})`);
+            ctxV3.beginPath();
+            ctxV3.moveTo(na.wx, na.wy); ctxV3.lineTo(nb.wx, nb.wy);
+            ctxV3.strokeStyle = gradLine;
+            ctxV3.lineWidth = 1.35;
+            ctxV3.stroke();
+          }
+
+          if (imp.remaining <= 0) {
+            const dx = imp.orbB.x - imp.orbA.x, dy = imp.orbB.y - imp.orbA.y;
+            const d = Math.hypot(dx, dy) || 1;
+            imp.orbA.vx = -(dx / d) * 95; imp.orbA.vy = -(dy / d) * 95;
+            imp.orbB.vx = (dx / d) * 95; imp.orbB.vy = (dy / d) * 95;
+            pairCooldowns.set(getPairKey(imp.orbA, imp.orbB), 2.2);
+            activeImpulses.splice(idx, 1);
+            if (activeImpulses.length === 0) impulseBadge.classList.add('hidden');
+          }
+        }
+
+        for (const orb of plexusOrbs) {
+          const [r, g, b] = orb.rgb;
+          const nodes = orb.nodes;
+          for (let i = 0; i < nodes.length; i++) {
+            const n1 = nodes[i];
+            if (i % 2 === 0) {
+              ctxV3.beginPath();
+              ctxV3.moveTo(orb.x, orb.y); ctxV3.lineTo(n1.wx, n1.wy);
+              ctxV3.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.35)`;
+              ctxV3.lineWidth = 0.9;
+              ctxV3.stroke();
+            }
+            for (let j = i + 1; j < nodes.length; j++) {
+              const n2 = nodes[j];
+              const nd = Math.hypot(n1.wx - n2.wx, n1.wy - n2.wy);
+              if (nd < 34) {
+                ctxV3.beginPath();
+                ctxV3.moveTo(n1.wx, n1.wy); ctxV3.lineTo(n2.wx, n2.wy);
+                ctxV3.strokeStyle = `rgba(${r}, ${g}, ${b}, ${(1 - nd / 34) * 0.78})`;
+                ctxV3.lineWidth = 1.1;
+                ctxV3.stroke();
+              }
+            }
+          }
+          for (const n of nodes) {
+            ctxV3.fillStyle = n.shade;
+            ctxV3.beginPath();
+            ctxV3.arc(n.wx, n.wy, n.size, 0, Math.PI * 2);
+            ctxV3.fill();
+          }
+
+          ctxV3.save();
+          ctxV3.translate(orb.x, orb.y);
+          const orbRadius = 15.5;
+          const sphereGrad = ctxV3.createRadialGradient(-3, -3, 2, 0, 0, orbRadius);
+          sphereGrad.addColorStop(0, '#ffffff');
+          sphereGrad.addColorStop(0.35, orb.primary);
+          sphereGrad.addColorStop(0.75, orb.secondary);
+          sphereGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.15)`);
+          ctxV3.fillStyle = sphereGrad;
+          ctxV3.beginPath();
+          ctxV3.arc(0, 0, orbRadius, 0, Math.PI * 2);
+          ctxV3.fill();
+          ctxV3.strokeStyle = orb.primary;
+          ctxV3.lineWidth = 1.8;
+          ctxV3.stroke();
+          ctxV3.restore();
+
+          drawStarFlare(ctxV3, orb.x, orb.y, 20, orb.primary, 0.95);
+        }
+
+        ctxV3.restore();
+        ctxV3.restore();
+        requestAnimationFrame(loopV3);
+      }
+      requestAnimationFrame(loopV3);
+    })();
+  </script>
+</body>
+</html>
+

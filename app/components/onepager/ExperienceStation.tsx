@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiCopy, FiCheck, FiShare2, FiUser, FiPlay, FiInfo, FiLayers } from 'react-icons/fi';
 import { Language, translations } from './translations';
+import { SakuraverseDualSlider } from './SakuraverseDualSlider';
 
 interface ExperienceStationProps {
   lang: Language;
@@ -102,6 +103,9 @@ export function ExperienceStation({
           {t.subline}
         </p>
       </div>
+
+      {/* Freestanding Interactive Dual-Artwork Slider (Sumi-e & Plexus) */}
+      <SakuraverseDualSlider lang={lang} />
 
       {/* Consolidated Start Console */}
       <div className="relative rounded-[32px] sm:rounded-[38px] p-6 sm:p-10 bg-[rgba(16,10,26,0.94)] border border-pink-500/40 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(255,42,157,0.25)] flex flex-col gap-7">
