@@ -1107,8 +1107,12 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       instancedPetalMesh.instanceColor.needsUpdate = true;
     }
 
-    let vortexRemaining = 0.0;
-    let vortexBlend = 0.0;
+    const VORTEX_TRANS_IN = 1.25;
+    const VORTEX_HOLD_DURATION = 3.0;
+    const VORTEX_TRANS_OUT = 1.45;
+    const VORTEX_TOTAL_CYCLE = VORTEX_TRANS_IN + VORTEX_HOLD_DURATION + VORTEX_TRANS_OUT;
+    let vortexCycleTimer = -1.0;
+    let hasSyncedVortexOut = false;
     const mouseTrailHistory: { x: number; y: number; t: number }[] = [];
 
     // =========================================================================
@@ -1598,7 +1602,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           mouseTrailHistory.shift();
         }
 
-        if (mouseTrailHistory.length >= 12 && vortexRemaining <= 0.1) {
+        if (mouseTrailHistory.length >= 12 && vortexCycleTimer < 0) {
           const filtered: { x: number; y: number }[] = [mouseTrailHistory[0]];
           for (let i = 1; i < mouseTrailHistory.length; i++) {
             const prev = filtered[filtered.length - 1];
@@ -1689,7 +1693,8 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
                 Math.abs(netAngle) >= Math.PI * 1.65 &&
                 directionalConsistency >= 0.78
               ) {
-                vortexRemaining = 3.0; // 3 seconds Vortex!
+                vortexCycleTimer = 0.0; // Start Transition In -> 3s Vortex -> Transition Out
+                hasSyncedVortexOut = false;
                 setIsVortexUI(true);
                 mouseTrailHistory.length = 0;
               }
@@ -1759,37 +1764,98 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       bgUniforms.iTime.value = totalTime;
 
       // -----------------------------------------------------------------------
-      // UPDATE 1: SUMI-E STROKES & INSTANCED PETALS (Diagonal vs. 3s Vortex)
+      // UPDATE 1: SUMI-E STROKES & INSTANCED PETALS (Transition In -> 3s Vortex -> Transition Out)
       // -----------------------------------------------------------------------
       for (let i = 0; i < allSumieStrokes.length; i++) {
         allSumieStrokes[i].setTime(totalTime);
       }
 
-      if (vortexRemaining > 0) {
-        vortexRemaining = Math.max(0, vortexRemaining - delta);
-        vortexBlend = Math.min(1, vortexBlend + delta * 3.8);
-        if (vortexRemaining <= 0) {
-          setIsVortexUI(false);
-        }
-      } else {
-        vortexBlend = Math.max(0, vortexBlend - delta * 2.2);
-      }
-
-      const smoothPower = vortexBlend * vortexBlend * (3.0 - 2.0 * vortexBlend);
       const vortexCenterX = -5.2;
       const vortexCenterY = -0.2;
       const vortexCenterZ = -2.8;
       const sideTilt = 0.15;
 
+      let smoothPower = 0.0;
+      let driftSpeedFactor = 1.0;
+      let allowBoundaryWrap = true;
+
+      if (vortexCycleTimer >= 0.0) {
+        vortexCycleTimer += delta;
+        allowBoundaryWrap = false;
+
+        if (vortexCycleTimer < VORTEX_TRANS_IN) {
+          // Phase 1: Smooth Transition In (drift into Vortex)
+          const tIn = Math.min(1.0, vortexCycleTimer / VORTEX_TRANS_IN);
+          smoothPower = tIn * tIn * (3.0 - 2.0 * tIn);
+          driftSpeedFactor = 1.0 - smoothPower;
+        } else if (vortexCycleTimer < VORTEX_TRANS_IN + VORTEX_HOLD_DURATION) {
+          // Phase 2: 3 Seconds Full Vortex
+          smoothPower = 1.0;
+          driftSpeedFactor = 0.0;
+        } else if (vortexCycleTimer < VORTEX_TOTAL_CYCLE) {
+          // Phase 3: Smooth Transition Out (drift from Vortex back into diagonal flight)
+          if (!hasSyncedVortexOut) {
+            hasSyncedVortexOut = true;
+            setIsVortexUI(false);
+
+            // Synchronize base drift positions to current Vortex coordinates (exact SakuraCanvas.tsx technique)
+            for (let i = 0; i < SLIDER_PETALS; i++) {
+              const a = petalAngle[i];
+              const normH = i / SLIDER_PETALS;
+              const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
+              const radialWobble =
+                Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalTime * 0.6) * 0.75;
+              const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
+              const rawY =
+                (normH - 0.5) * 10.8 +
+                Math.sin(a) * (currentRadius * 0.38) +
+                Math.sin(a * 2.2 + totalTime * 0.5) * 0.85;
+              const rawX = Math.cos(a) * (currentRadius * 1.38);
+              const rawZ = Math.sin(a) * currentRadius * 0.55;
+
+              const tornadoX = rawX + vortexCenterX;
+              const tornadoY =
+                vortexCenterY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
+
+              petalPosX[i] =
+                tornadoX -
+                Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+              petalPosY[i] =
+                tornadoY -
+                Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+            }
+          }
+
+          const tOut = Math.min(
+            1.0,
+            (vortexCycleTimer - (VORTEX_TRANS_IN + VORTEX_HOLD_DURATION)) /
+              VORTEX_TRANS_OUT
+          );
+          const easeOut = tOut * tOut * (3.0 - 2.0 * tOut);
+          smoothPower = 1.0 - easeOut;
+          driftSpeedFactor = easeOut;
+        } else {
+          // Vortex cycle finished -> back to pure diagonal flight
+          vortexCycleTimer = -1.0;
+          hasSyncedVortexOut = false;
+          setIsVortexUI(false);
+          smoothPower = 0.0;
+          driftSpeedFactor = 1.0;
+          allowBoundaryWrap = true;
+        }
+      }
+
       for (let i = 0; i < SLIDER_PETALS; i++) {
         petalAge[i] += delta * 0.85;
-        petalPosX[i] += petalSpeedX[i] * delta;
-        petalPosY[i] += petalSpeedY[i] * delta;
+        petalPosX[i] += petalSpeedX[i] * delta * driftSpeedFactor;
+        petalPosY[i] += petalSpeedY[i] * delta * driftSpeedFactor;
 
-        if (petalPosX[i] > 2.5) petalPosX[i] = -13.5;
-        if (petalPosX[i] < -14.0) petalPosX[i] = 2.0;
-        if (petalPosY[i] < -6.5) petalPosY[i] = 6.5;
-        if (petalPosY[i] > 6.8) petalPosY[i] = -6.2;
+        if (allowBoundaryWrap) {
+          if (petalPosX[i] > 2.5) petalPosX[i] = -13.5;
+          if (petalPosX[i] < -14.0) petalPosX[i] = 2.0;
+          if (petalPosY[i] < -6.5) petalPosY[i] = 6.5;
+          if (petalPosY[i] > 6.8) petalPosY[i] = -6.2;
+        }
 
         const normalX =
           petalPosX[i] +
@@ -1806,17 +1872,21 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         let finalZ = normalZ;
 
         if (smoothPower > 0.001) {
-          // 1:1 3D Tornado/Vortex math from SakuraCanvas.tsx (70% slower angular speed via petalSpeed)
-          petalAngle[i] += petalSpeed[i] * delta * (1.2 + smoothPower * 1.6);
+          // 1:1 3D Tornado/Vortex math with expanded X & Y diameter and smooth angular spin ramp
+          const spinFactor = (0.45 + smoothPower * 2.35) * smoothPower;
+          petalAngle[i] += petalSpeed[i] * delta * spinFactor;
           const a = petalAngle[i];
           const normH = i / SLIDER_PETALS;
-          const baseTubeRadius = 3.2 + (petalRadiusX[i] % 2.2);
+          const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
           const radialWobble =
-            Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalTime * 0.6) * 0.55;
-          const currentRadius = Math.max(1.2, baseTubeRadius + radialWobble);
-          const rawY = (normH - 0.5) * 8.2 + Math.sin(a * 2.2 + totalTime * 0.5) * 0.6;
-          const rawX = Math.cos(a) * (currentRadius * 1.25);
-          const rawZ = Math.sin(a) * currentRadius * 0.5;
+            Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalTime * 0.6) * 0.75;
+          const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
+          const rawY =
+            (normH - 0.5) * 10.8 +
+            Math.sin(a) * (currentRadius * 0.38) +
+            Math.sin(a * 2.2 + totalTime * 0.5) * 0.85;
+          const rawX = Math.cos(a) * (currentRadius * 1.38);
+          const rawZ = Math.sin(a) * currentRadius * 0.55;
 
           const tornadoX = rawX + vortexCenterX;
           const tornadoY =
@@ -1835,7 +1905,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
           Math.cos(petalAge[i] * 0.5 + petalSeed[i]) * 0.25,
           petalAge[i] * 0.65 +
             petalSeed[i] +
-            (smoothPower > 0.01 ? petalAngle[i] : 0)
+            petalAngle[i] * smoothPower
         );
         const zScale = Math.max(
           0.35,
