@@ -1338,6 +1338,7 @@ export function SakuraCanvas({
   const user2ColorRef = useRef(CURSOR_PALETTE_10[1]); // Electric Violet for Guest
   const [remoteUser1Name, setRemoteUser1Name] = useState<string>('Host');
   const [remoteUser2Name, setRemoteUser2Name] = useState<string>('Gast');
+  const [hasRemotePeer, setHasRemotePeer] = useState<boolean>(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   const displayUser1Name = isHost ? (myName || 'Host') : (remoteUser1Name || 'Host');
@@ -1386,6 +1387,7 @@ export function SakuraCanvas({
       if (!data || !data.type) return;
 
       if (data.type === 'CURSOR_MOVE') {
+        setHasRemotePeer(true);
         const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
         const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
         if (cursorElem) {
@@ -1395,15 +1397,46 @@ export function SakuraCanvas({
           cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
         }
       } else if (data.type === 'GESTURE') {
+        setHasRemotePeer(true);
         const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
         triggerCursorGesture(remoteIdx as 1 | 2, data.gestureType);
       } else if (data.type === 'USER_NAME') {
-        if (data.user1Name) setRemoteUser1Name(data.user1Name);
-        if (data.user2Name) setRemoteUser2Name(data.user2Name);
+        setHasRemotePeer(true);
+        if (isHost && data.senderIndex === 2) {
+          if (data.user2Name) setRemoteUser2Name(data.user2Name);
+          // Ping back so the connecting guest immediately knows host is present
+          channel.postMessage({
+            type: 'USER_NAME',
+            senderIndex: 1,
+            user1Name: myName || 'Host'
+          });
+        } else if (!isHost && data.senderIndex === 1) {
+          if (data.user1Name) setRemoteUser1Name(data.user1Name);
+        }
+      } else if (data.type === 'USER_LEAVE') {
+        const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
+        const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
+        if (cursorElem) {
+          cursorElem.classList.remove('active');
+        }
+        setHasRemotePeer(false);
       }
     };
 
+    const handleBeforeUnload = () => {
+      try {
+        channel.postMessage({
+          type: 'USER_LEAVE',
+          senderIndex: isHost ? 1 : 2
+        });
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       channel.close();
       channelRef.current = null;
     };
@@ -4588,6 +4621,7 @@ export function SakuraCanvas({
       },
       handlePeerMessage: (data) => {
         if (!data) return;
+        setHasRemotePeer(true);
         const msg = data as unknown as Record<string, unknown>;
         if (msg.kind === 'MODE_SWITCH' && msg.mode) {
           handleSwitchMode(msg.mode as 'bluten' | 'plexus');
@@ -5269,37 +5303,43 @@ export function SakuraCanvas({
       {/* Custom Translucent User Cursors with Names (Topmost layer: visible across all modals, completion windows and HUD) */}
       {isRunning && (
         <>
-          <div
-            id="userCursor1"
-            className="user-cursor pointer-events-none fixed top-0 left-0 select-none"
-            style={{
-              zIndex: 99999,
-              transform: `translate3d(${mousePosRef.current.x}px, ${mousePosRef.current.y}px, 0)`,
-              '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
-              '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
-            } as React.CSSProperties}
-          >
-            <div id="cursorCircle1" className="cursor-circle" />
-            <div id="cursorName1" className="cursor-name">
-              {displayUser1Name}
+          {/* User 1 Cursor (Host) */}
+          {(isHost || hasRemotePeer) && (
+            <div
+              id="userCursor1"
+              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${isHost ? 'active' : ''}`}
+              style={{
+                zIndex: 99999,
+                transform: `translate3d(${mousePosRef.current.x}px, ${mousePosRef.current.y}px, 0)`,
+                '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
+                '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
+              } as React.CSSProperties}
+            >
+              <div id="cursorCircle1" className="cursor-circle" />
+              <div id="cursorName1" className="cursor-name">
+                {displayUser1Name}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div
-            id="userCursor2"
-            className="user-cursor pointer-events-none fixed top-0 left-0 select-none"
-            style={{
-              zIndex: 99999,
-              transform: `translate3d(${mousePosRef.current.x}px, ${mousePosRef.current.y}px, 0)`,
-              '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
-              '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
-            } as React.CSSProperties}
-          >
-            <div id="cursorCircle2" className="cursor-circle" />
-            <div id="cursorName2" className="cursor-name">
-              {displayUser2Name}
+          {/* User 2 Cursor (Guest - only rendered when guest is active or current player is the guest) */}
+          {(!isHost || hasRemotePeer) && (
+            <div
+              id="userCursor2"
+              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${!isHost ? 'active' : ''}`}
+              style={{
+                zIndex: 99999,
+                transform: `translate3d(${mousePosRef.current.x}px, ${mousePosRef.current.y}px, 0)`,
+                '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
+                '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
+              } as React.CSSProperties}
+            >
+              <div id="cursorCircle2" className="cursor-circle" />
+              <div id="cursorName2" className="cursor-name">
+                {displayUser2Name}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

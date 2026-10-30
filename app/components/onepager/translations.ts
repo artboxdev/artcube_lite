@@ -69,8 +69,8 @@ export const translations = {
       sliderPlexusBadge: 'Plexus · Transformation',
       sliderHintSumie: 'Kreisbewegung = 3s Blüten-Vortex',
       sliderHintPlexus: 'Orbs zusammenschieben = 3s Netzwerk-Impuls',
-      sliderVortexActive: '3s Blüten-Vortex aktiv!',
-      sliderPulseActive: '3s Netzwerk-Impuls aktiv!',
+      sliderVortexActive: 'Blüten-Vortex aktiv',
+      sliderPulseActive: 'Netzwerk-Impuls aktiv',
     },
     story: {
       pill: 'Was ist art.cube?',
@@ -226,8 +226,8 @@ export const translations = {
       sliderPlexusBadge: 'Plexus · Transformation',
       sliderHintSumie: 'Circle motion = 3s Petal Vortex',
       sliderHintPlexus: 'Push orbs together = 3s Network Pulse',
-      sliderVortexActive: '3s Petal Vortex active!',
-      sliderPulseActive: '3s Network Pulse active!',
+      sliderVortexActive: 'Petal Vortex active',
+      sliderPulseActive: 'Network Pulse active',
     },
     story: {
       pill: 'What is art.cube?',
