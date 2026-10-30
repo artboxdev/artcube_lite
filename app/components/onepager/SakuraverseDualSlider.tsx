@@ -3498,6 +3498,8 @@ function SumiePreviewBox({ lang }: SakuraverseDualSliderProps) {
 // ============================================================================
 // DEDICATED PLEXUS CARD BOX (PC & TABLET)
 // ============================================================================
+// DEDICATED PLEXUS CARD BOX FOR PC & TABLET (All 4 Orbs: Red, Blue, Yellow, Green)
+// ============================================================================
 
 function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -3557,9 +3559,9 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
     });
     bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat));
 
-    // Plexus 3D Scene
+    // Plexus 3D Scene (1:1 with SmartphoneDualSlider proportions and scaling)
     const plexusScene = new THREE.Scene();
-    const PLEXUS_HALF_H = 540 * Math.tan(THREE.MathUtils.degToRad(30));
+    const PLEXUS_HALF_H = 540 * Math.tan(THREE.MathUtils.degToRad(30)); // 311.769
     let plexusHalfW = PLEXUS_HALF_H * (width / height);
     const plexusCamera = new THREE.OrthographicCamera(
       -plexusHalfW,
@@ -3572,13 +3574,22 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
     plexusCamera.position.set(0, 0, 540);
     plexusCamera.lookAt(0, 0, 0);
 
-    const MAX_BOX_NODES = 450;
-    const MAX_BOX_LINES = 3600;
+    const MAX_BOX_NODES = 600;
+    const MAX_BOX_LINES = 4800;
 
     const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 6), 3));
-    lineGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 6), 3));
-    lineGeo.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 2), 1));
+    lineGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 6), 3)
+    );
+    lineGeo.setAttribute(
+      'color',
+      new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 6), 3)
+    );
+    lineGeo.setAttribute(
+      'alpha',
+      new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 2), 1)
+    );
     const lineMat = new THREE.ShaderMaterial({
       vertexShader: plexusLineVertexShader,
       fragmentShader: plexusLineFragmentShader,
@@ -3590,9 +3601,18 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
     plexusScene.add(plexusLinesMesh);
 
     const nodeGeo = new THREE.BufferGeometry();
-    nodeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES * 3), 3));
-    nodeGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES * 3), 3));
-    nodeGeo.setAttribute('size', new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES), 1));
+    nodeGeo.setAttribute(
+      'position',
+      new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES * 3), 3)
+    );
+    nodeGeo.setAttribute(
+      'color',
+      new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES * 3), 3)
+    );
+    nodeGeo.setAttribute(
+      'size',
+      new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES), 1)
+    );
     const nodeMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -3607,10 +3627,12 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
     const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
     plexusScene.add(plexusPointsMesh);
 
-    // 2 Orbs: Blue (Left) and Red (Right)
+    // 4 Orbs: Red, Blue, Yellow, Green (1:1 identical proportions & orbital movement as on smartphone)
     const plexusOrbs: SliderPlexusOrb[] = [
-      new SliderPlexusOrb('blue', -plexusHalfW * 0.40, 25, 34, 24, -0.64, 1.8, plexusScene),
-      new SliderPlexusOrb('red', plexusHalfW * 0.40, -25, 32, 22, 0.72, 0.2, plexusScene),
+      new SliderPlexusOrb('red', -74, 85, 34, 24, 0.72, 0.2, plexusScene),
+      new SliderPlexusOrb('blue', 66, 78, 36, 26, -0.64, 1.8, plexusScene),
+      new SliderPlexusOrb('yellow', -64, -83, 36, 24, 0.6, 3.3, plexusScene),
+      new SliderPlexusOrb('green', 71, -79, 34, 26, -0.68, 4.7, plexusScene),
     ];
 
     interface ActiveImpulse {
@@ -3644,7 +3666,7 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
     const onPointerDown = (e: PointerEvent) => {
       const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
       let closest: SliderPlexusOrb | null = null;
-      let minDist = 75.0;
+      let minDist = 68.0;
 
       for (const orb of plexusOrbs) {
         const d = Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y);
@@ -3669,8 +3691,8 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
     const onPointerMove = (e: PointerEvent) => {
       if (draggedOrb) {
         const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
-        const boundX = plexusHalfW - 35;
-        const boundY = PLEXUS_HALF_H - 35;
+        const boundX = plexusHalfW - 28;
+        const boundY = PLEXUS_HALF_H - 28;
 
         const nextX = Math.max(-boundX, Math.min(boundX, worldPos.x + dragOffset.x));
         const nextY = Math.max(-boundY, Math.min(boundY, worldPos.y + dragOffset.y));
@@ -3699,7 +3721,7 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
       const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
       let hovering = false;
       for (const orb of plexusOrbs) {
-        if (Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y) < 65) {
+        if (Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y) < 58) {
           hovering = true;
           orb.triggerHoverWobble();
           break;
@@ -3812,6 +3834,7 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
         orb.update(delta, Boolean(activeImp), finaleAlpha);
       }
 
+      // Trigger 3-second Dual-Color Finale Network Impulse ONLY when an Orb is actively pushed onto another Orb!
       if (draggedOrb && hasActivelyDraggedOrb) {
         for (let i = 0; i < plexusOrbs.length; i++) {
           const other = plexusOrbs[i];
@@ -3841,23 +3864,31 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
             const midX = (a.x + b.x) * 0.5;
             const midY = (a.y + b.y) * 0.5;
 
+            // Spawn 100 1:1 FinaleMeshParticles unfolding along wavy filament threads from both Orbs (SakuraCanvas.tsx lines 3237-3247)
             const palA = SATURATED_PLEXUS_PALETTES[a.id];
             const palB = SATURATED_PLEXUS_PALETTES[b.id];
-            const combinedPalette = [...palA, ...palB];
             const particles: SliderFinaleMeshParticle[] = [];
-            const boundX = plexusHalfW * 0.85;
+            const boundX = 165.0;
             const boundY = 135.0;
             const boundZ = 48.0;
 
-            for (let pIdx = 0; pIdx < 100; pIdx++) {
+            for (let p = 0; p < 100; p++) {
+              const useA = p % 2 === 0;
+              const srcOrb = useA ? a : b;
+              const pal = useA ? palA : palB;
+              const originOffset = new THREE.Vector3(
+                srcOrb.x - midX,
+                srcOrb.y - midY,
+                srcOrb.z
+              );
               particles.push(
                 new SliderFinaleMeshParticle(
                   boundX,
                   boundY,
                   boundZ,
-                  combinedPalette,
-                  { x: midX, y: midY, z: 0 },
-                  pIdx
+                  pal,
+                  originOffset,
+                  p
                 )
               );
             }
@@ -3880,20 +3911,7 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
         }
       }
 
-      for (let idx = activeImpulses.length - 1; idx >= 0; idx--) {
-        const imp = activeImpulses[idx];
-        imp.age += delta;
-        imp.remaining -= delta;
-
-        if (imp.remaining <= 0) {
-          activeImpulses.splice(idx, 1);
-        }
-      }
-
-      if (activeImpulses.length === 0 && isImpulseUI) {
-        setIsImpulseUI(false);
-      }
-
+      // 1. Regular Attached Plexus Shell Nodes (outside Finale)
       let worldNodeCount = 0;
       for (let o = 0; o < plexusOrbs.length; o++) {
         const orb = plexusOrbs[o];
@@ -3928,8 +3946,12 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
         }
       }
 
+      // 2. Active Dual-Color Finale Network Impulses
       for (let idx = activeImpulses.length - 1; idx >= 0; idx--) {
         const imp = activeImpulses[idx];
+        imp.age += delta;
+        imp.remaining -= delta;
+
         const transitionProgress = Math.min(1.0, imp.age / 0.85);
         const finaleAlpha = Math.min(
           1.0,
@@ -3960,169 +3982,249 @@ function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
           worldNodeGroup[nIdx] = -(idx + 1);
         }
 
-        const orbHubScale = 38.0 * (0.45 + 0.55 * finaleAlpha);
-        const palA = SATURATED_PLEXUS_PALETTES[imp.orbA.id][0];
-        const palB = SATURATED_PLEXUS_PALETTES[imp.orbB.id][0];
-
-        if (worldNodeCount < MAX_BOX_NODES) {
-          const aIdx = worldNodeCount++;
-          worldNodeX[aIdx] = imp.orbA.x;
-          worldNodeY[aIdx] = imp.orbA.y;
-          worldNodeZ[aIdx] = imp.orbA.z;
-          worldNodeR[aIdx] = palA.r;
-          worldNodeG[aIdx] = palA.g;
-          worldNodeB[aIdx] = palA.b;
-          worldNodeSize[aIdx] = orbHubScale;
-          worldNodeActivated[aIdx] = 1;
-          worldNodeGroup[aIdx] = -(idx + 1);
+        // Orbiting Orbs as large Hub Nodes inside the Finale Network
+        const pairOrbs = [imp.orbA, imp.orbB];
+        for (let k = 0; k < 2; k++) {
+          if (worldNodeCount >= MAX_BOX_NODES) break;
+          const hOrb = pairOrbs[k];
+          const hubCol = SATURATED_PLEXUS_PALETTES[hOrb.id][0];
+          const hubIdx = worldNodeCount++;
+          worldNodeX[hubIdx] = hOrb.x;
+          worldNodeY[hubIdx] = hOrb.y;
+          worldNodeZ[hubIdx] = hOrb.z;
+          worldNodeR[hubIdx] = hubCol.r;
+          worldNodeG[hubIdx] = hubCol.g;
+          worldNodeB[hubIdx] = hubCol.b;
+          worldNodeSize[hubIdx] = 42.0 * finaleAlpha;
+          worldNodeActivated[hubIdx] = 1;
+          worldNodeGroup[hubIdx] = -(idx + 1);
         }
 
-        if (worldNodeCount < MAX_BOX_NODES) {
-          const bIdx = worldNodeCount++;
-          worldNodeX[bIdx] = imp.orbB.x;
-          worldNodeY[bIdx] = imp.orbB.y;
-          worldNodeZ[bIdx] = imp.orbB.z;
-          worldNodeR[bIdx] = palB.r;
-          worldNodeG[bIdx] = palB.g;
-          worldNodeB[bIdx] = palB.b;
-          worldNodeSize[bIdx] = orbHubScale;
-          worldNodeActivated[bIdx] = 1;
-          worldNodeGroup[bIdx] = -(idx + 1);
+        // Separation impulse when impulse finishes
+        if (imp.remaining <= 0) {
+          const dx = imp.orbB.x - imp.orbA.x;
+          const dy = imp.orbB.y - imp.orbA.y;
+          const d = Math.hypot(dx, dy) || 1;
+          const nx = dx / d;
+          const ny = dy / d;
+
+          const sepImpulse = 165.0;
+          imp.orbA.vx = -nx * sepImpulse;
+          imp.orbA.vy = -ny * sepImpulse;
+          imp.orbB.vx = nx * sepImpulse;
+          imp.orbB.vy = ny * sepImpulse;
+          imp.orbA.trailHistory = [];
+          imp.orbB.trailHistory = [];
+
+          if (Math.hypot(imp.orbA.homeX - imp.orbB.homeX, imp.orbA.homeY - imp.orbB.homeY) < 95) {
+            imp.orbA.homeX -= nx * 55;
+            imp.orbA.homeY -= ny * 45;
+            imp.orbB.homeX += nx * 55;
+            imp.orbB.homeY += ny * 45;
+          }
+
+          pairCooldowns.set(getPairKey(imp.orbA, imp.orbB), 2.4);
+          activeImpulses.splice(idx, 1);
+          if (activeImpulses.length === 0) {
+            setIsImpulseUI(false);
+          }
         }
       }
 
+      // Populate GPU Node Buffers
       const nodePosArr = nodeGeo.attributes.position.array as Float32Array;
       const nodeColArr = nodeGeo.attributes.color.array as Float32Array;
       const nodeSizeArr = nodeGeo.attributes.size.array as Float32Array;
 
-      for (let i = 0; i < worldNodeCount; i++) {
-        nodePosArr[i * 3] = worldNodeX[i];
-        nodePosArr[i * 3 + 1] = worldNodeY[i];
-        nodePosArr[i * 3 + 2] = worldNodeZ[i];
-        nodeColArr[i * 3] = worldNodeR[i];
-        nodeColArr[i * 3 + 1] = worldNodeG[i];
-        nodeColArr[i * 3 + 2] = worldNodeB[i];
-        nodeSizeArr[i] = worldNodeSize[i];
+      for (let k = 0; k < worldNodeCount; k++) {
+        const k3 = k * 3;
+        nodePosArr[k3] = worldNodeX[k];
+        nodePosArr[k3 + 1] = worldNodeY[k];
+        nodePosArr[k3 + 2] = worldNodeZ[k];
+
+        nodeColArr[k3] = worldNodeR[k];
+        nodeColArr[k3 + 1] = worldNodeG[k];
+        nodeColArr[k3 + 2] = worldNodeB[k];
+
+        nodeSizeArr[k] = worldNodeSize[k];
       }
       nodeGeo.setDrawRange(0, worldNodeCount);
       nodeGeo.attributes.position.needsUpdate = true;
       nodeGeo.attributes.color.needsUpdate = true;
       nodeGeo.attributes.size.needsUpdate = true;
 
+      // Populate GPU Line Buffers
       const linePosArr = lineGeo.attributes.position.array as Float32Array;
       const lineColArr = lineGeo.attributes.color.array as Float32Array;
       const lineAlphaArr = lineGeo.attributes.alpha.array as Float32Array;
 
-      let lineVertCount = 0;
-      let lineAlphaCount = 0;
-
-      const nodeDegree = new Uint8Array(worldNodeCount);
-      const isBoxImpulse = activeImpulses.length > 0;
+      let lineVertexIdx = 0;
+      let lineColorIdx = 0;
+      let lineAlphaIdx = 0;
+      const maxLineVertices = linePosArr.length - 18;
+      const nodeLinkCounts = new Uint8Array(worldNodeCount);
 
       for (let i = 0; i < worldNodeCount; i++) {
+        const actA = worldNodeActivated[i];
+        const maxLinksForA = actA === 1 ? 4 : 8;
+        if (nodeLinkCounts[i] >= maxLinksForA) continue;
+
         const x1 = worldNodeX[i];
         const y1 = worldNodeY[i];
         const z1 = worldNodeZ[i];
-        const isActivatedI = worldNodeActivated[i] === 1;
-        const maxDeg = isActivatedI ? 5 : 3;
+        const ar = worldNodeR[i];
+        const ag = worldNodeG[i];
+        const ab = worldNodeB[i];
+        const grpA = worldNodeGroup[i];
 
         for (let j = i + 1; j < worldNodeCount; j++) {
-          if (nodeDegree[i] >= maxDeg) break;
-          if (nodeDegree[j] >= maxDeg) continue;
-          if (lineVertCount >= MAX_BOX_LINES * 2) break;
+          if (lineVertexIdx >= maxLineVertices) break;
+          if (nodeLinkCounts[i] >= maxLinksForA) break;
+          if (worldNodeGroup[j] !== grpA) continue;
 
-          const isActivatedJ = worldNodeActivated[j] === 1;
-          const sameGroup = worldNodeGroup[i] === worldNodeGroup[j];
+          const isActivatedLine = actA === 1 && worldNodeActivated[j] === 1;
+          const maxLinksForB = isActivatedLine ? 4 : 8;
+          if (nodeLinkCounts[j] >= maxLinksForB) continue;
 
-          let connectDist = 48.0;
-          if (isActivatedI && isActivatedJ) {
-            connectDist = 58.0;
-          } else if (!sameGroup) {
-            connectDist = isBoxImpulse ? 42.0 : 34.0;
-          }
+          const cutoff = isActivatedLine ? 88.0 : 85.0;
+          const cutoffSq = cutoff * cutoff;
 
-          const dx = worldNodeX[j] - x1;
-          const dy = worldNodeY[j] - y1;
-          const dz = worldNodeZ[j] - z1;
+          const x2 = worldNodeX[j];
+          const y2 = worldNodeY[j];
+          const z2 = worldNodeZ[j];
+
+          const dx = x2 - x1;
+          if (dx > cutoff || dx < -cutoff) continue;
+          const dy = y2 - y1;
+          if (dy > cutoff || dy < -cutoff) continue;
+          const dz = z2 - z1;
+          if (dz > cutoff || dz < -cutoff) continue;
+
           const distSq = dx * dx + dy * dy + dz * dz;
+          if (distSq >= cutoffSq) continue;
 
-          if (distSq < connectDist * connectDist) {
-            const dist = Math.sqrt(distSq);
-            const opacity = 1.0 - dist / connectDist;
+          const distance = Math.sqrt(distSq);
+          const opacity = 1.0 - distance / cutoff;
+          if (opacity <= 0.01) continue;
 
-            nodeDegree[i]++;
-            nodeDegree[j]++;
+          const r2 = worldNodeR[j];
+          const g2 = worldNodeG[j];
+          const b2 = worldNodeB[j];
 
-            const x2 = worldNodeX[j];
-            const y2 = worldNodeY[j];
-            const z2 = worldNodeZ[j];
+          if (isActivatedLine) {
+            const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
+            const flickerA = Math.sin(totalTime * 14.0 + lineSeed);
+            const flickerB = Math.cos(totalTime * 25.0 + lineSeed * 1.7);
+            const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
 
-            const r1 = worldNodeR[i];
-            const g1 = worldNodeG[i];
-            const b1 = worldNodeB[i];
-            const r2 = worldNodeR[j];
-            const g2 = worldNodeG[j];
-            const b2 = worldNodeB[j];
-
-            if (isActivatedI || isActivatedJ) {
-              const pulseGlow = Math.sin(totalTime * 9.5 + (x1 + y1) * 0.05) * 0.5 + 0.5;
-              const flickerIntensity = 0.85 + 0.35 * Math.sin(totalTime * 22.0 + i * 3.7);
-              const lineAlpha =
-                Math.min(0.96, Math.pow(opacity, 0.65) * 1.25) *
-                (0.85 + 0.3 * pulseGlow) *
-                flickerIntensity;
-
-              const idx1 = lineVertCount * 3;
-              const idx2 = (lineVertCount + 1) * 3;
-
-              linePosArr[idx1] = x1;
-              linePosArr[idx1 + 1] = y1;
-              linePosArr[idx1 + 2] = z1;
-              linePosArr[idx2] = x2;
-              linePosArr[idx2 + 1] = y2;
-              linePosArr[idx2 + 2] = z2;
-
-              lineColArr[idx1] = r1;
-              lineColArr[idx1 + 1] = g1;
-              lineColArr[idx1 + 2] = b1;
-              lineColArr[idx2] = r2;
-              lineColArr[idx2 + 1] = g2;
-              lineColArr[idx2 + 2] = b2;
-
-              lineAlphaArr[lineAlphaCount++] = lineAlpha;
-              lineAlphaArr[lineAlphaCount++] = lineAlpha;
-              lineVertCount += 2;
-            } else {
-              const effAlpha = Math.min(0.92, Math.pow(opacity * 0.92, 0.72) * 1.15);
-              const idx1 = lineVertCount * 3;
-              const idx2 = (lineVertCount + 1) * 3;
-
-              linePosArr[idx1] = x1;
-              linePosArr[idx1 + 1] = y1;
-              linePosArr[idx1 + 2] = z1;
-              linePosArr[idx2] = x2;
-              linePosArr[idx2 + 1] = y2;
-              linePosArr[idx2 + 2] = z2;
-
-              lineColArr[idx1] = r1;
-              lineColArr[idx1 + 1] = g1;
-              lineColArr[idx1 + 2] = b1;
-              lineColArr[idx2] = r2;
-              lineColArr[idx2 + 1] = g2;
-              lineColArr[idx2 + 2] = b2;
-
-              lineAlphaArr[lineAlphaCount++] = effAlpha;
-              lineAlphaArr[lineAlphaCount++] = effAlpha;
-              lineVertCount += 2;
+            let flickerMul = 1.0;
+            if (flickerNoise < -0.32) {
+              flickerMul = (flickerNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35;
+            } else if (flickerNoise > 0.68) {
+              flickerMul = 1.65;
             }
+            if (flickerMul <= 0.02) continue;
+
+            nodeLinkCounts[i]++;
+            nodeLinkCounts[j]++;
+
+            const lineAlpha = Math.min(0.96, Math.pow(opacity, 0.55) * 1.15 * flickerMul);
+
+            const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
+            const perpX = (-dy / pLen) * 0.85;
+            const perpY = (dx / pLen) * 0.85;
+
+            // 1. Center Line
+            linePosArr[lineVertexIdx++] = x1;
+            linePosArr[lineVertexIdx++] = y1;
+            linePosArr[lineVertexIdx++] = z1;
+            linePosArr[lineVertexIdx++] = x2;
+            linePosArr[lineVertexIdx++] = y2;
+            linePosArr[lineVertexIdx++] = z2;
+
+            lineColArr[lineColorIdx++] = ar;
+            lineColArr[lineColorIdx++] = ag;
+            lineColArr[lineColorIdx++] = ab;
+            lineColArr[lineColorIdx++] = r2;
+            lineColArr[lineColorIdx++] = g2;
+            lineColArr[lineColorIdx++] = b2;
+
+            lineAlphaArr[lineAlphaIdx++] = lineAlpha;
+            lineAlphaArr[lineAlphaIdx++] = lineAlpha;
+
+            // 2. Positive Perpendicular Filament
+            if (lineVertexIdx < maxLineVertices) {
+              linePosArr[lineVertexIdx++] = x1 + perpX;
+              linePosArr[lineVertexIdx++] = y1 + perpY;
+              linePosArr[lineVertexIdx++] = z1;
+              linePosArr[lineVertexIdx++] = x2 + perpX;
+              linePosArr[lineVertexIdx++] = y2 + perpY;
+              linePosArr[lineVertexIdx++] = z2;
+
+              lineColArr[lineColorIdx++] = ar;
+              lineColArr[lineColorIdx++] = ag;
+              lineColArr[lineColorIdx++] = ab;
+              lineColArr[lineColorIdx++] = r2;
+              lineColArr[lineColorIdx++] = g2;
+              lineColArr[lineColorIdx++] = b2;
+
+              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
+              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
+            }
+
+            // 3. Negative Perpendicular Filament
+            if (lineVertexIdx < maxLineVertices) {
+              linePosArr[lineVertexIdx++] = x1 - perpX;
+              linePosArr[lineVertexIdx++] = y1 - perpY;
+              linePosArr[lineVertexIdx++] = z1;
+              linePosArr[lineVertexIdx++] = x2 - perpX;
+              linePosArr[lineVertexIdx++] = y2 - perpY;
+              linePosArr[lineVertexIdx++] = z2;
+
+              lineColArr[lineColorIdx++] = ar;
+              lineColArr[lineColorIdx++] = ag;
+              lineColArr[lineColorIdx++] = ab;
+              lineColArr[lineColorIdx++] = r2;
+              lineColArr[lineColorIdx++] = g2;
+              lineColArr[lineColorIdx++] = b2;
+
+              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
+              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
+            }
+          } else {
+            nodeLinkCounts[i]++;
+            nodeLinkCounts[j]++;
+
+            const effAlpha = Math.min(0.92, Math.pow(opacity * 0.92, 0.72) * 1.15);
+
+            linePosArr[lineVertexIdx++] = x1;
+            linePosArr[lineVertexIdx++] = y1;
+            linePosArr[lineVertexIdx++] = z1;
+            linePosArr[lineVertexIdx++] = x2;
+            linePosArr[lineVertexIdx++] = y2;
+            linePosArr[lineVertexIdx++] = z2;
+
+            lineColArr[lineColorIdx++] = ar;
+            lineColArr[lineColorIdx++] = ag;
+            lineColArr[lineColorIdx++] = ab;
+            lineColArr[lineColorIdx++] = r2;
+            lineColArr[lineColorIdx++] = g2;
+            lineColArr[lineColorIdx++] = b2;
+
+            lineAlphaArr[lineAlphaIdx++] = effAlpha;
+            lineAlphaArr[lineAlphaIdx++] = effAlpha;
           }
         }
       }
 
-      lineGeo.setDrawRange(0, lineVertCount);
+      lineGeo.setDrawRange(0, lineVertexIdx / 3);
+      nodeGeo.setDrawRange(0, worldNodeCount);
       lineGeo.attributes.position.needsUpdate = true;
       lineGeo.attributes.color.needsUpdate = true;
       lineGeo.attributes.alpha.needsUpdate = true;
+      nodeGeo.attributes.position.needsUpdate = true;
+      nodeGeo.attributes.color.needsUpdate = true;
+      nodeGeo.attributes.size.needsUpdate = true;
 
       renderer.clear();
       renderer.render(bgScene, bgCamera);
