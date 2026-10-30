@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FiCopy, FiCheck, FiShare2, FiUser, FiPlay, FiInfo, FiLayers } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
+import { FiCopy, FiCheck, FiShare2, FiUser, FiPlay, FiInfo, FiLayers, FiX } from 'react-icons/fi';
+import { LuSparkles } from 'react-icons/lu';
 import { Language, translations } from './translations';
 import { SakuraverseDualSlider } from './SakuraverseDualSlider';
 
@@ -15,6 +17,7 @@ interface ExperienceStationProps {
   onJoin: () => void;
   onStart: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => void;
   showToast: (msg: string) => void;
+  onModalToggle?: (open: boolean) => void;
 }
 
 export function ExperienceStation({
@@ -27,11 +30,56 @@ export function ExperienceStation({
   onJoin,
   onStart,
   showToast,
+  onModalToggle,
 }: ExperienceStationProps) {
   const [activeMode, setActiveMode] = useState<'test' | 'souvenir'>('test');
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [isArtworksModalOpen, setIsArtworksModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [sumieImgSrc, setSumieImgSrc] = useState('/sumie-lightbox.jpg');
   const t = translations[lang].experience;
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/artcube_lite')) {
+      setSumieImgSrc('/artcube_lite/sumie-lightbox.jpg');
+    }
+  }, []);
+
+  const openArtworksModal = useCallback(() => {
+    setIsArtworksModalOpen(true);
+    onModalToggle?.(true);
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+    }
+  }, [onModalToggle]);
+
+  const closeArtworksModal = useCallback(() => {
+    setIsArtworksModalOpen(false);
+    onModalToggle?.(false);
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
+  }, [onModalToggle]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isArtworksModalOpen) {
+        closeArtworksModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isArtworksModalOpen, closeArtworksModal]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -100,7 +148,15 @@ export function ExperienceStation({
           </span>
         </h2>
         <p className="mt-4 text-sm sm:text-base text-white/85 font-light leading-relaxed text-left sm:text-center">
-          {t.subline}
+          {t.subline}{' '}
+          <button
+            type="button"
+            onClick={openArtworksModal}
+            className="inline-flex items-center gap-1 font-semibold text-[#4ee2ec] hover:text-[#ff80df] underline underline-offset-4 decoration-[#4ee2ec]/60 hover:decoration-[#ff80df] transition-colors cursor-pointer"
+          >
+            <span>{t.sublineModalLink}</span>
+            <LuSparkles className="w-3.5 h-3.5 inline" />
+          </button>
         </p>
       </div>
 
@@ -277,6 +333,95 @@ export function ExperienceStation({
         </div>
 
       </div>
+
+      {/* Lightbox Modal: Lerne mehr über die beiden Kunstwerke (Sumi-e & Plexus) */}
+      {mounted && isArtworksModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={closeArtworksModal}
+          style={{ touchAction: 'none' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t.artworksModal.title}
+        >
+          <div
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-[rgba(18,12,28,0.98)] border border-pink-500/50 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.35)] text-left flex flex-col gap-6 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff2a9d] to-[#4ee2ec] flex items-center justify-center shadow-[0_0_15px_rgba(255,42,157,0.5)] shrink-0">
+                  <LuSparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-2xl font-extrabold text-white tracking-wide">
+                    {t.artworksModal.title}
+                  </h3>
+                  <span className="text-[11px] font-mono tracking-wider text-pink-300/70 uppercase">
+                    {t.artworksModal.subtitle}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeArtworksModal}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer shrink-0"
+                aria-label={t.artworksModal.closeBtn}
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Section 1: Sumi-e (History + Generated Crane & Cherry Blossom Image) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-pink-500/30 flex flex-col sm:flex-row gap-5 items-center sm:items-start">
+              <div className="w-full sm:w-44 md:w-48 shrink-0 overflow-hidden rounded-xl border border-pink-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(255,42,157,0.2)] bg-[#f7f5f0]">
+                <img
+                  src={sumieImgSrc}
+                  alt={t.artworksModal.sumieImageAlt}
+                  className="w-full h-auto object-cover block"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2.5 flex-1">
+                <span className="inline-flex items-center self-start px-3 py-1 rounded-full bg-pink-500/15 border border-pink-500/40 text-pink-200 text-[10px] font-bold tracking-widest uppercase">
+                  {t.artworksModal.sumieBadge}
+                </span>
+                <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
+                  {t.artworksModal.sumieTitle}
+                </h4>
+                <p className="text-xs sm:text-sm text-white/80 font-light leading-relaxed">
+                  {t.artworksModal.sumieText}
+                </p>
+              </div>
+            </div>
+
+            {/* Section 2: Plexus (Visual Impact in Artworks) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-cyan-500/30 flex flex-col gap-2.5">
+              <span className="inline-flex items-center self-start px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 text-[10px] font-bold tracking-widest uppercase">
+                {t.artworksModal.plexusBadge}
+              </span>
+              <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
+                {t.artworksModal.plexusTitle}
+              </h4>
+              <p className="text-xs sm:text-sm text-white/80 font-light leading-relaxed">
+                {t.artworksModal.plexusText}
+              </p>
+            </div>
+
+            {/* Close Action Button */}
+            <button
+              type="button"
+              onClick={closeArtworksModal}
+              className="w-full py-3.5 px-6 rounded-2xl font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#06b6d4] shadow-[0_10px_25px_rgba(255,42,157,0.4)] hover:shadow-[0_12px_30px_rgba(78,226,236,0.6)] hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+            >
+              {t.artworksModal.closeBtn}
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </section>
   );
 }

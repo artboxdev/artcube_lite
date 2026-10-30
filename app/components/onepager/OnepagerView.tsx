@@ -154,6 +154,7 @@ export function OnepagerView({
         onJoin={onJoin}
         onStart={onStart}
         showToast={showToast}
+        onModalToggle={handleModalToggle}
       />
 
       {/* 4. Story Section: Was ist art.cube? (Story & Vision) - Swapped to follow Experience Station */}
