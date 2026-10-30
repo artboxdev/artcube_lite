@@ -3,7 +3,7 @@ export type Language = 'de' | 'en';
 export const translations = {
   de: {
     header: {
-      claim: 'art.cube',
+      claim: 'A new immersion',
       navLinks: [
         { label: 'Jetzt das Kunstwerk erleben', href: 'erleben' },
         { label: 'Was ist art.cube?', href: 'vision' },
@@ -34,7 +34,7 @@ export const translations = {
         sumieImageAlt: 'Traditionelle Sumi-e Tuschemalerei mit Kirschblütenzweig und Kranich',
         plexusBadge: 'Plexus · Transformation',
         plexusTitle: 'Die visuelle Wirkung von Plexus in Kunstwerken',
-        plexusText: 'In der generativen und digitalen Kunst machen Plexus-Strukturen unsichtbare Kräfte, Beziehungen und Energieflüsse sichtbar. Schwebende Knotenpunkte und leuchtende Filamente verbinden sich bei Annäherung zu dynamischen Netzwerken und lösen sich wieder auf. Diese Ästhetik erzeugt eine hypnotische räumliche Tiefe und symbolisiert im Sakuraverse den Moment der Co-Kreation: Einzelne Impulse verschmelzen zu einem pulsierenden, kollektiven Resonanzraum.',
+        plexusText: 'In der generativen Medienkunst – von Pionieren wie Casey Reas bis hin zu Refik Anadol – versinnbildlicht die Plexus-Ästhetik das dynamische Wechselspiel von Verbindung und Trennung. Schwebende Knotenpunkte und Lichtfilamente machen unsichtbare Beziehungen greifbar: Bei Annäherung formieren sie sich zu lebendigen Netzen, bei Distanz lösen sie sich wieder auf. Im Sakuraverse spiegelt Plexus den Dialog zwischen Alt und Neu ebenfalls wider – die Thematik der Vergänglichkeit wir hier also in Form von Impulsen dargestellt, die sich immer wieder neu zusammensetzen.',
         closeBtn: 'Verstanden & Schließen',
       },
       nameLabel: 'Dein Name (Optional)',
@@ -159,7 +159,7 @@ export const translations = {
   },
   en: {
     header: {
-      claim: 'art.cube',
+      claim: 'A new immersion',
       navLinks: [
         { label: 'Experience Artwork', href: 'erleben' },
         { label: 'What is art.cube?', href: 'vision' },
@@ -190,7 +190,7 @@ export const translations = {
         sumieImageAlt: 'Traditional Sumi-e ink wash painting with cherry blossom branch and crane',
         plexusBadge: 'Plexus · Transformation',
         plexusTitle: 'The Visual Impact of Plexus in Artworks',
-        plexusText: 'In generative and digital art, Plexus structures make invisible forces, connections, and energy flows tangible. Floating nodes and luminous filaments link up on proximity to form dynamic networks before dissolving again. This aesthetic creates hypnotic spatial depth and symbolizes co-creation in Sakuraverse: individual impulses merge into a pulsing, collective space of resonance.',
+        plexusText: 'In generative media art — from pioneers like Casey Reas to Refik Anadol — the Plexus aesthetic symbolizes the dynamic interplay of connection and separation. Floating nodes and luminous filaments make invisible relationships tangible: drawing close, they form living networks; moving apart, they dissolve again. In Sakuraverse, Plexus also reflects the dialogue between old and new — the theme of impermanence is depicted here as impulses that continuously recompose.',
         closeBtn: 'Got it & Close',
       },
       nameLabel: 'Your Name (Optional)',

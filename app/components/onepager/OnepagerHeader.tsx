@@ -76,7 +76,7 @@ export function OnepagerHeader({
           <button
             type="button"
             onClick={() => handleNavClick('erleben')}
-            className="px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_20px_rgba(255,42,157,0.4)] hover:shadow-[0_0_30px_rgba(78,226,236,0.6)] hover:scale-[1.03] transition-all duration-300 cursor-pointer"
+            className="hidden sm:inline-flex px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_20px_rgba(255,42,157,0.4)] hover:shadow-[0_0_30px_rgba(78,226,236,0.6)] hover:scale-[1.03] transition-all duration-300 cursor-pointer"
           >
             {t.launchArtwork}
           </button>
