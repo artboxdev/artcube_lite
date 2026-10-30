@@ -34,23 +34,53 @@ function createNoiseTexture(): THREE.DataTexture {
 
 function generatePetalTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 64;
-  c.height = 64;
+  c.width = 128;
+  c.height = 128;
   const ctx = c.getContext('2d');
   if (ctx) {
-    ctx.filter = 'drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.9))';
-    const grad = ctx.createLinearGradient(0, 0, 64, 64);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.3, '#f5f5f5');
-    grad.addColorStop(0.7, '#e0e0e0');
-    grad.addColorStop(1, '#c0c0c0');
-    ctx.fillStyle = grad;
+    const cx = 64;
+    const cy = 64;
+
+    // Soft outer glow halo (matching DualSlider glowy petal aura)
+    const aura = ctx.createRadialGradient(cx, cy, 4, cx, cy, 52);
+    aura.addColorStop(0, 'rgba(255, 255, 255, 0.48)');
+    aura.addColorStop(0.45, 'rgba(255, 255, 255, 0.24)');
+    aura.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.moveTo(32, 4);
-    ctx.bezierCurveTo(50, 12, 60, 32, 50, 52);
-    ctx.bezierCurveTo(40, 62, 24, 62, 14, 52);
-    ctx.bezierCurveTo(4, 32, 14, 12, 32, 4);
+    ctx.arc(cx, cy, 52, 0, Math.PI * 2);
     ctx.fill();
+
+    // Delicate, fine Sakura petal silhouette with soft glow
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 16;
+
+    const grad = ctx.createLinearGradient(0, -28, 0, 28);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.45, '#fafaff');
+    grad.addColorStop(1, '#ececff');
+    ctx.fillStyle = grad;
+
+    ctx.beginPath();
+    ctx.moveTo(0, -26);
+    ctx.bezierCurveTo(15, -16, 20, 4, 12, 21);
+    ctx.bezierCurveTo(6, 29, -6, 29, -12, 21);
+    ctx.bezierCurveTo(-20, 4, -15, -16, 0, -26);
+    ctx.closePath();
+    ctx.fill();
+
+    // Fine luminous central vein/highlight for delicate petal structure
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.quadraticCurveTo(2, 0, 0, 18);
+    ctx.stroke();
+
+    ctx.restore();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.needsUpdate = true;
@@ -280,7 +310,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
     name: 'Pink',
     uiColor: '#ff4da6',
     glow: 'rgba(255, 77, 166, 0.7)',
-    shades: [0xffaae6, 0xff77dd, 0xff55cc, 0xff88ee, 0xffccee],
+    shades: [0xff80df, 0xff2a9d, 0xffb3ec, 0xffaae6, 0xff77dd],
     vortexTint: 0xff66cc
   },
   red: {
@@ -288,7 +318,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
     name: 'Rot',
     uiColor: '#ff2a4b',
     glow: 'rgba(255, 42, 75, 0.7)',
-    shades: [0xff3366, 0xff5577, 0xff2a55, 0xff7088, 0xff4466],
+    shades: [0xff3366, 0xff2a4b, 0xff5577, 0xff7088, 0xff4466],
     vortexTint: 0xff2a4b
   },
   blue: {
@@ -296,7 +326,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
     name: 'Blau',
     uiColor: '#00c3ff',
     glow: 'rgba(0, 195, 255, 0.7)',
-    shades: [0x38bdf8, 0x0ea5e9, 0x60a5fa, 0x0284c7, 0x7dd3fc],
+    shades: [0x38bdf8, 0x00d8ff, 0x60a5fa, 0x4ee2ec, 0x7dd3fc],
     vortexTint: 0x00c3ff
   },
   green: {
@@ -304,7 +334,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
     name: 'Grün',
     uiColor: '#10e782',
     glow: 'rgba(16, 231, 130, 0.7)',
-    shades: [0x34d399, 0x10b981, 0x059669, 0x6ee7b7, 0x00f59b],
+    shades: [0x34d399, 0x10e782, 0x00f59b, 0x6ee7b7, 0x4ade80],
     vortexTint: 0x10e782
   },
   yellow: {
@@ -312,7 +342,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
     name: 'Gelb',
     uiColor: '#ffd000',
     glow: 'rgba(255, 208, 0, 0.7)',
-    shades: [0xfbbf24, 0xf59e0b, 0xfde047, 0xfacc15, 0xffea00],
+    shades: [0xfde047, 0xffd000, 0xfacc15, 0xfbbf24, 0xffea00],
     vortexTint: 0xffd000
   }
 };
@@ -1339,6 +1369,10 @@ export function SakuraCanvas({
   const [remoteUser1Name, setRemoteUser1Name] = useState<string>('Host');
   const [remoteUser2Name, setRemoteUser2Name] = useState<string>('Gast');
   const [hasRemotePeer, setHasRemotePeer] = useState<boolean>(false);
+  const hasRemotePeerRef = useRef<boolean>(false);
+  const triggerCircleFromUserRef = useRef<((userIdx: 1 | 2, shouldBroadcast: boolean) => void) | null>(null);
+  const syncRemoteBlossomColorRef = useRef<((color: BlossomColorId) => void) | null>(null);
+  const onRemoteUserLeaveRef = useRef<(() => void) | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   const displayUser1Name = isHost ? (myName || 'Host') : (remoteUser1Name || 'Host');
@@ -1387,6 +1421,7 @@ export function SakuraCanvas({
       if (!data || !data.type) return;
 
       if (data.type === 'CURSOR_MOVE') {
+        hasRemotePeerRef.current = true;
         setHasRemotePeer(true);
         const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
         const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
@@ -1397,10 +1432,12 @@ export function SakuraCanvas({
           cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
         }
       } else if (data.type === 'GESTURE') {
+        hasRemotePeerRef.current = true;
         setHasRemotePeer(true);
         const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
         triggerCursorGesture(remoteIdx as 1 | 2, data.gestureType);
       } else if (data.type === 'USER_NAME') {
+        hasRemotePeerRef.current = true;
         setHasRemotePeer(true);
         if (isHost && data.senderIndex === 2) {
           if (data.user2Name) setRemoteUser2Name(data.user2Name);
@@ -1413,13 +1450,24 @@ export function SakuraCanvas({
         } else if (!isHost && data.senderIndex === 1) {
           if (data.user1Name) setRemoteUser1Name(data.user1Name);
         }
+      } else if (data.type === 'SUMIE_VORTEX_CIRCLE') {
+        hasRemotePeerRef.current = true;
+        setHasRemotePeer(true);
+        const remoteIdx = (data.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
+        triggerCircleFromUserRef.current?.(remoteIdx, false);
+      } else if (data.type === 'BLOSSOM_COLOR_ADD' && data.color) {
+        hasRemotePeerRef.current = true;
+        setHasRemotePeer(true);
+        syncRemoteBlossomColorRef.current?.(data.color as BlossomColorId);
       } else if (data.type === 'USER_LEAVE') {
         const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
         const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
         if (cursorElem) {
           cursorElem.classList.remove('active');
         }
+        hasRemotePeerRef.current = false;
         setHasRemotePeer(false);
+        onRemoteUserLeaveRef.current?.();
       }
     };
 
@@ -1523,10 +1571,11 @@ export function SakuraCanvas({
   const [backNoticeVisible, setBackNoticeVisible] = useState(false);
 
   // Step-by-Step Artwork Phase Lifecycle State
-  const [currentPhase, setCurrentPhase] = useState<'BRANCH' | 'BLOSSOM' | 'VORTEX' | 'DONE'>('BRANCH');
+  const [currentPhase, setCurrentPhase] = useState<'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | 'VORTEX' | 'DONE'>('BRANCH');
   const [currentRound, setCurrentRound] = useState(1);
   const [isTrunkGrowing, setIsTrunkGrowing] = useState(true);
   const [selectedColor, setSelectedColor] = useState<BlossomColorId>('pink');
+  const [vortexCircleCount, setVortexCircleCount] = useState(0);
   const maxRoundsPerPhase = 3;
 
   const activeModeRef = useRef(activeMode);
@@ -1767,12 +1816,6 @@ export function SakuraCanvas({
     setSelectedColor(color);
     showToast(`Farbe: ${BLOSSOM_PALETTES[color].name} ausgewählt`);
     sendInteractionRef.current?.('COLOR_SELECT', { color });
-    const bgPal = BG_COLOR_PALETTES.default;
-    if (bgUniformsRef.current) {
-      if (bgUniformsRef.current.uRippleCrest) bgUniformsRef.current.uRippleCrest.value.copy(bgPal.crest);
-      if (bgUniformsRef.current.uRippleActive) bgUniformsRef.current.uRippleActive.value = 1.0;
-      if (bgUniformsRef.current.uRippleTime) bgUniformsRef.current.uRippleTime.value = 0.0;
-    }
   }, [showToast]);
 
   const togglePause = useCallback(() => {
@@ -2033,74 +2076,78 @@ export function SakuraCanvas({
     const mouseScreen = new THREE.Vector2(0.5, 0.5);
     const mouseWorld = new THREE.Vector3(0, 0, 0);
 
-    // 1. Instanced Sakura Petals (600 Petals)
-    const petalGeo = new THREE.PlaneGeometry(0.9, 0.9);
+    // 1. Instanced Sakura Petals (DualSlider-style soft glow & diagonal flow)
+    const SLIDER_STYLE_PETALS = isMobile ? 76 : 96;
+    const petalGeo = new THREE.PlaneGeometry(2.32, 2.32);
     const petalMat = new THREE.MeshBasicMaterial({
       map: generatePetalTexture(),
-      color: new THREE.Color(BLOSSOM_PALETTES.pink.vortexTint),
+      color: new THREE.Color(0xffffff),
       transparent: true,
+      opacity: 0.96,
       depthWrite: false,
       side: THREE.DoubleSide
     });
-    const instancedPetalMesh = new THREE.InstancedMesh(petalGeo, petalMat, MAX_PETALS);
+    const instancedPetalMesh = new THREE.InstancedMesh(petalGeo, petalMat, SLIDER_STYLE_PETALS);
     instancedPetalMesh.matrixAutoUpdate = false;
     instancedPetalMesh.visible = false;
     petalGroup.add(instancedPetalMesh);
 
-    const petalOriginX = new Float32Array(MAX_PETALS);
-    const petalOriginY = new Float32Array(MAX_PETALS);
-    const petalRadiusX = new Float32Array(MAX_PETALS);
-    const petalRadiusY = new Float32Array(MAX_PETALS);
-    const petalSpeed = new Float32Array(MAX_PETALS);
-    const petalAngle = new Float32Array(MAX_PETALS);
-    const petalPhaseZ = new Float32Array(MAX_PETALS);
-    const petalScales = new Float32Array(MAX_PETALS);
+    const petalRadiusX = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalRadiusY = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalSpeed = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalAngle = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalPhaseZ = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalScales = new Float32Array(SLIDER_STYLE_PETALS);
 
-    // Exact Floating2DPetal flow parameters ported from sakura-v3.html
-    const petalPosX = new Float32Array(MAX_PETALS);
-    const petalPosY = new Float32Array(MAX_PETALS);
-    const petalPosZ = new Float32Array(MAX_PETALS);
-    const petalSpeedX = new Float32Array(MAX_PETALS);
-    const petalSpeedY = new Float32Array(MAX_PETALS);
-    const petalAmpX = new Float32Array(MAX_PETALS);
-    const petalAmpY = new Float32Array(MAX_PETALS);
-    const petalAmpZ = new Float32Array(MAX_PETALS);
-    const petalFreqX = new Float32Array(MAX_PETALS);
-    const petalFreqY = new Float32Array(MAX_PETALS);
-    const petalFreqZ = new Float32Array(MAX_PETALS);
-    const petalPhaseX = new Float32Array(MAX_PETALS);
-    const petalPhaseY = new Float32Array(MAX_PETALS);
-    const petalSeed = new Float32Array(MAX_PETALS);
-    const petalAge = new Float32Array(MAX_PETALS);
+    const petalPosX = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalPosY = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalPosZ = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalSpeedX = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalSpeedY = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalAmpX = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalAmpY = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalAmpZ = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalFreqX = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalFreqY = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalFreqZ = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalPhaseX = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalPhaseY = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalSeed = new Float32Array(SLIDER_STYLE_PETALS);
+    const petalAge = new Float32Array(SLIDER_STYLE_PETALS);
     const dummy = new THREE.Object3D();
-    let activePetalCount = 0;
+    const activePetalCount = SLIDER_STYLE_PETALS;
 
-    for (let i = 0; i < MAX_PETALS; i++) {
-      petalOriginX[i] = 2.4 + (Math.random() - 0.5) * 12.8;
-      petalOriginY[i] = -0.4 + (Math.random() - 0.5) * 8.0;
-      petalRadiusX[i] = 3.2 + Math.random() * 6.4;
-      petalRadiusY[i] = 2.4 + Math.random() * 4.8;
-      petalSpeed[i] = (0.19 + Math.random() * 0.32) * (i % 2 === 0 ? 1 : -1);
-      petalAngle[i] = Math.random() * Math.PI * 2.0;
-      petalPhaseZ[i] = Math.random() * Math.PI * 2.0;
-      petalScales[i] = 0.5 + Math.random() * 0.5;
+    for (let i = 0; i < SLIDER_STYLE_PETALS; i++) {
+      const shadeHex = BLOSSOM_PALETTES.pink.shades[i % BLOSSOM_PALETTES.pink.shades.length];
+      instancedPetalMesh.setColorAt(i, new THREE.Color(shadeHex));
 
-      // sakura-v3.html flow vectors
-      petalPosX[i] = 2.4 + (Math.random() - 0.5) * 16.0;
-      petalPosY[i] = -0.4 + (Math.random() - 0.5) * 10.0;
-      petalPosZ[i] = -3.5 - Math.random() * 1.5;
-      petalSpeedX[i] = (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.8) * 0.64;
-      petalSpeedY[i] = (Math.random() - 0.5) * 0.4 * 0.64;
-      petalAmpX[i] = 1.6 + Math.random() * 2.2;
-      petalAmpY[i] = 1.2 + Math.random() * 1.8;
-      petalAmpZ[i] = (0.8 + Math.random() * 1.2) * 0.50; // 50% Z-setback
-      petalFreqX[i] = 0.3 + Math.random() * 0.4;
-      petalFreqY[i] = 0.25 + Math.random() * 0.35;
+      petalPosX[i] = 2.4 + (Math.random() - 0.5) * 30.0;
+      petalPosY[i] = -0.4 + (Math.random() - 0.5) * 16.0;
+      petalPosZ[i] = -2.2 - Math.random() * 1.2;
+      // Diagonal flight (top-left to bottom-right, 1:1 with DualSlider)
+      petalSpeedX[i] = 1.1 + Math.random() * 0.9;
+      petalSpeedY[i] = -(0.55 + Math.random() * 0.65);
+      petalAmpX[i] = 0.65 + Math.random() * 0.95;
+      petalAmpY[i] = 0.5 + Math.random() * 0.85;
+      petalAmpZ[i] = (0.4 + Math.random() * 0.6) * 0.4;
+      petalFreqX[i] = 0.35 + Math.random() * 0.4;
+      petalFreqY[i] = 0.3 + Math.random() * 0.35;
       petalFreqZ[i] = 0.4 + Math.random() * 0.5;
       petalPhaseX[i] = Math.random() * Math.PI * 2.0;
       petalPhaseY[i] = Math.random() * Math.PI * 2.0;
+      petalPhaseZ[i] = Math.random() * Math.PI * 2.0;
       petalSeed[i] = Math.random() * 100.0;
       petalAge[i] = Math.random() * 4.0;
+      petalScales[i] = 0.48 + Math.random() * 0.36;
+
+      petalAngle[i] = Math.random() * Math.PI * 2.0;
+      // DualSlider vortex angular speed (70% slower factor 0.30)
+      petalSpeed[i] = (1.6 + Math.random() * 1.4) * 0.30 * (i % 2 === 0 ? 1 : -1);
+      petalRadiusX[i] = 2.2 + Math.random() * 3.8;
+      petalRadiusY[i] = 1.8 + Math.random() * 3.0;
+    }
+    if (instancedPetalMesh.instanceColor) {
+      instancedPetalMesh.instanceColor.needsUpdate = true;
     }
 
     // 2. Main Trunk & Progressive Growth Lifecycle
@@ -2154,17 +2201,26 @@ export function SakuraCanvas({
     let roundTimer = 0.0;
     let trunkPostDelayTimer = 0.0;
     let currentRoundNum = 1;
-    let currentPhaseName: 'BRANCH' | 'BLOSSOM' | 'VORTEX' | 'DONE' = 'BRANCH';
+    let currentPhaseName: 'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | 'VORTEX' | 'DONE' = 'BRANCH';
 
-    // 14-Second Dominant Color Vortex State (4s alignment + 10s storm + ambient drift)
-    let isVortexActive = false;
-    let isDriftActive = false;
-    let vortexTimer = 0.0;
-    const VORTEX_ALIGN_TIME = 4.0;
-    const VORTEX_STORM_TIME = 10.0;
-    const VORTEX_TOTAL_DURATION = VORTEX_ALIGN_TIME + VORTEX_STORM_TIME; // 14.0s
+    // DualSlider-style Flying Petals & 10-Second Vortex Lifecycle State
+    const VORTEX_TRANS_IN = 1.25;
+    const VORTEX_HOLD_DURATION = 10.0; // 10 seconds full Vortex
+    const VORTEX_TRANS_OUT = 1.45;
+    const VORTEX_TOTAL_CYCLE = VORTEX_TRANS_IN + VORTEX_HOLD_DURATION + VORTEX_TRANS_OUT;
+    let arePetalsFlying = false;
+    let petalAppearAlpha = 0.0;
+    let vortexHalf1Active = false;
+    let vortexHalf2Active = false;
+    let half1TransProgress = 0.0;
+    let half2TransProgress = 0.0;
+    let fullVortexHoldTimer = -1.0;
+    let hasSyncedVortexOut = false;
+    let vortexUser1Ready = false;
+    let vortexUser2Ready = false;
+    const circleTrailHistory: { x: number; y: number; t: number }[] = [];
 
-    const startVortexFinale = () => {
+    const syncFlyingPetalColors = () => {
       const counts = colorCountsRef.current;
       const activeColors = (Object.keys(counts) as BlossomColorId[]).filter(c => counts[c] > 0);
       const weightedColorPool: BlossomColorId[] = [];
@@ -2179,33 +2235,52 @@ export function SakuraCanvas({
       }
 
       petalMat.color.set(0xffffff);
-
-      const vortexPetalLimit = isMobile ? 160 : MAX_PETALS;
-      for (let i = 0; i < vortexPetalLimit; i++) {
+      for (let i = 0; i < activePetalCount; i++) {
         const colorKey = weightedColorPool[i % weightedColorPool.length];
         const pal = BLOSSOM_PALETTES[colorKey] || BLOSSOM_PALETTES.pink;
-        const colorHex = pal.shades[Math.floor(Math.random() * pal.shades.length)];
-        instancedPetalMesh.setColorAt(i, new THREE.Color(colorHex));
-        petalAge[i] = Math.random() * 4.0;
+        const shadeHex = pal.shades[(i + Math.floor(i / weightedColorPool.length)) % pal.shades.length];
+        instancedPetalMesh.setColorAt(i, new THREE.Color(shadeHex));
       }
       if (instancedPetalMesh.instanceColor) {
         instancedPetalMesh.instanceColor.needsUpdate = true;
       }
+    };
 
-      isVortexActive = true;
-      isDriftActive = false;
-      vortexTimer = 0.0;
-      activePetalCount = vortexPetalLimit;
-      if (instancedPetalMesh && instancedPetalMesh.material) {
-        (instancedPetalMesh.material as THREE.MeshBasicMaterial).opacity = 0.0;
+    const startFlyingPetalsIfNeeded = () => {
+      syncFlyingPetalColors();
+      if (!arePetalsFlying) {
+        arePetalsFlying = true;
+        petalAppearAlpha = 0.0;
+        const centerX = cameraRef.current ? cameraRef.current.position.x : 2.4;
+        const centerY = cameraRef.current ? cameraRef.current.position.y : -0.4;
+        for (let i = 0; i < activePetalCount; i++) {
+          petalPosX[i] = centerX + (Math.random() - 0.5) * 30.0;
+          petalPosY[i] = centerY + (Math.random() - 0.5) * 16.0;
+        }
+        instancedPetalMesh.visible = true;
       }
-      instancedPetalMesh.visible = true;
+    };
+
+    syncRemoteBlossomColorRef.current = (color: BlossomColorId) => {
+      colorCountsRef.current[color] = (colorCountsRef.current[color] || 0) + 1;
+      startFlyingPetalsIfNeeded();
+    };
+
+    const startFullVortexFinale = () => {
+      startFlyingPetalsIfNeeded();
+      petalAppearAlpha = 1.0;
+
+      vortexHalf1Active = true;
+      vortexHalf2Active = true;
+      fullVortexHoldTimer = 0.0;
+      hasSyncedVortexOut = false;
 
       roundState = 'IDLE';
       currentPhaseName = 'VORTEX';
       currentPhaseRef.current = 'VORTEX';
       setCurrentPhase('VORTEX');
 
+      // Ripple effect ONLY at the initiation of the final animation
       const bgPal = BG_COLOR_PALETTES.default;
       if (bgUniforms.uBgColor1) {
         bgUniforms.uBgColor1.value.copy(bgPal.c1);
@@ -2217,11 +2292,59 @@ export function SakuraCanvas({
         bgUniforms.uRippleTime.value = 0.0;
       }
 
-      showToastRef.current?.('🌸 14s Blüten-Vortex aktiviert!');
+      showToastRef.current?.('🌸 10s Blüten-Vortex aktiviert!');
 
       // In Souvenir Mode: Start MP4 video recording directly at the beginning of the final animation!
       if (isCreationModeRef.current) {
-        startSouvenirRecordingRef.current?.(14);
+        startSouvenirRecordingRef.current?.(12);
+      }
+    };
+
+    const handleUserCircleGesture = (userIdx: 1 | 2, shouldBroadcast: boolean) => {
+      if (activeModeRef.current !== 'bluten') return;
+      if (currentPhaseName !== 'AWAIT_VORTEX' && currentPhaseName !== 'DONE') return;
+      if (fullVortexHoldTimer >= 0.0) return;
+
+      if (shouldBroadcast) {
+        if (channelRef.current) {
+          channelRef.current.postMessage({
+            type: 'SUMIE_VORTEX_CIRCLE',
+            senderIndex: userIdx
+          });
+        }
+        sendInteractionRef.current?.('SUMIE_VORTEX_CIRCLE', { senderIndex: userIdx });
+      }
+
+      if (!hasRemotePeerRef.current) {
+        // 1 User in session (Test Mode or Souvenir Mode): full 10s Vortex immediately
+        vortexUser1Ready = true;
+        vortexUser2Ready = true;
+        setVortexCircleCount(2);
+        startFullVortexFinale();
+      } else {
+        // 2 Users in session: each user activates ~half of the Vortex; once both have done so, 10s full Vortex starts
+        if (userIdx === 1) vortexUser1Ready = true;
+        if (userIdx === 2) vortexUser2Ready = true;
+        const readyCount = (vortexUser1Ready ? 1 : 0) + (vortexUser2Ready ? 1 : 0);
+        setVortexCircleCount(readyCount);
+
+        if (readyCount === 1) {
+          startFlyingPetalsIfNeeded();
+          petalAppearAlpha = 1.0;
+          vortexHalf1Active = true;
+        } else if (readyCount >= 2) {
+          startFullVortexFinale();
+        }
+      }
+    };
+    triggerCircleFromUserRef.current = handleUserCircleGesture;
+
+    onRemoteUserLeaveRef.current = () => {
+      if (currentPhaseName === 'AWAIT_VORTEX' && (vortexUser1Ready || vortexUser2Ready) && fullVortexHoldTimer < 0.0) {
+        vortexUser1Ready = true;
+        vortexUser2Ready = true;
+        setVortexCircleCount(2);
+        startFullVortexFinale();
       }
     };
 
@@ -2321,6 +2444,15 @@ export function SakuraCanvas({
 
       const curColor = selectedColorRef.current;
       colorCountsRef.current[curColor] += 1;
+      startFlyingPetalsIfNeeded();
+      if (channelRef.current) {
+        channelRef.current.postMessage({
+          type: 'BLOSSOM_COLOR_ADD',
+          senderIndex: isHost ? 1 : 2,
+          color: curColor
+        });
+      }
+      sendInteractionRef.current?.('BLOSSOM_COLOR_ADD', { color: curColor });
       const palette = BLOSSOM_PALETTES[curColor];
 
       const centerPos = orb.basePosition.clone();
@@ -3345,7 +3477,7 @@ export function SakuraCanvas({
 
     const checkAndTriggerOrbHit = (clientX: number, clientY: number) => {
       if (isPausedRef.current || activeModeRef.current !== 'bluten') return false;
-      if (!isTrunkGrowthFinished || isVortexActive) return false;
+      if (!isTrunkGrowthFinished || fullVortexHoldTimer >= 0.0) return false;
       if (!cameraRef.current || !canvasRef.current) return false;
 
       const rect = canvasRef.current.getBoundingClientRect();
@@ -3431,6 +3563,85 @@ export function SakuraCanvas({
           normX: clientX / window.innerWidth,
           normY: 1.0 - (clientY / window.innerHeight)
         });
+      }
+
+      // Sumi-e Circle Gesture Detection (2D PCA Covariance + Centroid Angular Sweep from DualSlider)
+      if (
+        activeModeRef.current === 'bluten' &&
+        (currentPhaseName === 'AWAIT_VORTEX' || (currentPhaseName === 'DONE' && !isCreationModeRef.current)) &&
+        fullVortexHoldTimer < 0.0
+      ) {
+        const nowPerf = performance.now();
+        circleTrailHistory.push({ x: clientX, y: clientY, t: nowPerf });
+        while (circleTrailHistory.length > 0 && nowPerf - circleTrailHistory[0].t > 1200) {
+          circleTrailHistory.shift();
+        }
+
+        if (circleTrailHistory.length >= 10) {
+          let sumX = 0, sumY = 0;
+          const n = circleTrailHistory.length;
+          for (let i = 0; i < n; i++) {
+            sumX += circleTrailHistory[i].x;
+            sumY += circleTrailHistory[i].y;
+          }
+          const cx = sumX / n;
+          const cy = sumY / n;
+
+          let covXX = 0, covYY = 0, covXY = 0;
+          for (let i = 0; i < n; i++) {
+            const dx = circleTrailHistory[i].x - cx;
+            const dy = circleTrailHistory[i].y - cy;
+            covXX += dx * dx;
+            covYY += dy * dy;
+            covXY += dx * dy;
+          }
+          covXX /= n;
+          covYY /= n;
+          covXY /= n;
+
+          const trace = covXX + covYY;
+          const det = covXX * covYY - covXY * covXY;
+          const disc = Math.sqrt(Math.max(0, trace * trace - 4 * det));
+          const lambda1 = (trace + disc) * 0.5;
+          const lambda2 = (trace - disc) * 0.5;
+          const majorStd = Math.sqrt(Math.max(0, lambda1));
+          const minorStd = Math.sqrt(Math.max(0, lambda2));
+
+          // Reject linear horizontal/vertical/diagonal back-and-forth swipes
+          if (majorStd > 14 && minorStd / majorStd >= 0.28) {
+            let totalAngle = 0;
+            let posSweep = 0;
+            let negSweep = 0;
+            let prevAngle = Math.atan2(circleTrailHistory[0].y - cy, circleTrailHistory[0].x - cx);
+
+            for (let i = 1; i < n; i++) {
+              const curdx = circleTrailHistory[i].x - cx;
+              const curdy = circleTrailHistory[i].y - cy;
+              if (curdx * curdx + curdy * curdy < 64) continue;
+
+              const curAngle = Math.atan2(curdy, curdx);
+              let dAngle = curAngle - prevAngle;
+              while (dAngle > Math.PI) dAngle -= Math.PI * 2;
+              while (dAngle < -Math.PI) dAngle += Math.PI * 2;
+
+              if (Math.abs(dAngle) < 1.35) {
+                totalAngle += dAngle;
+                if (dAngle > 0) posSweep += dAngle;
+                else negSweep += -dAngle;
+              }
+              prevAngle = curAngle;
+            }
+
+            const netSweep = Math.abs(totalAngle);
+            const dominantSweep = Math.max(posSweep, negSweep);
+            const minorSweep = Math.min(posSweep, negSweep);
+
+            if (netSweep >= Math.PI * 1.45 && minorSweep < dominantSweep * 0.32) {
+              circleTrailHistory.length = 0;
+              handleUserCircleGesture(activeIdx, true);
+            }
+          }
+        }
       }
 
       if (isMouseDown && draggedPlexusCluster && activeModeRef.current === 'plexus') {
@@ -3617,11 +3828,20 @@ export function SakuraCanvas({
 
     // Restart function to reset 3D scene elements cleanly
     restartTriggerRef.current = () => {
-      isVortexActive = false;
-      isDriftActive = false;
-      vortexTimer = 0.0;
+      arePetalsFlying = false;
+      petalAppearAlpha = 0.0;
+      vortexHalf1Active = false;
+      vortexHalf2Active = false;
+      half1TransProgress = 0.0;
+      half2TransProgress = 0.0;
+      fullVortexHoldTimer = -1.0;
+      hasSyncedVortexOut = false;
+      vortexUser1Ready = false;
+      vortexUser2Ready = false;
+      circleTrailHistory.length = 0;
+      setVortexCircleCount(0);
+      colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
       instancedPetalMesh.visible = false;
-      activePetalCount = 0;
 
       while (strokeGroup.children.length > 0) {
         strokeGroup.remove(strokeGroup.children[0]);
@@ -3761,7 +3981,7 @@ export function SakuraCanvas({
             trunkPostDelayTimer = 0.0;
           }
           mainTrunkStroke.setProgress(growthProgressVal);
-        } else if (roundState === 'IDLE' && !isVortexActive && currentPhaseName === 'BRANCH' && activeOrbs.length === 0) {
+        } else if (roundState === 'IDLE' && fullVortexHoldTimer < 0.0 && currentPhaseName === 'BRANCH' && activeOrbs.length === 0) {
           trunkPostDelayTimer += delta;
           if (trunkPostDelayTimer >= TRUNK_POST_DELAY) {
             spawnOrbRound(1, 'BRANCH');
@@ -3795,187 +4015,165 @@ export function SakuraCanvas({
           }
         }
 
-        if (instancedPetalMesh && instancedPetalMesh.material) {
-          // Petals fade in smoothly over 1.0 second at the start of the final animation
-          const vortexFadeIn = isVortexActive ? Math.min(1.0, vortexTimer / 1.0) : 1.0;
-          (instancedPetalMesh.material as THREE.MeshBasicMaterial).opacity = modeFadeAlpha * vortexFadeIn;
-        }
+        // DualSlider-style Flying Sakura Petals + Half/Full 10-Second Vortex Animation
+        if (arePetalsFlying) {
+          petalAppearAlpha = Math.min(1.0, petalAppearAlpha + delta * 1.2);
+          if (instancedPetalMesh && instancedPetalMesh.material) {
+            (instancedPetalMesh.material as THREE.MeshBasicMaterial).opacity = modeFadeAlpha * petalAppearAlpha * 0.96;
+          }
 
-        // 14-Second Dominant Color Petal Vortex Animation (4s alignment + 10s storm)
-        if (isVortexActive) {
-          vortexTimer += delta;
+          if (vortexHalf1Active) {
+            half1TransProgress = Math.min(1.0, half1TransProgress + delta / VORTEX_TRANS_IN);
+          } else {
+            half1TransProgress = 0.0;
+          }
+
+          if (vortexHalf2Active) {
+            half2TransProgress = Math.min(1.0, half2TransProgress + delta / VORTEX_TRANS_IN);
+          } else {
+            half2TransProgress = 0.0;
+          }
+
           const centerX = cameraRef.current ? cameraRef.current.position.x : 2.4;
           const centerY = cameraRef.current ? cameraRef.current.position.y : -0.4;
-          const centerZ = -3.5; // Petals pushed 50% further back on Z axis into mid/background
+          const centerZ = -3.5;
           const sideTilt = 0.15;
 
-          if (vortexTimer < VORTEX_TOTAL_DURATION) {
-            // 14-Second Unified, Seamless Vortex Animation (Zero Jerk Buildup + Smooth Dynamic Storm)
-            const buildProgress = Math.min(1.0, vortexTimer / 4.0); // 4s smooth buildup
-            const smoothBuild = buildProgress * buildProgress * (3.0 - 2.0 * buildProgress);
+          let outFactor = 1.0;
+          let stormIntensity = 0.5;
 
-            // Storm intensity bell-curve peaking around mid-storm
-            const stormProgress = vortexTimer / VORTEX_TOTAL_DURATION;
-            const stormIntensity = Math.sin(stormProgress * Math.PI);
+          if (fullVortexHoldTimer >= 0.0) {
+            fullVortexHoldTimer += delta;
+            if (fullVortexHoldTimer < VORTEX_HOLD_DURATION) {
+              stormIntensity = Math.sin((fullVortexHoldTimer / VORTEX_HOLD_DURATION) * Math.PI);
+            } else {
+              if (!hasSyncedVortexOut) {
+                hasSyncedVortexOut = true;
+                for (let i = 0; i < activePetalCount; i++) {
+                  const a = petalAngle[i];
+                  const normH = i / activePetalCount;
+                  const baseTubeRadius = (5.2 + (petalRadiusX[i] % 2.1)) * 0.80;
+                  const rawY = (normH - 0.5) * 11.4;
+                  const rawX = Math.cos(a) * (baseTubeRadius * 1.28);
+                  const rawZ = Math.sin(a) * baseTubeRadius * 0.50;
+                  const tornadoX = rawX + centerX;
+                  const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
 
-            // Continuous, smooth spin acceleration (reduced by 20%)
-            const spinMultiplier = (0.65 + smoothBuild * 2.8 + stormIntensity * 1.1) * 0.512;
+                  petalPosX[i] = tornadoX - Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+                  petalPosY[i] = tornadoY - Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+                }
+              }
 
-            for (let i = 0; i < activePetalCount; i++) {
-              petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
+              const outAge = fullVortexHoldTimer - VORTEX_HOLD_DURATION;
+              const uOut = Math.max(0.0, Math.min(1.0, 1.0 - outAge / VORTEX_TRANS_OUT));
+              outFactor = uOut * uOut * (3.0 - 2.0 * uOut);
+              stormIntensity = 0.0;
+
+              if (outAge >= VORTEX_TRANS_OUT) {
+                fullVortexHoldTimer = -1.0;
+                vortexHalf1Active = false;
+                vortexHalf2Active = false;
+                half1TransProgress = 0.0;
+                half2TransProgress = 0.0;
+                hasSyncedVortexOut = false;
+                vortexUser1Ready = false;
+                vortexUser2Ready = false;
+                setVortexCircleCount(0);
+
+                if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
+                if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+
+                markArtworkCompletedRef.current?.('bluten');
+                roundState = 'IDLE';
+                currentPhaseName = 'DONE';
+                currentPhaseRef.current = 'DONE';
+                setCurrentPhase('DONE');
+              }
+            }
+          }
+
+          for (let i = 0; i < activePetalCount; i++) {
+            const isFirstHalf = (i % 2 === 0);
+            const rawHalfProg = isFirstHalf ? half1TransProgress : half2TransProgress;
+            const smoothIn = rawHalfProg * rawHalfProg * (3.0 - 2.0 * rawHalfProg);
+            const vortexBlend = smoothIn * outFactor;
+
+            // Advance diagonal top-left -> bottom-right drift (exact DualSlider motion)
+            petalAge[i] += delta * 0.85;
+            petalPosX[i] += petalSpeedX[i] * delta * 0.85;
+            petalPosY[i] += petalSpeedY[i] * delta * 0.85;
+
+            if (petalPosX[i] > centerX + 16.0) petalPosX[i] = centerX - 16.0;
+            if (petalPosX[i] < centerX - 16.0) petalPosX[i] = centerX + 16.0;
+            if (petalPosY[i] < centerY - 9.5) petalPosY[i] = centerY + 9.5;
+            if (petalPosY[i] > centerY + 9.5) petalPosY[i] = centerY - 9.5;
+
+            const driftX = petalPosX[i] + Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+            const driftY = petalPosY[i] + Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+            const driftZ = petalPosZ[i] + Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
+
+            let px = driftX;
+            let py = driftY;
+            let pz = driftZ;
+
+            if (vortexBlend > 0.001) {
+              const spinMult = (0.75 + vortexBlend * 2.55 + stormIntensity * 0.85) * 0.56;
+              petalAngle[i] += petalSpeed[i] * delta * spinMult;
               const a = petalAngle[i];
-              const normH = (i / activePetalCount);
+              const normH = i / activePetalCount;
 
-              // Initial floating drift position (at t=0)
-              const driftX = petalOriginX[i] + Math.sin(totalAnimTime * 0.4 + petalPhaseZ[i]) * petalRadiusX[i] * 0.4;
-              const driftY = petalOriginY[i] + Math.cos(totalAnimTime * 0.35 + petalPhaseZ[i]) * petalRadiusY[i] * 0.4;
-              const driftZ = centerZ + Math.sin(totalAnimTime * 0.3 + petalPhaseZ[i]) * 0.8;
+              const baseTubeRadius = (5.2 + (petalRadiusX[i] % 2.1)) * 0.80 * (1.0 - 0.10 * stormIntensity);
+              const radialWobble = (
+                Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.0) * (0.55 + 0.30 * (petalRadiusY[i] % 1.5)) +
+                Math.cos(a * 4.5 + petalPhaseZ[i]) * 0.25
+              ) * vortexBlend;
+              const currentRadius = Math.max(1.3, baseTubeRadius + radialWobble);
 
-              // Tube radius breathes smoothly with storm intensity - zero jump!
-              const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80 * (1.0 - 0.12 * stormIntensity);
+              const heightWobble = (
+                Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.6) * 0.85 +
+                Math.cos(a * 1.4 + i * 0.5) * 0.35
+              ) * vortexBlend;
+              const rawY = (normH - 0.5) * 11.4 + heightWobble;
 
-              // Continuous turbulent flight variance, smoothly fading in with smoothBuild
-              const radialWobble = (Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.0) * (0.65 + 0.35 * (petalRadiusY[i] % 1.5))
-                                  + Math.cos(a * 4.5 + petalPhaseZ[i]) * 0.3) * smoothBuild;
-              const currentRadius = Math.max(1.5, baseTubeRadius + radialWobble);
+              const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.25 * vortexBlend;
+              const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.25 * vortexBlend;
 
-              const heightWobble = (Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.6) * 1.0
-                                  + Math.cos(a * 1.4 + i * 0.5) * 0.4) * smoothBuild;
-              const rawY = (normH - 0.5) * 12.8 + heightWobble;
-
-              const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.3 * smoothBuild;
-              const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.3 * smoothBuild;
-
-              // Subtle horizontal ellipse: widened on width (X-axis) by 30%
-              const rawX = Math.cos(a) * (currentRadius * 1.30) + flutterX;
-              // 50% reduced Z depth to keep petals deep in the scene
+              const rawX = Math.cos(a) * (currentRadius * 1.28) + flutterX;
               const rawZ = (Math.sin(a) * currentRadius + flutterZ) * 0.50;
 
               const vortexX = rawX + centerX;
               const vortexY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
               const vortexZ = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
 
-              // Smoothstep lerp from initial drift into full vortex (completely smooth across 0..4s and beyond)
-              const px = THREE.MathUtils.lerp(driftX, vortexX, smoothBuild);
-              const py = THREE.MathUtils.lerp(driftY, vortexY, smoothBuild);
-              const pz = THREE.MathUtils.lerp(driftZ, vortexZ, smoothBuild);
+              px = THREE.MathUtils.lerp(driftX, vortexX, vortexBlend);
+              py = THREE.MathUtils.lerp(driftY, vortexY, vortexBlend);
+              pz = THREE.MathUtils.lerp(driftZ, vortexZ, vortexBlend);
 
-              dummy.position.set(px, py, pz);
-
-              // Continuous tumbling rotation without sudden parameter jumps (reduced velocity by 20%)
               dummy.rotation.set(
-                (totalAnimTime * (0.8 + 0.2 * smoothBuild + (petalRadiusX[i] % 0.4)) + i) * 0.80,
-                (totalAnimTime * (1.1 + 0.3 * smoothBuild + (petalRadiusY[i] % 0.4)) + i) * 0.80,
-                a + Math.sin(totalAnimTime * 2.2 + i) * (0.3 + 0.15 * smoothBuild)
+                petalAge[i] * (0.48 + 0.32 * vortexBlend) + petalSeed[i],
+                petalAge[i] * (0.58 + 0.38 * vortexBlend) + petalSeed[i],
+                THREE.MathUtils.lerp(
+                  Math.sin(petalAge[i] * 0.65 + petalSeed[i]) * 0.78,
+                  a + Math.sin(totalAnimTime * 2.2 + i) * 0.38,
+                  vortexBlend
+                )
               );
-
-              // 20% reduced max size on Z axis (scaling reduced further by 20%: factor 0.64)
-              const stormScale = (0.55 + 0.25 * smoothBuild + 0.15 * stormIntensity) * 0.64;
-              dummy.scale.setScalar(petalScales[i] * stormScale);
-              dummy.updateMatrix();
-              instancedPetalMesh.setMatrixAt(i, dummy.matrix);
-            }
-          } else {
-            // Phase 3: Exact sakura-v3.html Floating2DPetal post-finale ambient flow
-            if (!isDriftActive) {
-              isDriftActive = true;
-              if (bgUniforms.uBgColor1) bgUniforms.uBgColor1.value.copy(BG_COLOR_PALETTES.default.c1);
-              if (bgUniforms.uBgColor2) bgUniforms.uBgColor2.value.copy(BG_COLOR_PALETTES.default.c2);
-              if (bgUniforms.uBgColor3) bgUniforms.uBgColor3.value.copy(BG_COLOR_PALETTES.default.c3);
-              if (bgUniforms.uRippleCrest) bgUniforms.uRippleCrest.value.copy(BG_COLOR_PALETTES.default.crest);
-              if (bgUniforms.uBgBlend) bgUniforms.uBgBlend.value = 0.0;
-              if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
-              if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
-
-              markArtworkCompletedRef.current?.('bluten');
-              roundState = 'IDLE';
-              currentPhaseName = 'DONE';
-              currentPhaseRef.current = 'DONE';
-              setCurrentPhase('DONE');
-              showToastRef.current?.('🌸 Blütenkunstwerk nach 14s vollendet!');
-
-              // Synchronize initial drift coordinates smoothly from current vortex positions
-              for (let i = 0; i < activePetalCount; i++) {
-                const a = petalAngle[i];
-                const normH = (i / activePetalCount);
-                const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
-                const rawY = (normH - 0.5) * 12.8;
-                const rawX = Math.cos(a) * (baseTubeRadius * 1.30);
-                const rawZ = Math.sin(a) * baseTubeRadius * 0.50;
-                const tornadoX = rawX + centerX;
-                const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-
-                petalPosX[i] = tornadoX - Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
-                petalPosY[i] = tornadoY - Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
-              }
-            }
-
-            const driftAge = vortexTimer - VORTEX_TOTAL_DURATION;
-            const VORTEX_FADE_TIME = 3.5;
-            const vortexBlendFactor = Math.max(0.0, 1.0 - driftAge / VORTEX_FADE_TIME);
-            const smoothPower = vortexBlendFactor * vortexBlendFactor * (3.0 - 2.0 * vortexBlendFactor);
-
-            for (let i = 0; i < activePetalCount; i++) {
-              petalAge[i] += delta * 0.80;
-
-              // Advance drift according to sakura-v3.html speed vectors (reduced by 20%)
-              petalPosX[i] += petalSpeedX[i] * delta * 0.80;
-              petalPosY[i] += petalSpeedY[i] * delta * 0.80;
-
-              // Exact sakura-v3.html canvas boundary wrapping
-              if (petalPosX[i] > centerX + 16.0) petalPosX[i] = centerX - 16.0;
-              if (petalPosX[i] < centerX - 16.0) petalPosX[i] = centerX + 16.0;
-              if (petalPosY[i] < centerY - 9.0) petalPosY[i] = centerY + 9.0;
-              if (petalPosY[i] > centerY + 9.0) petalPosY[i] = centerY - 9.0;
-
-              // Exact sakura-v3.html harmonic wave trajectory formulas
-              const normalX = petalPosX[i] + Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
-              const normalY = petalPosY[i] + Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
-              const normalZ = petalPosZ[i] + Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
-
-              let finalX = normalX;
-              let finalY = normalY;
-              let finalZ = normalZ;
-
-              if (smoothPower > 0.001) {
-                // Smoothly uncurling tornado during fade-out (velocity reduced by 20%)
-                const spinMultiplier = (3.6 * 0.512) * smoothPower;
-                petalAngle[i] += petalSpeed[i] * delta * spinMultiplier;
-                const a = petalAngle[i];
-                const normH = (i / activePetalCount);
-
-                const baseTubeRadius = (7.5 + (petalRadiusX[i] % 2.5)) * 0.80;
-                const expandRadius = baseTubeRadius * (1.0 + (1.0 - smoothPower) * 0.4);
-                const rawY = (normH - 0.5) * 12.8;
-                // Subtle horizontal ellipse in fade-out
-                const rawX = Math.cos(a) * (expandRadius * 1.30);
-                const rawZ = Math.sin(a) * expandRadius * 0.50;
-
-                const tornadoX = rawX + centerX;
-                const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-                const tornadoZ = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
-
-                finalX = normalX * (1.0 - smoothPower) + tornadoX * smoothPower;
-                finalY = normalY * (1.0 - smoothPower) + tornadoY * smoothPower;
-                finalZ = normalZ * (1.0 - smoothPower) + tornadoZ * smoothPower;
-              }
-
-              dummy.position.set(finalX, finalY, finalZ);
-
-              // 3D Rotation from sakura-v3.html Floating2DPetal
+            } else {
               dummy.rotation.set(
-                petalAge[i] * 0.4 + petalSeed[i],
-                petalAge[i] * 0.5 + petalSeed[i],
-                Math.sin(petalAge[i] * 0.6 + petalSeed[i]) * 0.8
+                petalAge[i] * 0.48 + petalSeed[i],
+                petalAge[i] * 0.58 + petalSeed[i],
+                Math.sin(petalAge[i] * 0.65 + petalSeed[i]) * 0.78
               );
-
-              // Depth scale from sakura-v3.html (further reduced by 20%: factor 0.64)
-              const zScale = Math.max(0.19, Math.min(0.74, (0.45 + (finalZ + 3.5) * 0.14) * 0.64));
-              dummy.scale.setScalar(petalScales[i] * zScale);
-              dummy.updateMatrix();
-              instancedPetalMesh.setMatrixAt(i, dummy.matrix);
             }
+
+            dummy.position.set(px, py, pz);
+            const depthScale = Math.max(0.22, Math.min(0.76, (0.46 + (pz + 3.5) * 0.12) * 0.68));
+            const stormBoost = 1.0 + 0.14 * vortexBlend;
+            dummy.scale.setScalar(petalScales[i] * depthScale * stormBoost);
+            dummy.updateMatrix();
+            instancedPetalMesh.setMatrixAt(i, dummy.matrix);
           }
+
           instancedPetalMesh.instanceMatrix.needsUpdate = true;
         }
 
@@ -4026,7 +4224,14 @@ export function SakuraCanvas({
                   showToastRef.current?.('🌸 Blütenphase gestartet! Wähle deine Wunschfarbe.');
                 } else if (currentPhaseName === 'BLOSSOM') {
                   roundState = 'IDLE';
-                  startVortexFinale();
+                  startFlyingPetalsIfNeeded();
+                  vortexUser1Ready = false;
+                  vortexUser2Ready = false;
+                  setVortexCircleCount(0);
+                  circleTrailHistory.length = 0;
+                  currentPhaseName = 'AWAIT_VORTEX';
+                  currentPhaseRef.current = 'AWAIT_VORTEX';
+                  setCurrentPhase('AWAIT_VORTEX');
                 } else {
                   roundState = 'IDLE';
                 }
@@ -4627,6 +4832,15 @@ export function SakuraCanvas({
           handleSwitchMode(msg.mode as 'bluten' | 'plexus');
         } else if (msg.kind === 'COLOR_SELECT' && msg.color) {
           setSelectedColor(msg.color as BlossomColorId);
+        } else if (msg.kind === 'BLOSSOM_COLOR_ADD' && msg.color) {
+          syncRemoteBlossomColorRef.current?.(msg.color as BlossomColorId);
+        } else if (msg.kind === 'SUMIE_VORTEX_CIRCLE') {
+          const remoteIdx: 1 | 2 = isHost ? 2 : 1;
+          triggerCircleFromUserRef.current?.(remoteIdx, false);
+        } else if (msg.kind === 'RESTART_ARTWORK') {
+          colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
+          setSelectedColor('pink');
+          restartTriggerRef.current();
         } else if (msg.kind === 'PAUSE_TOGGLE' && typeof msg.isPaused === 'boolean') {
           setIsPaused(msg.isPaused as boolean);
         } else if (msg.kind === 'CREATION_READY' && typeof msg.ready === 'boolean') {
@@ -4681,7 +4895,9 @@ export function SakuraCanvas({
   // Dynamic Instruction Text Calculation based on step-by-step phase
   const roundInfo = activeMode === 'bluten' && (currentPhase === 'BRANCH' || currentPhase === 'BLOSSOM')
     ? `Runde ${currentRound}/${maxRoundsPerPhase}`
-    : null;
+    : activeMode === 'bluten' && currentPhase === 'AWAIT_VORTEX' && hasRemotePeer
+      ? `Finale (${vortexCircleCount}/2)`
+      : null;
 
   const instructionBody = isTrunkGrowing
     ? 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.'
@@ -4689,10 +4905,16 @@ export function SakuraCanvas({
       ? currentPhase === 'BRANCH'
         ? 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.'
         : currentPhase === 'BLOSSOM'
-          ? 'Wähle rechts deine Wunschfarbe und klicke auf die Knoten, Sakurablüten zu malen und vollende das Kunstwerk.'
-          : currentPhase === 'VORTEX'
-            ? 'Die meistgewählte Farbe entfesselt einen 10-sekündigen Blütensturm!'
-            : 'Das Blütenkunstwerk ist vollendet!'
+          ? 'Wähle deine Wunschfarbe und klicke auf die Knoten, um Sakurablüten zu malen.'
+          : currentPhase === 'AWAIT_VORTEX'
+            ? hasRemotePeer
+              ? vortexCircleCount === 1
+                ? 'Hälfte des Vortex aktiv! Sobald die 2. Person ebenfalls eine Kreisbewegung ausführt, startet der volle 10s-Vortex.'
+                : 'Führt jeweils eine Kreisbewegung auf dem Bildschirm aus, um den gemeinsamen 10-sekündigen Blüten-Vortex zu entfesseln!'
+              : 'Führe eine Kreisbewegung auf dem Bildschirm aus, um den 10-sekündigen Blüten-Vortex auszulösen!'
+            : currentPhase === 'VORTEX'
+              ? 'Der 10-sekündige Blüten-Vortex ist entfesselt!'
+              : 'Das Blütenkunstwerk ist vollendet!'
       : isPlexusFinale
         ? '6 Plexus angedockt! Das Kunstwerk ist vollendet.'
         : 'Halte deine Maus gedrückt, um einen Plexus zu erschaffen. Ziehe 6 verschiedene Plexus mit der Maus auf die Kerne, um das Kunstwerk zu vollenden.';
@@ -4716,14 +4938,14 @@ export function SakuraCanvas({
       {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
       {isRunning && (
         <>
-      {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape) */}
+      {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape, compact on smartphones) */}
       {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && !isPortraitMode && (
-        <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-3.5 p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
-          <div className="text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
+        <div className="absolute right-3 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1.5 sm:gap-2 lg:gap-3.5 p-2 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
+          <div className="hidden lg:block text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
             Farbpalette
           </div>
-          <div className="w-6 h-px bg-white/20 my-0.5" />
-          <div className="flex flex-col gap-3">
+          <div className="hidden lg:block w-6 h-px bg-white/20 my-0.5" />
+          <div className="flex flex-col gap-2 sm:gap-2.5 lg:gap-3">
             {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
               const pal = BLOSSOM_PALETTES[colorKey];
               const isSelected = selectedColor === colorKey;
@@ -4736,7 +4958,7 @@ export function SakuraCanvas({
                     handleColorSelect(colorKey);
                   }}
                   title={`Farbe wählen: ${pal.name}`}
-                  className={`relative group w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
+                  className={`relative group w-6 h-6 sm:w-7 sm:h-7 lg:w-10 lg:h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
                     isSelected
                       ? 'scale-115 ring-2 ring-white shadow-[0_0_18px_' + pal.uiColor + ']'
                       : 'opacity-75 hover:opacity-100 hover:scale-110'
@@ -4744,10 +4966,10 @@ export function SakuraCanvas({
                   style={{ backgroundColor: pal.uiColor }}
                 >
                   {isSelected && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_white] pointer-events-none" />
+                    <span className="w-1.5 h-1.5 lg:w-2.5 lg:h-2.5 rounded-full bg-white shadow-[0_0_8px_white] pointer-events-none" />
                   )}
                   {/* Tooltip on hover */}
-                  <span className="absolute right-full mr-3 px-2.5 py-1 bg-[#180f24]/95 text-white text-[10px] font-semibold tracking-wider uppercase rounded-lg border border-white/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+                  <span className="hidden lg:block absolute right-full mr-3 px-2.5 py-1 bg-[#180f24]/95 text-white text-[10px] font-semibold tracking-wider uppercase rounded-lg border border-white/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
                     {pal.name}
                   </span>
                 </button>
@@ -4840,9 +5062,9 @@ export function SakuraCanvas({
             </div>
           </div>
 
-          {/* MIDDLE SECTION: Horizontal Color Palette centered right below the 16:9 canvas */}
+          {/* MIDDLE SECTION: Horizontal Color Palette centered right below the 16:9 canvas (compact on smartphones) */}
           {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && (
-            <div className="pointer-events-auto flex items-center justify-center gap-3 py-2 px-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.6)] mx-auto my-1 z-50 animate-in fade-in duration-300">
+            <div className="pointer-events-auto flex items-center justify-center gap-2.5 sm:gap-3 py-1.5 px-3 sm:py-2 sm:px-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.6)] mx-auto my-0.5 z-50 animate-in fade-in duration-300">
               {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
                 const pal = BLOSSOM_PALETTES[colorKey];
                 const isSelected = selectedColor === colorKey;
@@ -4855,15 +5077,15 @@ export function SakuraCanvas({
                       handleColorSelect(colorKey);
                     }}
                     title={`Farbe wählen: ${pal.name}`}
-                    className={`relative w-8 h-8 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
+                    className={`relative w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
                       isSelected
-                        ? 'scale-120 ring-2 ring-white shadow-[0_0_14px_' + pal.uiColor + ']'
+                        ? 'scale-115 ring-2 ring-white shadow-[0_0_12px_' + pal.uiColor + ']'
                         : 'opacity-70 hover:opacity-100 hover:scale-110'
                     }`}
                     style={{ backgroundColor: pal.uiColor }}
                   >
                     {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_6px_white] pointer-events-none" />
+                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-white shadow-[0_0_6px_white] pointer-events-none" />
                     )}
                   </button>
                 );
