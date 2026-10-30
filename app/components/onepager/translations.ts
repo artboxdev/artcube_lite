@@ -34,7 +34,7 @@ export const translations = {
         sumieImageAlt: 'Traditionelle Sumi-e Tuschemalerei mit Kirschblütenzweig und Kranich',
         plexusBadge: 'Plexus · Transformation',
         plexusTitle: 'Die visuelle Wirkung von Plexus in Kunstwerken',
-        plexusText: 'In der generativen Medienkunst – von Pionieren wie Casey Reas bis hin zu Refik Anadol – versinnbildlicht die Plexus-Ästhetik das dynamische Wechselspiel von Verbindung und Trennung. Schwebende Knotenpunkte und Lichtfilamente machen unsichtbare Beziehungen greifbar: Bei Annäherung formieren sie sich zu lebendigen Netzen, bei Distanz lösen sie sich wieder auf. Im Sakuraverse spiegelt Plexus den Dialog zwischen Alt und Neu ebenfalls wider – die Thematik der Vergänglichkeit wir hier also in Form von Impulsen dargestellt, die sich immer wieder neu zusammensetzen.',
+        plexusText: 'In der generativen Medienkunst – von Pionieren wie Casey Reas bis hin zu Refik Anadol – versinnbildlicht die Plexus-Ästhetik das dynamische Wechselspiel von Verbindung und Trennung. Schwebende Knotenpunkte und Lichtfilamente machen unsichtbare Beziehungen greifbar: Bei Annäherung formieren sie sich zu lebendigen Netzen, bei Distanz lösen sie sich wieder auf. Im Sakuraverse spiegelt Plexus den Dialog zwischen Alt und Neu ebenfalls wider – die Thematik der Vergänglichkeit wird hier also in Form von Impulsen dargestellt, die sich immer wieder neu zusammensetzen.',
         closeBtn: 'Verstanden & Schließen',
       },
       nameLabel: 'Dein Name (Optional)',
