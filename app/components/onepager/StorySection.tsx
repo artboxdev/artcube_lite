@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { FiUsers, FiMonitor, FiVideo, FiMaximize2, FiSmartphone, FiCpu, FiX, FiCheckCircle } from 'react-icons/fi';
-import { LuSparkles } from 'react-icons/lu';
+import { FiX } from 'react-icons/fi';
 import { Language, translations } from './translations';
 
 interface StorySectionProps {
@@ -96,10 +95,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
             </h3>
 
             <ul className="space-y-5">
-              <li className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center shrink-0 text-[#ff80df] mt-0.5">
-                  <FiUsers className="w-4 h-4" />
-                </div>
+              <li>
                 <div>
                   <h4 className="text-sm font-semibold text-white">{t.card1Item1Title}</h4>
                   <p className="text-xs text-white/70 mt-1 leading-relaxed">
@@ -108,10 +104,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
                 </div>
               </li>
 
-              <li className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center shrink-0 text-[#ff80df] mt-0.5">
-                  <FiMonitor className="w-4 h-4" />
-                </div>
+              <li>
                 <div>
                   <h4 className="text-sm font-semibold text-white">{t.card1Item2Title}</h4>
                   <p className="text-xs text-white/70 mt-1 leading-relaxed">
@@ -120,10 +113,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
                 </div>
               </li>
 
-              <li className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center shrink-0 text-[#ff80df] mt-0.5">
-                  <FiVideo className="w-4 h-4" />
-                </div>
+              <li>
                 <div>
                   <h4 className="text-sm font-semibold text-white">{t.card1Item3Title}</h4>
                   <p className="text-xs text-white/70 mt-1 leading-relaxed">
@@ -135,10 +125,9 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
                     <button
                       type="button"
                       onClick={openModal}
-                      className="inline-flex items-center gap-1 font-semibold text-[#4ee2ec] hover:text-[#ff80df] underline underline-offset-4 decoration-[#4ee2ec]/60 hover:decoration-[#ff80df] transition-colors cursor-pointer"
+                      className="inline-flex items-center font-semibold text-[#4ee2ec] hover:text-[#ff80df] underline underline-offset-4 decoration-[#4ee2ec]/60 hover:decoration-[#ff80df] transition-colors cursor-pointer"
                     >
                       <span>{t.card1Item3ModalLink}</span>
-                      <LuSparkles className="w-3.5 h-3.5 inline" />
                     </button>
                   </p>
                 </div>
@@ -175,10 +164,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
             </div>
 
             <ul className="space-y-5">
-              <li className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0 text-[#4ee2ec] mt-0.5">
-                  <FiMaximize2 className="w-4 h-4" />
-                </div>
+              <li>
                 <div>
                   <h4 className="text-sm font-semibold text-white">{t.card2Item1Title}</h4>
                   <p className="text-xs text-white/70 mt-1 leading-relaxed">
@@ -187,10 +173,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
                 </div>
               </li>
 
-              <li className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0 text-[#4ee2ec] mt-0.5">
-                  <FiSmartphone className="w-4 h-4" />
-                </div>
+              <li>
                 <div>
                   <h4 className="text-sm font-semibold text-white">{t.card2Item2Title}</h4>
                   <p className="text-xs text-white/70 mt-1 leading-relaxed">
@@ -199,10 +182,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
                 </div>
               </li>
 
-              <li className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0 text-[#4ee2ec] mt-0.5">
-                  <FiCpu className="w-4 h-4" />
-                </div>
+              <li>
                 <div>
                   <h4 className="text-sm font-semibold text-white">{t.card2Item3Title}</h4>
                   <p className="text-xs text-white/70 mt-1 leading-relaxed">
@@ -233,18 +213,13 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
           >
             
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#ff2a9d] to-[#4ee2ec] flex items-center justify-center shadow-[0_0_15px_rgba(255,42,157,0.5)]">
-                  <LuSparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-wide">
-                    {t.modal.title}
-                  </h3>
-                  <span className="text-[11px] font-mono tracking-wider text-pink-300/70 uppercase">
-                    {t.modal.subtitle}
-                  </span>
-                </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-white tracking-wide">
+                  {t.modal.title}
+                </h3>
+                <span className="text-[11px] font-mono tracking-wider text-pink-300/70 uppercase">
+                  {t.modal.subtitle}
+                </span>
               </div>
 
               <button
@@ -258,28 +233,19 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
             </div>
 
             <div className="space-y-4 text-xs sm:text-sm text-white/80 font-light leading-relaxed">
-              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex items-start gap-3">
-                <FiCheckCircle className="w-5 h-5 text-[#4ee2ec] shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-semibold text-white block mb-0.5">{t.modal.item1Title}</strong>
-                  {t.modal.item1Desc}
-                </div>
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                <strong className="font-semibold text-white block mb-0.5">{t.modal.item1Title}</strong>
+                {t.modal.item1Desc}
               </div>
 
-              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex items-start gap-3">
-                <FiCheckCircle className="w-5 h-5 text-[#ff80df] shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-semibold text-white block mb-0.5">{t.modal.item2Title}</strong>
-                  {t.modal.item2Desc}
-                </div>
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                <strong className="font-semibold text-white block mb-0.5">{t.modal.item2Title}</strong>
+                {t.modal.item2Desc}
               </div>
 
-              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex items-start gap-3">
-                <FiCheckCircle className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-semibold text-white block mb-0.5">{t.modal.item3Title}</strong>
-                  {t.modal.item3Desc}
-                </div>
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                <strong className="font-semibold text-white block mb-0.5">{t.modal.item3Title}</strong>
+                {t.modal.item3Desc}
               </div>
             </div>
 

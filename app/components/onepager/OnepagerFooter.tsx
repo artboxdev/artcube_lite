@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { LuBox } from 'react-icons/lu';
-import { FiArrowUp, FiMail, FiShield, FiFileText } from 'react-icons/fi';
 import { PiX } from 'react-icons/pi';
 import { Language, translations } from './translations';
 
@@ -81,7 +80,6 @@ export function OnepagerFooter({ lang, onScrollToTop, onModalToggle }: OnepagerF
             href="mailto:contact@artcube.space"
             className="flex items-center gap-1.5 text-white/80 hover:text-[#ff80df] transition-colors"
           >
-            <FiMail className="w-4 h-4" />
             <span>{t.contact}</span>
           </a>
 
@@ -90,7 +88,6 @@ export function OnepagerFooter({ lang, onScrollToTop, onModalToggle }: OnepagerF
             onClick={() => openLegalModal('impressum')}
             className="flex items-center gap-1.5 text-white/80 hover:text-[#ff80df] transition-colors cursor-pointer"
           >
-            <FiFileText className="w-4 h-4" />
             <span>{t.imprint}</span>
           </button>
 
@@ -99,7 +96,6 @@ export function OnepagerFooter({ lang, onScrollToTop, onModalToggle }: OnepagerF
             onClick={() => openLegalModal('datenschutz')}
             className="flex items-center gap-1.5 text-white/80 hover:text-[#ff80df] transition-colors cursor-pointer"
           >
-            <FiShield className="w-4 h-4" />
             <span>{t.privacy}</span>
           </button>
 
@@ -108,7 +104,6 @@ export function OnepagerFooter({ lang, onScrollToTop, onModalToggle }: OnepagerF
             onClick={onScrollToTop}
             className="flex items-center gap-1.5 text-pink-300 hover:text-white px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:border-pink-500/40 transition-all cursor-pointer"
           >
-            <FiArrowUp className="w-3.5 h-3.5" />
             <span>{t.backToTop}</span>
           </button>
         </div>

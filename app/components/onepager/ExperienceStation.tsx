@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { FiCopy, FiCheck, FiShare2, FiUser, FiPlay, FiInfo, FiLayers, FiX } from 'react-icons/fi';
-import { LuSparkles } from 'react-icons/lu';
+import { FiX } from 'react-icons/fi';
 import { Language, translations } from './translations';
 import { SakuraverseDualSlider } from './SakuraverseDualSlider';
 
@@ -111,14 +110,14 @@ export function ExperienceStation({
     }
   }, [shareUrl, showToast, t.toastCopied, t.copyBtn]);
 
-  const handleStartArtwork = (modeToStart: 'test' | 'souvenir') => {
+  const handleStartArtwork = (modeToStart: 'test' | 'souvenir', artworkToStart: 'bluten' | 'plexus' = 'bluten') => {
     setActiveMode(modeToStart);
     const fallbackName = isHost ? t.hostStatus : t.guestStatus;
     const finalName = myName.trim() || fallbackName;
     if (!myName.trim()) {
       onNameChange(finalName);
     }
-    onStart('bluten', modeToStart);
+    onStart(artworkToStart, modeToStart);
   };
 
   const handleGuestJoin = () => {
@@ -152,10 +151,9 @@ export function ExperienceStation({
           <button
             type="button"
             onClick={openArtworksModal}
-            className="inline-flex items-center gap-1 font-semibold text-[#4ee2ec] hover:text-[#ff80df] underline underline-offset-4 decoration-[#4ee2ec]/60 hover:decoration-[#ff80df] transition-colors cursor-pointer"
+            className="inline-flex items-center font-semibold text-[#4ee2ec] hover:text-[#ff80df] underline underline-offset-4 decoration-[#4ee2ec]/60 hover:decoration-[#ff80df] transition-colors cursor-pointer"
           >
             <span>{t.sublineModalLink}</span>
-            <LuSparkles className="w-3.5 h-3.5 inline" />
           </button>
         </p>
       </div>
@@ -169,7 +167,6 @@ export function ExperienceStation({
         {/* Name Input */}
         <div className="flex flex-col gap-2.5">
           <label htmlFor="stationNameInput" className="flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-pink-200/90">
-            <FiUser className="text-[#ff80df]" />
             <span>{t.nameLabel}</span>
           </label>
           <input
@@ -186,7 +183,6 @@ export function ExperienceStation({
         {/* Mode Selection (Testmodus vs. Souvenirmodus) */}
         <div className="flex flex-col gap-2.5">
           <label className="flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-pink-200/90">
-            <FiLayers className="text-[#ff80df]" />
             <span>{t.modeLabel}</span>
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -202,7 +198,7 @@ export function ExperienceStation({
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold tracking-wider uppercase text-[#4ee2ec] flex items-center gap-2">
-                  <span>🤝</span> {t.testModeTitle}
+                  {t.testModeTitle}
                 </span>
                 {activeMode === 'test' && (
                   <span className="w-2.5 h-2.5 rounded-full bg-[#4ee2ec] shadow-[0_0_10px_#4ee2ec]" />
@@ -224,7 +220,7 @@ export function ExperienceStation({
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold tracking-wider uppercase text-[#ff80df] flex items-center gap-2">
-                  <span>🎨</span> {t.souvenirModeTitle}
+                  {t.souvenirModeTitle}
                 </span>
                 {activeMode === 'souvenir' && (
                   <span className="w-2.5 h-2.5 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d]" />
@@ -243,7 +239,6 @@ export function ExperienceStation({
           <div className="p-4 sm:p-5 rounded-2xl bg-black/40 border border-white/10 flex flex-col gap-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold tracking-wider uppercase text-white/80 flex items-center gap-1.5">
-                <FiShare2 className="text-[#4ee2ec]" />
                 {t.inviteLabel}
               </span>
               <span className="text-[10px] text-white/50 tracking-wider">{t.inviteTag}</span>
@@ -259,7 +254,6 @@ export function ExperienceStation({
                     : 'bg-white/[0.06] border-white/15 text-white hover:bg-white/[0.12] hover:border-pink-500/40'
                 }`}
               >
-                {copied ? <FiCheck className="w-4 h-4" /> : <FiCopy className="w-4 h-4" />}
                 <span>{copied ? t.copiedBtn : t.copyBtn}</span>
               </button>
             </div>
@@ -285,29 +279,45 @@ export function ExperienceStation({
         {/* Notice on Souvenir mode if active */}
         {activeMode === 'souvenir' && (
           <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
-            <FiInfo className="w-4 h-4 shrink-0 text-amber-300" />
             <span>{t.souvenirNotice}</span>
           </div>
         )}
 
         {/* Main Action Start Button (Adapts to Testmodus vs. Souvenirmodus) */}
         <div>
-          {isHost ? (
+          {activeMode === 'souvenir' ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-center text-[11px] sm:text-xs text-white/60 tracking-wide font-light">
+                {t.interactionHint}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleStartArtwork('souvenir', 'bluten')}
+                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)]"
+                >
+                  <span>{t.startSouvenirSumieBtn}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartArtwork('souvenir', 'plexus')}
+                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]"
+                >
+                  <span>{t.startSouvenirPlexusBtn}</span>
+                </button>
+              </div>
+            </div>
+          ) : isHost ? (
             <div className="flex flex-col gap-3">
               <p className="text-center text-[11px] sm:text-xs text-white/60 tracking-wide font-light">
                 {t.interactionHint}
               </p>
               <button
                 type="button"
-                onClick={() => handleStartArtwork(activeMode)}
-                className={`w-full py-5 px-8 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 ${
-                  activeMode === 'test'
-                    ? 'bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]'
-                    : 'bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)]'
-                }`}
+                onClick={() => handleStartArtwork('test', 'bluten')}
+                className="w-full py-5 px-8 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]"
               >
-                <FiPlay className="w-5 h-5 fill-current" />
-                <span>{activeMode === 'test' ? t.startTestBtn : t.startSouvenirBtn}</span>
+                <span>{t.startTestBtn}</span>
               </button>
             </div>
           ) : (
@@ -350,18 +360,13 @@ export function ExperienceStation({
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff2a9d] to-[#4ee2ec] flex items-center justify-center shadow-[0_0_15px_rgba(255,42,157,0.5)] shrink-0">
-                  <LuSparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-2xl font-extrabold text-white tracking-wide">
-                    {t.artworksModal.title}
-                  </h3>
-                  <span className="text-[11px] font-mono tracking-wider text-pink-300/70 uppercase">
-                    {t.artworksModal.subtitle}
-                  </span>
-                </div>
+              <div>
+                <h3 className="text-lg sm:text-2xl font-extrabold text-white tracking-wide">
+                  {t.artworksModal.title}
+                </h3>
+                <span className="text-[11px] font-mono tracking-wider text-pink-300/70 uppercase">
+                  {t.artworksModal.subtitle}
+                </span>
               </div>
 
               <button

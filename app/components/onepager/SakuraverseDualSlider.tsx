@@ -2798,10 +2798,10 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         {/* Bottom Interaction Hints */}
         <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 lg:bottom-3.5 lg:left-4 lg:right-4 flex items-end justify-between gap-2 pointer-events-none z-10">
           <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-pink-100/90 font-light">
-            🔄 {t.sliderHintSumie}
+            {t.sliderHintSumie}
           </span>
           <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-light text-right sm:text-left">
-            ✨ {t.sliderHintPlexus}
+            {t.sliderHintPlexus}
           </span>
         </div>
 

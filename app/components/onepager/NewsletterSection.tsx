@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { FiMail, FiCheck, FiSend } from 'react-icons/fi';
 import { Language, translations } from './translations';
 
 interface NewsletterSectionProps {
@@ -52,15 +51,11 @@ export function NewsletterSection({ lang }: NewsletterSectionProps) {
         <div className="w-full max-w-md mt-8">
           {submitted ? (
             <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/15 border border-emerald-400/50 text-emerald-300 text-sm font-semibold flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(52,211,153,0.3)] animate-in fade-in duration-300">
-              <span className="w-6 h-6 rounded-full bg-emerald-400 text-black flex items-center justify-center font-bold text-xs shrink-0">
-                <FiCheck className="w-4 h-4" />
-              </span>
               <span>{t.success}</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-pink-300/70 w-5 h-5 pointer-events-none" />
                 <input
                   type="email"
                   value={email}
@@ -69,7 +64,7 @@ export function NewsletterSection({ lang }: NewsletterSectionProps) {
                     if (error) setError(false);
                   }}
                   placeholder={t.placeholder}
-                  className={`w-full pl-12 pr-4 py-4 rounded-2xl bg-white/[0.06] border text-white text-sm placeholder:text-white/35 outline-none transition-all duration-300 ${
+                  className={`w-full px-5 py-4 rounded-2xl bg-white/[0.06] border text-white text-sm placeholder:text-white/35 outline-none transition-all duration-300 ${
                     error
                       ? 'border-red-400 shadow-[0_0_18px_rgba(248,113,113,0.5)]'
                       : 'border-white/15 focus:border-[#ff2a9d] focus:bg-white/[0.1] focus:shadow-[0_0_20px_rgba(255,42,157,0.35)]'
@@ -82,7 +77,6 @@ export function NewsletterSection({ lang }: NewsletterSectionProps) {
                 className="py-4 px-7 rounded-2xl font-bold text-sm tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#06b6d4] shadow-[0_8px_25px_rgba(255,42,157,0.45)] hover:shadow-[0_12px_35px_rgba(78,226,236,0.6)] hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shrink-0"
               >
                 <span>{t.btn}</span>
-                <FiSend className="w-4 h-4" />
               </button>
             </form>
           )}

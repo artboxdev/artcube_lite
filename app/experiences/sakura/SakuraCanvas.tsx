@@ -1425,6 +1425,9 @@ export function SakuraCanvas({
 
   useEffect(() => {
     isRunningRef.current = isRunning;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('resize'));
+    }
     if (typeof document !== 'undefined') {
       if (isRunning) {
         document.body.classList.add('artwork-session-active');
@@ -1920,7 +1923,7 @@ export function SakuraCanvas({
 
     const isPortrait = window.innerHeight > window.innerWidth;
     const width = window.innerWidth;
-    const height = isPortrait ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
+    const height = (isRunningRef.current && isPortrait) ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -4555,7 +4558,7 @@ export function SakuraCanvas({
       if (!canvasRef.current) return;
       const isPortrait = window.innerHeight > window.innerWidth;
       const w = window.innerWidth;
-      const h = isPortrait ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
+      const h = (isRunningRef.current && isPortrait) ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
       updateCameraDistance(w, h, activeModeRef.current);
       const targetPR = isMobile ? Math.min(window.devicePixelRatio, 1.0) : Math.min(window.devicePixelRatio, 1.25);
       renderer.setPixelRatio(targetPR);
@@ -4665,12 +4668,16 @@ export function SakuraCanvas({
         : 'Halte deine Maus gedrückt, um einen Plexus zu erschaffen. Ziehe 6 verschiedene Plexus mit der Maus auf die Kerne, um das Kunstwerk zu vollenden.';
 
   return (
-    <div ref={containerRef} className="fixed inset-0 w-screen h-screen overflow-hidden bg-[#08000c] select-none z-0">
-      {/* 16:9 Centered Artwork Wrapper on Mobile Portrait */}
+    <div ref={containerRef} className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016] select-none z-0">
+      {/* 16:9 Centered Artwork Wrapper on Mobile Portrait ONLY when artwork session is running; full-screen Magenta Background on Onepager */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <canvas
           ref={canvasRef}
-          className={`pointer-events-auto block ${isRunning ? 'cursor-none' : 'cursor-pointer'} portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full`}
+          className={`pointer-events-auto block ${
+            isRunning
+              ? 'cursor-none portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full'
+              : 'cursor-pointer w-full h-full'
+          }`}
         />
       </div>
 

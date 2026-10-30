@@ -1,6 +1,5 @@
 'use client';
 
-import { FiArrowDown, FiCompass } from 'react-icons/fi';
 import { Language, translations } from './translations';
 
 interface HeroSectionProps {
@@ -37,7 +36,6 @@ export function HeroSection({ lang, onNavigateTo }: HeroSectionProps) {
             className="w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-sm tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#06b6d4] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.6)] hover:-translate-y-0.5 hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer"
           >
             <span>{t.btnPrimary}</span>
-            <FiArrowDown className="w-4 h-4 animate-bounce" />
           </button>
 
           <button
@@ -45,7 +43,6 @@ export function HeroSection({ lang, onNavigateTo }: HeroSectionProps) {
             onClick={() => onNavigateTo('vision')}
             className="w-full sm:w-auto px-7 py-4 rounded-2xl font-bold text-sm tracking-wider uppercase text-white/90 bg-white/[0.06] border border-white/20 backdrop-blur-md hover:bg-white/[0.12] hover:border-pink-500/50 hover:text-white hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <FiCompass className="w-4 h-4 text-[#ff80df]" />
             <span>{t.btnSecondary}</span>
           </button>
         </div>
