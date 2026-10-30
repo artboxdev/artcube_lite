@@ -19,6 +19,24 @@ interface ExperienceStationProps {
   onModalToggle?: (open: boolean) => void;
 }
 
+function generateRandomUserName(): string {
+  const digits = '0123456789';
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  const chars: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    chars.push(digits[Math.floor(Math.random() * digits.length)]);
+    chars.push(letters[Math.floor(Math.random() * letters.length)]);
+  }
+  // Shuffle the 3 digits and 3 letters randomly
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = chars[i];
+    chars[i] = chars[j];
+    chars[j] = tmp;
+  }
+  return `user${chars.join('')}`;
+}
+
 export function ExperienceStation({
   lang,
   myName,
@@ -112,8 +130,7 @@ export function ExperienceStation({
 
   const handleStartArtwork = (modeToStart: 'test' | 'souvenir', artworkToStart: 'bluten' | 'plexus' = 'bluten') => {
     setActiveMode(modeToStart);
-    const fallbackName = isHost ? t.hostStatus : t.guestStatus;
-    const finalName = myName.trim() || fallbackName;
+    const finalName = myName.trim() || generateRandomUserName();
     if (!myName.trim()) {
       onNameChange(finalName);
     }
@@ -121,7 +138,7 @@ export function ExperienceStation({
   };
 
   const handleGuestJoin = () => {
-    const finalName = myName.trim() || t.guestStatus;
+    const finalName = myName.trim() || generateRandomUserName();
     if (!myName.trim()) {
       onNameChange(finalName);
     }
