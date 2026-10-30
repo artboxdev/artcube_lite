@@ -298,6 +298,7 @@ export type BlossomColorId = 'pink' | 'red' | 'blue' | 'green' | 'yellow';
 export interface BlossomColorConfig {
   id: BlossomColorId;
   name: string;
+  nameEn: string;
   uiColor: string;
   glow: string;
   shades: number[];
@@ -308,6 +309,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
   pink: {
     id: 'pink',
     name: 'Pink',
+    nameEn: 'Pink',
     uiColor: '#ff4da6',
     glow: 'rgba(255, 77, 166, 0.7)',
     shades: [0xff80df, 0xff2a9d, 0xffb3ec, 0xffaae6, 0xff77dd],
@@ -316,6 +318,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
   red: {
     id: 'red',
     name: 'Rot',
+    nameEn: 'Red',
     uiColor: '#ff2a4b',
     glow: 'rgba(255, 42, 75, 0.7)',
     shades: [0xff3366, 0xff2a4b, 0xff5577, 0xff7088, 0xff4466],
@@ -324,6 +327,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
   blue: {
     id: 'blue',
     name: 'Blau',
+    nameEn: 'Blue',
     uiColor: '#00c3ff',
     glow: 'rgba(0, 195, 255, 0.7)',
     shades: [0x38bdf8, 0x00d8ff, 0x60a5fa, 0x4ee2ec, 0x7dd3fc],
@@ -332,6 +336,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
   green: {
     id: 'green',
     name: 'Grün',
+    nameEn: 'Green',
     uiColor: '#10e782',
     glow: 'rgba(16, 231, 130, 0.7)',
     shades: [0x34d399, 0x10e782, 0x00f59b, 0x6ee7b7, 0x4ade80],
@@ -340,6 +345,7 @@ export const BLOSSOM_PALETTES: Record<BlossomColorId, BlossomColorConfig> = {
   yellow: {
     id: 'yellow',
     name: 'Gelb',
+    nameEn: 'Yellow',
     uiColor: '#ffd000',
     glow: 'rgba(255, 208, 0, 0.7)',
     shades: [0xfde047, 0xffd000, 0xfacc15, 0xfbbf24, 0xffea00],
@@ -1596,6 +1602,27 @@ export function SakuraCanvas({
   // Mobile Double-Back Notice State
   const [backNoticeVisible, setBackNoticeVisible] = useState(false);
 
+  // Dynamic Language Synchronization (de / en)
+  const [lang, setLang] = useState<'de' | 'en'>('de');
+  useEffect(() => {
+    const syncLang = () => {
+      try {
+        const stored = localStorage.getItem('artcube_language');
+        if (stored === 'de' || stored === 'en') {
+          setLang(stored);
+        }
+      } catch {}
+    };
+    syncLang();
+    window.addEventListener('storage', syncLang);
+    window.addEventListener('artcube-language-change', syncLang as EventListener);
+    return () => {
+      window.removeEventListener('storage', syncLang);
+      window.removeEventListener('artcube-language-change', syncLang as EventListener);
+    };
+  }, []);
+  const isEn = lang === 'en';
+
   // Step-by-Step Artwork Phase Lifecycle State
   const [currentPhase, setCurrentPhase] = useState<'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | 'VORTEX' | 'DONE'>('BRANCH');
   const [currentRound, setCurrentRound] = useState(1);
@@ -1603,6 +1630,20 @@ export function SakuraCanvas({
   const [selectedColor, setSelectedColor] = useState<BlossomColorId>('pink');
   const [vortexCircleCount, setVortexCircleCount] = useState(0);
   const maxRoundsPerPhase = 3;
+
+  // 2s Top-Center Circle Gesture Prompt Indicator
+  const [circlePromptVisible, setCirclePromptVisible] = useState(false);
+  useEffect(() => {
+    if (currentPhase === 'AWAIT_VORTEX') {
+      setCirclePromptVisible(true);
+      const timer = setTimeout(() => {
+        setCirclePromptVisible(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setCirclePromptVisible(false);
+    }
+  }, [currentPhase]);
 
   const activeModeRef = useRef(activeMode);
   const isPausedRef = useRef(isPaused);
@@ -2167,8 +2208,8 @@ export function SakuraCanvas({
       petalScales[i] = 0.48 + Math.random() * 0.36;
 
       petalAngle[i] = Math.random() * Math.PI * 2.0;
-      // DualSlider vortex angular speed (70% slower factor 0.30)
-      petalSpeed[i] = (1.6 + Math.random() * 1.4) * 0.30 * (i % 2 === 0 ? 1 : -1);
+      // DualSlider vortex angular speed (reduced by 50%: factor 0.15)
+      petalSpeed[i] = (1.6 + Math.random() * 1.4) * 0.15 * (i % 2 === 0 ? 1 : -1);
       petalRadiusX[i] = 2.2 + Math.random() * 3.8;
       petalRadiusY[i] = 1.8 + Math.random() * 3.0;
     }
@@ -4200,9 +4241,9 @@ export function SakuraCanvas({
                 for (let i = 0; i < activePetalCount; i++) {
                   const a = petalAngle[i];
                   const normH = i / activePetalCount;
-                  const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
+                  const baseTubeRadius = (4.2 + (petalRadiusX[i] % 2.8)) * 1.20;
                   const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 0.6) * 0.75;
-                  const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
+                  const currentRadius = Math.max(2.16, baseTubeRadius + radialWobble);
                   const rawY =
                     (normH - 0.5) * 10.8 +
                     Math.sin(a) * (currentRadius * 0.38) +
@@ -4283,9 +4324,9 @@ export function SakuraCanvas({
               petalAngle[i] += petalSpeed[i] * delta * spinFactor;
               const a = petalAngle[i];
               const normH = i / activePetalCount;
-              const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
+              const baseTubeRadius = (4.2 + (petalRadiusX[i] % 2.8)) * 1.20;
               const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 0.6) * 0.75;
-              const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
+              const currentRadius = Math.max(2.16, baseTubeRadius + radialWobble);
               const rawY =
                 (normH - 0.5) * 10.8 +
                 Math.sin(a) * (currentRadius * 0.38) +
@@ -5040,30 +5081,50 @@ export function SakuraCanvas({
 
   // Dynamic Instruction Text Calculation based on step-by-step phase
   const roundInfo = activeMode === 'bluten' && (currentPhase === 'BRANCH' || currentPhase === 'BLOSSOM')
-    ? `Runde ${currentRound}/${maxRoundsPerPhase}`
+    ? `${isEn ? 'Round' : 'Runde'} ${currentRound}/${maxRoundsPerPhase}`
     : activeMode === 'bluten' && currentPhase === 'AWAIT_VORTEX' && hasRemotePeer
-      ? `Finale (${vortexCircleCount}/2)`
+      ? `${isEn ? 'Finale' : 'Finale'} (${vortexCircleCount}/2)`
       : null;
 
   const instructionBody = isTrunkGrowing
-    ? 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.'
+    ? (isEn
+        ? 'Click a node to grow another branch on the tree.'
+        : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
     : activeMode === 'bluten'
       ? currentPhase === 'BRANCH'
-        ? 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.'
+        ? (isEn
+            ? 'Click a node to grow another branch on the tree.'
+            : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
         : currentPhase === 'BLOSSOM'
-          ? 'Wähle deine Wunschfarbe und klicke auf die Knoten, um Sakurablüten zu malen.'
+          ? (isEn
+              ? 'Select your desired color and click nodes to paint Sakura blossoms.'
+              : 'Wähle deine Wunschfarbe und klicke auf die Knoten, um Sakurablüten zu malen.')
           : currentPhase === 'AWAIT_VORTEX'
             ? hasRemotePeer
               ? vortexCircleCount === 1
-                ? 'Hälfte des Vortex aktiv! Sobald die 2. Person ebenfalls eine Kreisbewegung ausführt, startet der volle 10s-Vortex.'
-                : 'Führt jeweils eine Kreisbewegung auf dem Bildschirm aus, um den gemeinsamen 10-sekündigen Blüten-Vortex zu entfesseln!'
-              : 'Führe eine Kreisbewegung auf dem Bildschirm aus, um den 10-sekündigen Blüten-Vortex auszulösen!'
+                ? (isEn
+                    ? 'Half of the vortex active! Once the second player also makes a circular motion, the full 10s vortex begins.'
+                    : 'Hälfte des Vortex aktiv! Sobald die 2. Person ebenfalls eine Kreisbewegung ausführt, startet der volle 10s-Vortex.')
+                : (isEn
+                    ? 'Each make a circular motion on screen to unleash the shared 10-second blossom vortex!'
+                    : 'Führt jeweils eine Kreisbewegung auf dem Bildschirm aus, um den gemeinsamen 10-sekündigen Blüten-Vortex zu entfesseln!')
+              : (isEn
+                  ? 'Make a circular motion on screen to unleash the 10-second blossom vortex!'
+                  : 'Führe eine Kreisbewegung auf dem Bildschirm aus, um den 10-sekündigen Blüten-Vortex auszulösen!')
             : currentPhase === 'VORTEX'
-              ? 'Der 10-sekündige Blüten-Vortex ist entfesselt!'
-              : 'Das Blütenkunstwerk ist vollendet!'
+              ? (isEn
+                  ? 'The 10-second blossom vortex is unleashed!'
+                  : 'Der 10-sekündige Blüten-Vortex ist entfesselt!')
+              : (isEn
+                  ? 'The blossom artwork is completed!'
+                  : 'Das Blütenkunstwerk ist vollendet!')
       : isPlexusFinale
-        ? '6 Plexus angedockt! Das Kunstwerk ist vollendet.'
-        : 'Halte deine Maus gedrückt, um einen Plexus zu erschaffen. Ziehe 6 verschiedene Plexus mit der Maus auf die Kerne, um das Kunstwerk zu vollenden.';
+        ? (isEn
+            ? '6 plexuses connected! The artwork is completed.'
+            : '6 Plexus angedockt! Das Kunstwerk ist vollendet.')
+        : (isEn
+            ? 'Hold down to create a plexus. Drag 6 different plexuses onto the cores to complete the artwork.'
+            : 'Halte deine Maus gedrückt, um einen Plexus zu erschaffen. Ziehe 6 verschiedene Plexus mit der Maus auf die Kerne, um das Kunstwerk zu vollenden.');
 
   return (
     <div ref={containerRef} className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016] select-none z-0">
@@ -5084,11 +5145,23 @@ export function SakuraCanvas({
       {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
       {isRunning && (
         <>
+      {/* 2-Second Top-Center Gesture Instruction Badge */}
+      {circlePromptVisible && (
+        <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
+            <span className="text-xl animate-spin" style={{ animationDuration: '2.5s' }}>🔄</span>
+            <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+              {isEn ? 'Make a circular motion!' : 'Kreisbewegung ausführen!'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape, compact on smartphones) */}
       {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && !isPortraitMode && (
         <div className="absolute right-3 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1.5 sm:gap-2 lg:gap-3.5 p-2 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
           <div className="hidden lg:block text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
-            Farbpalette
+            {isEn ? 'Palette' : 'Farbpalette'}
           </div>
           <div className="hidden lg:block w-6 h-px bg-white/20 my-0.5" />
           <div className="flex flex-col gap-2 sm:gap-2.5 lg:gap-3">
@@ -5103,7 +5176,7 @@ export function SakuraCanvas({
                     e.stopPropagation();
                     handleColorSelect(colorKey);
                   }}
-                  title={`Farbe wählen: ${pal.name}`}
+                  title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
                   className={`relative group w-6 h-6 sm:w-7 sm:h-7 lg:w-10 lg:h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
                     isSelected
                       ? 'scale-115 ring-2 ring-white shadow-[0_0_18px_' + pal.uiColor + ']'
@@ -5116,7 +5189,7 @@ export function SakuraCanvas({
                   )}
                   {/* Tooltip on hover */}
                   <span className="hidden lg:block absolute right-full mr-3 px-2.5 py-1 bg-[#180f24]/95 text-white text-[10px] font-semibold tracking-wider uppercase rounded-lg border border-white/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
-                    {pal.name}
+                    {isEn ? pal.nameEn : pal.name}
                   </span>
                 </button>
               );
@@ -5136,8 +5209,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={toggleAudio}
-                aria-label={isAudioMuted ? 'Sound an' : 'Sound aus'}
-                title={isAudioMuted ? 'Sound an' : 'Sound aus'}
+                aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
+                title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
                 className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
               >
                 {isAudioMuted ? (
@@ -5154,8 +5227,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={togglePause}
-                aria-label={isPaused ? 'Fortsetzen' : 'Pause'}
-                title={isPaused ? 'Fortsetzen' : 'Pause'}
+                aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
+                title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
                 className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
               >
                 {isPaused ? (
@@ -5171,8 +5244,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={handleRestart}
-                aria-label="Neu starten"
-                title="Neu starten"
+                aria-label={isEn ? 'Restart' : 'Neu starten'}
+                title={isEn ? 'Restart' : 'Neu starten'}
                 className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
               >
                 <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -5182,8 +5255,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={handleExit}
-                aria-label="Beenden"
-                title="Beenden & zurück zur Startseite"
+                aria-label={isEn ? 'Exit' : 'Beenden'}
+                title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
                 className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-md backdrop-blur-md transition-all active:scale-95"
               >
                 <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -5198,7 +5271,7 @@ export function SakuraCanvas({
                 <div className="flex items-center justify-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-ping" />
                   <span className="text-[10px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
-                    {roundInfo ? `${roundInfo}${isPaused ? ' (Pausiert)' : ''}` : 'Pausiert'}
+                    {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
                   </span>
                 </div>
               )}
@@ -5222,7 +5295,7 @@ export function SakuraCanvas({
                       e.stopPropagation();
                       handleColorSelect(colorKey);
                     }}
-                    title={`Farbe wählen: ${pal.name}`}
+                    title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
                     className={`relative w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
                       isSelected
                         ? 'scale-115 ring-2 ring-white shadow-[0_0_12px_' + pal.uiColor + ']'
@@ -5260,7 +5333,7 @@ export function SakuraCanvas({
                         : 'text-[#ffc8eb]/60 hover:text-white'
                     }`}
                   >
-                    Blüten
+                    {isEn ? 'Blossoms' : 'Blüten'}
                   </button>
                   <button
                     onClick={() => handleSwitchMode('plexus')}
@@ -5284,17 +5357,17 @@ export function SakuraCanvas({
                     <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Host
                   </div>
                   <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Gast
+                    <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> {isEn ? 'Guest' : 'Gast'}
                   </div>
                 </div>
               )}
               <button
                 onClick={toggleCreationReady}
                 className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
-                title="In den Souvenirmodus wechseln"
+                title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
               >
                 <span>🎨</span>
-                <span>Souvenirmodus starten</span>
+                <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
               </button>
             </div>
 
@@ -5321,7 +5394,7 @@ export function SakuraCanvas({
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
                   <span className="text-[11px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
-                    {roundInfo ? `${roundInfo}${isPaused ? ' (Pausiert)' : ''}` : 'Pausiert'}
+                    {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
                   </span>
                 </div>
               )}
@@ -5335,8 +5408,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={toggleAudio}
-                aria-label={isAudioMuted ? 'Sound an' : 'Sound aus'}
-                title={isAudioMuted ? 'Sound an' : 'Sound aus'}
+                aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
+                title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
                 className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
               >
                 {isAudioMuted ? (
@@ -5354,8 +5427,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={togglePause}
-                aria-label={isPaused ? 'Fortsetzen' : 'Pause'}
-                title={isPaused ? 'Fortsetzen' : 'Pause'}
+                aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
+                title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
                 className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
               >
                 {isPaused ? (
@@ -5372,8 +5445,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={handleRestart}
-                aria-label="Neu starten"
-                title="Neu starten"
+                aria-label={isEn ? 'Restart' : 'Neu starten'}
+                title={isEn ? 'Restart' : 'Neu starten'}
                 className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
               >
                 <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -5384,8 +5457,8 @@ export function SakuraCanvas({
               <button
                 type="button"
                 onClick={handleExit}
-                aria-label="Beenden"
-                title="Beenden & zurück zur Startseite"
+                aria-label={isEn ? 'Exit' : 'Beenden'}
+                title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
                 className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
               >
                 <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -5425,7 +5498,7 @@ export function SakuraCanvas({
                       : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
                       }`}
                   >
-                    Blüten
+                    {isEn ? 'Blossoms' : 'Blüten'}
                   </button>
 
                   <button
@@ -5451,7 +5524,7 @@ export function SakuraCanvas({
                 </div>
                 <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${guestCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
                   <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">Gast</span>
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">{isEn ? 'Guest' : 'Gast'}</span>
                 </div>
               </div>
 
@@ -5459,11 +5532,11 @@ export function SakuraCanvas({
                 <button
                   onClick={toggleCreationReady}
                   className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center gap-2.5 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
-                  title="In den Souvenirmodus wechseln"
+                  title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
                 >
                   <span>🎨</span>
                   <span className="relative z-10">
-                    Souvenirmodus starten
+                    {isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}
                   </span>
                 </button>
               </div>
@@ -5489,7 +5562,7 @@ export function SakuraCanvas({
             </button>
 
             <h2 className="text-3xl font-extrabold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,42,157,0.6)] mb-8">
-              Wähle dein Kunstwerk
+              {isEn ? 'Choose your artwork' : 'Wähle dein Kunstwerk'}
             </h2>
 
             <div className="grid grid-cols-2 gap-8">
@@ -5506,7 +5579,7 @@ export function SakuraCanvas({
                   </div>
                 </div>
                 <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
-                  🌸 Blüten & Äste
+                  {isEn ? '🌸 Blossoms & Branches' : '🌸 Blüten & Äste'}
                 </div>
               </button>
 
@@ -5523,7 +5596,7 @@ export function SakuraCanvas({
                   </div>
                 </div>
                 <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
-                  ✨ Orb & Konstellation
+                  {isEn ? '✨ Orb & Constellation' : '✨ Orb & Konstellation'}
                 </div>
               </button>
             </div>
@@ -5546,10 +5619,10 @@ export function SakuraCanvas({
                 14s VIDEO SOUVENIR
               </div>
               <h2 className="text-2xl md:text-3xl font-extrabold tracking-wider text-white">
-                Dein Kunstwerk ist fertig!
+                {isEn ? 'Your artwork is ready!' : 'Dein Kunstwerk ist fertig!'}
               </h2>
               <p className="text-xs text-white/70">
-                Einzigartiges Unikat deiner Schöpfungs-Session
+                {isEn ? 'Unique one-of-a-kind piece from your creation session' : 'Einzigartiges Unikat deiner Schöpfungs-Session'}
               </p>
             </div>
 
@@ -5565,7 +5638,9 @@ export function SakuraCanvas({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="text-xs font-mono text-white/50 animate-pulse">Video wird vorbereitet...</div>
+                <div className="text-xs font-mono text-white/50 animate-pulse">
+                  {isEn ? 'Preparing video...' : 'Video wird vorbereitet...'}
+                </div>
               )}
             </div>
 
@@ -5579,7 +5654,7 @@ export function SakuraCanvas({
                   : 'bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white hover:scale-103 hover:shadow-[0_0_25px_rgba(255,42,157,0.6)] border border-white/30'
               }`}
             >
-              <span>{isNftSaved ? '✅ Video gesichert!' : '✨ Als NFT sichern'}</span>
+              <span>{isNftSaved ? (isEn ? '✅ Video saved!' : '✅ Video gesichert!') : (isEn ? '✨ Save as NFT' : '✨ Als NFT sichern')}</span>
             </button>
           </div>
         </div>
@@ -5605,11 +5680,13 @@ export function SakuraCanvas({
             </div>
 
             <h3 className="text-xl font-bold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent">
-              Querformat
+              {isEn ? 'Landscape Mode' : 'Querformat'}
             </h3>
 
             <p className="text-xs leading-relaxed text-[#ffdcf5]/85">
-              Host hat die Session gestartet! Tippe auf den Bildschirm oder drehe dein Smartphone ins Querformat für das Kunstwerk.
+              {isEn
+                ? 'Host started the session! Tap the screen or rotate your smartphone into landscape mode for the artwork.'
+                : 'Host hat die Session gestartet! Tippe auf den Bildschirm oder drehe dein Smartphone ins Querformat für das Kunstwerk.'}
             </p>
 
             <button
@@ -5617,7 +5694,7 @@ export function SakuraCanvas({
               onClick={requestLandscapeOrientation}
               className="w-full py-3 px-6 bg-gradient-to-r from-[#ff2a9d] to-[#a855f7] border border-white/40 rounded-full text-white text-xs font-bold tracking-widest uppercase shadow-[0_8px_25px_rgba(255,42,157,0.55)] hover:scale-102 active:scale-98 transition-all cursor-pointer"
             >
-              <span>🔄 Querformat starten</span>
+              <span>{isEn ? '🔄 Start Landscape' : '🔄 Querformat starten'}</span>
             </button>
           </div>
         </div>
@@ -5642,15 +5719,19 @@ export function SakuraCanvas({
               </div>
             </div>
             <div className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#4ee2ec] bg-[#4ee2ec]/15 px-3 py-1 rounded-full border border-[#4ee2ec]/40">
-              HOCHFORMAT-MODUS
+              {isEn ? 'PORTRAIT MODE' : 'HOCHFORMAT-MODUS'}
             </div>
-            <h3 className="text-xl font-bold tracking-wider text-white">Bitte Gerät aufrecht halten</h3>
+            <h3 className="text-xl font-bold tracking-wider text-white">
+              {isEn ? 'Please hold device upright' : 'Bitte Gerät aufrecht halten'}
+            </h3>
             <p className="text-xs leading-relaxed text-[#ffdcf5]/85">
-              Auf dem iPhone ist dieses Kunstwerk für die vertikale Ansicht im Hochformat optimiert. Bitte drehe dein Smartphone wieder aufrecht, um fortzufahren.
+              {isEn
+                ? 'On iPhone, this artwork is optimized for vertical portrait view. Please rotate your smartphone upright to continue.'
+                : 'Auf dem iPhone ist dieses Kunstwerk für die vertikale Ansicht im Hochformat optimiert. Bitte drehe dein Smartphone wieder aufrecht, um fortzufahren.'}
             </p>
             <div className="flex items-center gap-2 text-[11px] text-[#ffc8eb]/70 tracking-wider">
               <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
-              <span>Warte auf Drehung ins Hochformat...</span>
+              <span>{isEn ? 'Waiting for rotation to portrait mode...' : 'Warte auf Drehung ins Hochformat...'}</span>
             </div>
           </div>
         </div>
@@ -5661,7 +5742,7 @@ export function SakuraCanvas({
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#160a22]/90 backdrop-blur-xl border border-white/20 text-white text-xs font-semibold tracking-wide shadow-2xl">
             <span>↩️</span>
-            <span>Nochmal „Zurück“ wischen, um die Session zu beenden</span>
+            <span>{isEn ? 'Swipe "Back" again to exit session' : 'Nochmal „Zurück“ wischen, um die Session zu beenden'}</span>
           </div>
         </div>
       )}

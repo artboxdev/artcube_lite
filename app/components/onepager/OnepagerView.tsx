@@ -54,6 +54,9 @@ export function OnepagerView({
     setLang(newLang);
     try {
       localStorage.setItem('artcube_language', newLang);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('artcube-language-change', { detail: newLang }));
+      }
     } catch {
       // ignore
     }
