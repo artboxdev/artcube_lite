@@ -38,9 +38,6 @@ function createNoiseTexture(): THREE.DataTexture {
 }
 
 function generatePetalTexture(): THREE.CanvasTexture {
-  if (typeof document === 'undefined') {
-    return new THREE.CanvasTexture({} as HTMLCanvasElement);
-  }
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 128;
@@ -96,9 +93,6 @@ function generatePetalTexture(): THREE.CanvasTexture {
 }
 
 function generateStarCrossTexture(hexColorStr: string): THREE.CanvasTexture {
-  if (typeof document === 'undefined') {
-    return new THREE.CanvasTexture({} as HTMLCanvasElement);
-  }
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 128;
@@ -787,624 +781,7 @@ interface AttachedPlexusNode3D {
   wavePhase: number;
 }
 
-
-const plexusLineVertexShader = /* glsl */ `
-  attribute vec3 color;
-  attribute float alpha;
-  varying vec3 vColor;
-  varying float vAlpha;
-  void main() {
-    vColor = color;
-    vAlpha = alpha;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const plexusLineFragmentShader = /* glsl */ `
-  varying vec3 vColor;
-  varying float vAlpha;
-  void main() {
-    if (vAlpha < 0.01) discard;
-    gl_FragColor = vec4(vColor, clamp(vAlpha, 0.0, 1.0));
-  }
-`;
-
-const plexusNodeVertexShader = /* glsl */ `
-  attribute float size;
-  attribute vec3 color;
-  varying vec3 vColor;
-  void main() {
-    vColor = color;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = size * (300.0 / -mvPosition.z);
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const plexusNodeFragmentShader = /* glsl */ `
-  uniform float uAlpha;
-  varying vec3 vColor;
-  void main() {
-    vec2 p = gl_PointCoord - vec2(0.5);
-    float d = length(p);
-    if (d > 0.5) discard;
-    float starVal = pow(clamp(1.0 - abs(p.x) * 2.0, 0.0, 1.0) * clamp(1.0 - abs(p.y) * 2.0, 0.0, 1.0), 2.5);
-    float softCore = exp(-d * d * 14.0);
-    float intensity = max(starVal * 2.2, softCore * 1.8);
-    vec3 brightColor = clamp(vColor * 1.15 + vec3(0.04) * starVal, 0.0, 1.0);
-    gl_FragColor = vec4(brightColor, clamp(intensity * 1.15 * uAlpha, 0.0, 1.0));
-  }
-`;
-
-    const ORB_RADIUS = 26.0;
-    const sphereGeom = new THREE.SphereGeometry(ORB_RADIUS, 48, 48);
-
-    class SliderPlexusOrb {
-      id: BlossomColorId;
-      name: string;
-      homeX: number;
-      homeY: number;
-      orbitRx: number;
-      orbitRy: number;
-      orbitSpeed: number;
-      orbitPhase: number;
-      x: number;
-      y: number;
-      z = 0;
-      vx = 0;
-      vy = 0;
-      internalTime = Math.random() * 10;
-      hoverWobbleTimer = 999.0;
-      dockWobbleTimer = 999.0;
-      impulseTimer = 999.0;
-      preset: (typeof FRACTAL_ORB_PRESETS)[BlossomColorId];
-      mesh: THREE.Mesh;
-      material: THREE.ShaderMaterial;
-      atmosphereMesh: THREE.Mesh;
-      atmosphereMaterial: THREE.ShaderMaterial;
-      starSprite: THREE.Sprite;
-      trailRibbonGeo: THREE.BufferGeometry;
-      trailRibbonMat: THREE.ShaderMaterial;
-      trailRibbonMesh: THREE.Mesh;
-      ribbonSamples = 64;
-      trailLength = 54;
-      trailHistory: { x: number; y: number; z: number }[] = [];
-      impulseMesh: THREE.Mesh;
-      impulseMaterial: THREE.ShaderMaterial;
-      attachedNodes: AttachedPlexusNode3D[] = [];
-  scene?: THREE.Scene;
-
-      constructor(
-        id: BlossomColorId,
-        homeX: number,
-        homeY: number,
-        orbitRx: number,
-        orbitRy: number,
-        orbitSpeed: number,
-        orbitPhase: number,
-        scene?: THREE.Scene
-      ) {
-        this.scene = scene;
-        this.id = id;
-        const config = BLOSSOM_PALETTES[id];
-        this.name = config.name;
-        this.homeX = homeX;
-        this.homeY = homeY;
-        this.orbitRx = orbitRx;
-        this.orbitRy = orbitRy;
-        this.orbitSpeed = orbitSpeed;
-        this.orbitPhase = orbitPhase;
-        this.x = homeX;
-        this.y = homeY;
-
-        const preset = FRACTAL_ORB_PRESETS[id];
-        this.preset = preset;
-
-        this.material = new THREE.ShaderMaterial({
-          vertexShader: fractalOrbVertexShader,
-          fragmentShader: fractalOrbFragmentShader,
-          uniforms: {
-            uTime: { value: this.internalTime },
-            uLocalCamPos: { value: new THREE.Vector3(0, 0, 150) },
-            uPrimaryColor: { value: new THREE.Color(preset.primary) },
-            uSecondaryColor: { value: new THREE.Color(preset.secondary) },
-            uDensity: { value: preset.density },
-            uAlpha: { value: 1.0 },
-            uFractalIters: { value: preset.fractalIters },
-            uFractalScale: { value: preset.fractalScale },
-            uFractalDecay: { value: preset.fractalDecay },
-            uInternalAnim: { value: 0.43 },
-            uSmoothness: { value: preset.smoothness },
-            uAsymmetry: { value: preset.asymmetry },
-            uRadius: { value: ORB_RADIUS },
-          },
-          transparent: true,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-          blending: THREE.NormalBlending,
-        });
-
-        this.mesh = new THREE.Mesh(sphereGeom, this.material);
-        this.mesh.position.set(this.x, this.y, this.z);
-
-        this.atmosphereMaterial = new THREE.ShaderMaterial({
-          vertexShader: atmosphereVertexShader,
-          fragmentShader: atmosphereFragmentShader,
-          uniforms: {
-            uColor: { value: new THREE.Color(preset.primary) },
-            uGlow: { value: preset.atmosphereGlow * 0.85 },
-            uLevel: { value: preset.atmosphereLevel },
-            uAlpha: { value: 1.0 },
-          },
-          transparent: true,
-          side: THREE.FrontSide,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-        });
-        this.atmosphereMesh = new THREE.Mesh(sphereGeom, this.atmosphereMaterial);
-        this.atmosphereMesh.scale.setScalar(preset.atmosphereScale);
-        this.mesh.add(this.atmosphereMesh);
-
-        // Starburst Glint Sprite (70% less white washout)
-        const starTex = generateStarCrossTexture(config.uiColor || preset.primary);
-        const spriteMat = new THREE.SpriteMaterial({
-          map: starTex,
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0.55,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        this.starSprite = new THREE.Sprite(spriteMat);
-        this.starSprite.scale.set(34, 34, 1);
-        this.mesh.add(this.starSprite);
-
-        // 1:1 Silky Smooth Continuous Glowing Comet Ribbon Geometry from SakuraCanvas.tsx (lines 2667-2746)
-        const RIBBON_SAMPLES = this.ribbonSamples;
-        const totalVerts = RIBBON_SAMPLES * 2;
-        const totalIndices = (RIBBON_SAMPLES - 1) * 6;
-        const ribbonPositions = new Float32Array(totalVerts * 3);
-        const ribbonUvs = new Float32Array(totalVerts * 2);
-        const ribbonIndices = new Uint16Array(totalIndices);
-
-        let idxOffset = 0;
-        for (let s = 0; s < RIBBON_SAMPLES; s++) {
-          const vY = s / (RIBBON_SAMPLES - 1);
-          ribbonUvs[s * 4] = 0.0;
-          ribbonUvs[s * 4 + 1] = vY;
-          ribbonUvs[s * 4 + 2] = 1.0;
-          ribbonUvs[s * 4 + 3] = vY;
-
-          if (s < RIBBON_SAMPLES - 1) {
-            const i0 = s * 2;
-            const i1 = s * 2 + 1;
-            const i2 = (s + 1) * 2;
-            const i3 = (s + 1) * 2 + 1;
-            ribbonIndices[idxOffset++] = i0;
-            ribbonIndices[idxOffset++] = i1;
-            ribbonIndices[idxOffset++] = i2;
-            ribbonIndices[idxOffset++] = i2;
-            ribbonIndices[idxOffset++] = i1;
-            ribbonIndices[idxOffset++] = i3;
-          }
-        }
-
-        this.trailRibbonGeo = new THREE.BufferGeometry();
-        this.trailRibbonGeo.setAttribute(
-          'position',
-          new THREE.BufferAttribute(ribbonPositions, 3)
-        );
-        this.trailRibbonGeo.setAttribute(
-          'uv',
-          new THREE.BufferAttribute(ribbonUvs, 2)
-        );
-        this.trailRibbonGeo.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
-
-        const satRgb = SATURATED_PLEXUS_PALETTES[this.id][0];
-        this.trailRibbonMat = new THREE.ShaderMaterial({
-          vertexShader: /* glsl */ `
-            varying vec2 vUv;
-            void main() {
-              vUv = uv;
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `,
-          fragmentShader: /* glsl */ `
-            uniform vec3 uColor;
-            uniform float uAlpha;
-            varying vec2 vUv;
-            void main() {
-              float distFromCenter = abs(vUv.x - 0.5) * 2.0;
-              float lateralGlow = exp(-distFromCenter * distFromCenter * 3.6);
-              float coreBeam = exp(-distFromCenter * distFromCenter * 14.0) * 0.25;
-              float brightness = mix(1.25, 0.35, vUv.y);
-              float lengthAlpha = pow(clamp(1.0 - vUv.y, 0.0, 1.0), 1.2) * uAlpha;
-              float combinedIntensity = (lateralGlow + coreBeam) * lengthAlpha;
-              if (combinedIntensity < 0.002) discard;
-              vec3 beamColor = uColor * brightness;
-              gl_FragColor = vec4(beamColor, clamp(combinedIntensity * 0.85, 0.0, 1.0));
-            }
-          `,
-          uniforms: {
-            uColor: { value: new THREE.Color(satRgb.r, satRgb.g, satRgb.b) },
-            uAlpha: { value: 0.0 },
-          },
-          side: THREE.DoubleSide,
-          transparent: true,
-          blending: THREE.NormalBlending,
-          depthWrite: false,
-        });
-
-        this.trailRibbonMesh = new THREE.Mesh(this.trailRibbonGeo, this.trailRibbonMat);
-        this.trailRibbonMesh.visible = false;
-        if (this.scene) this.scene.add(this.trailRibbonMesh);
-
-        if (this.scene) this.scene.add(this.mesh);
-
-        // 1:1 Dock Impulse Shockwave Ring Mesh from SakuraCanvas.tsx
-        const impulseGeom = new THREE.PlaneGeometry(240, 240);
-        this.impulseMaterial = new THREE.ShaderMaterial({
-          vertexShader: orbMeshVertexShader,
-          fragmentShader: /* glsl */ `
-            varying vec2 vUv;
-            uniform float uProgress;
-            uniform vec3 uColor;
-            void main() {
-              vec2 p = vUv - vec2(0.5);
-              float r = length(p) * 2.0;
-              float targetR = uProgress * 0.92;
-              float ringWidth = 0.07 * (1.0 - uProgress * 0.5);
-              float d = abs(r - targetR);
-              float ring = smoothstep(ringWidth, 0.0, d);
-              float alpha = ring * (1.0 - uProgress) * 0.95;
-              if (alpha < 0.005) discard;
-              gl_FragColor = vec4(uColor * 1.5, alpha);
-            }
-          `,
-          uniforms: {
-            uProgress: { value: 1.0 },
-            uColor: { value: new THREE.Color(config.vortexTint) },
-          },
-          transparent: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        this.impulseMesh = new THREE.Mesh(impulseGeom, this.impulseMaterial);
-        this.impulseMesh.position.set(this.x, this.y, this.z);
-        this.impulseMesh.visible = false;
-        if (this.scene) this.scene.add(this.impulseMesh);
-
-        // Pre-attach 1:1 Local Orb Shell (exact attachCluster behavior outside finale in SakuraCanvas.tsx)
-        const rgbList = SATURATED_PLEXUS_PALETTES[this.id];
-        const nodeCount = 18;
-        for (let i = 0; i < nodeCount; i++) {
-          const tier = i < 10 ? 1 : 2;
-          const layerRadius = 38.0 + (tier - 1) * 14.0;
-          const speedMul = 1.0 + (tier % 2 === 0 ? 0.35 : -0.25);
-          const angle = (i / nodeCount) * Math.PI * 2 + Math.random() * 0.4;
-          const elevation = (Math.random() - 0.5) * Math.PI * 0.6;
-          const rgb = rgbList[i % rgbList.length];
-          this.attachedNodes.push({
-            radius: layerRadius + (Math.random() - 0.5) * 6.0,
-            angle,
-            elevation,
-            orbitSpeed: (0.45 + (i % 3) * 0.2) * (i % 2 === 0 ? 1 : -1) * speedMul,
-            r: rgb.r,
-            g: rgb.g,
-            b: rgb.b,
-            size: 16.0 + Math.random() * 8.0,
-            rot: Math.random() * Math.PI * 2,
-            rotSpeed: (Math.random() - 0.5) * 3.0,
-            waveAmp: tier === 1 ? 14.0 : 24.0,
-            waveFreq: 0.8 + Math.random() * 1.1,
-            wavePhase: Math.random() * Math.PI * 2,
-          });
-        }
-      }
-
-      triggerHoverWobble() {
-        if (this.hoverWobbleTimer > 0.4) {
-          this.hoverWobbleTimer = 0.0;
-        }
-      }
-
-      triggerDockWobble() {
-        this.dockWobbleTimer = 0.0;
-        this.impulseTimer = 0.0;
-      }
-
-      update(delta: number, isFinaleActive = false, finaleAlpha = 1.0) {
-        this.internalTime += delta * 0.55;
-        this.material.uniforms.uTime.value = this.internalTime;
-
-        this.mesh.rotation.y += delta * 0.55;
-        this.mesh.rotation.x += delta * 0.28;
-
-        let scaleX = 1.0,
-          scaleY = 1.0,
-          scaleZ = 1.0;
-        let wobbleDispX = 0.0,
-          wobbleDispY = 0.0;
-
-        if (this.hoverWobbleTimer < 0.7) {
-          this.hoverWobbleTimer += delta;
-          const wt = Math.min(1.0, this.hoverWobbleTimer / 0.7);
-          const wobble = Math.sin(wt * Math.PI * 8.0) * Math.exp(-wt * 3.5);
-          scaleX *= 1.0 + wobble * 0.22;
-          scaleY *= 1.0 - wobble * 0.18;
-          scaleZ *= 1.0 + wobble * 0.22;
-        }
-
-        if (this.dockWobbleTimer < 1.0) {
-          this.dockWobbleTimer += delta;
-          const dtW = Math.min(1.0, this.dockWobbleTimer / 1.0);
-          const dockWobble = Math.sin(dtW * Math.PI * 10.0) * Math.exp(-dtW * 3.2);
-          scaleX *= 1.0 + dockWobble * 0.36;
-          scaleY *= 1.0 - dockWobble * 0.28;
-          scaleZ *= 1.0 + dockWobble * 0.36;
-          wobbleDispX += Math.sin(dtW * Math.PI * 12.0) * (1.0 - dtW) * 6.0;
-          wobbleDispY += Math.cos(dtW * Math.PI * 12.0) * (1.0 - dtW) * 6.0;
-
-          const glowBoost = 1.0 + Math.max(0.0, dockWobble * 2.0);
-          this.atmosphereMaterial.uniforms.uGlow.value =
-            this.preset.atmosphereGlow * glowBoost;
-        } else {
-          this.atmosphereMaterial.uniforms.uGlow.value = isFinaleActive
-            ? 2.4
-            : this.preset.atmosphereGlow * 0.85;
-        }
-
-        this.mesh.scale.set(scaleX, scaleY, scaleZ);
-        this.mesh.position.set(this.x + wobbleDispX, this.y + wobbleDispY, this.z);
-        this.mesh.updateMatrixWorld();
-
-        // Always compute raymarch camera directly in front of the Orb along +Z so it never distorts at the right edge
-        const localCam = new THREE.Vector3(
-          this.mesh.position.x,
-          this.mesh.position.y,
-          this.mesh.position.z + 150.0
-        );
-        this.mesh.worldToLocal(localCam);
-        this.material.uniforms.uLocalCamPos.value.copy(localCam);
-
-        // 1:1 Comet Ribbon Trail during Finale Impulse (from SakuraCanvas.tsx lines 2842-2905)
-        if (isFinaleActive) {
-          this.starSprite.scale.set(44, 44, 1);
-          this.trailHistory.unshift({ x: this.x, y: this.y, z: this.z });
-          if (this.trailHistory.length > this.trailLength) this.trailHistory.pop();
-
-          if (this.trailHistory.length >= 3) {
-            this.trailRibbonMesh.visible = true;
-            this.trailRibbonMat.uniforms.uAlpha.value = finaleAlpha;
-
-            const activePts: THREE.Vector3[] = [];
-            for (let h = 0; h < this.trailHistory.length; h++) {
-              const pt = this.trailHistory[h];
-              activePts.push(new THREE.Vector3(pt.x, pt.y, pt.z));
-            }
-
-            if (activePts.length >= 2) {
-              const spline = new THREE.CatmullRomCurve3(activePts, false, 'centripetal', 0.5);
-              const samples = spline.getSpacedPoints(this.ribbonSamples - 1);
-              const rPositions = this.trailRibbonGeo.attributes.position.array as Float32Array;
-              const BASE_RIBBON_WIDTH = 22.0;
-
-              for (let s = 0; s < this.ribbonSamples; s++) {
-                const curP = samples[s];
-                const prevP = samples[Math.max(0, s - 1)];
-                const nextP = samples[Math.min(this.ribbonSamples - 1, s + 1)];
-
-                let tx = nextP.x - prevP.x;
-                let ty = nextP.y - prevP.y;
-                const tLen = Math.hypot(tx, ty) || 1.0;
-                tx /= tLen;
-                ty /= tLen;
-
-                const nx = -ty;
-                const ny = tx;
-
-                const normS = s / (this.ribbonSamples - 1);
-                const w = BASE_RIBBON_WIDTH * Math.pow(Math.max(0.0, 1.0 - normS), 0.92);
-
-                const vIdx = s * 6;
-                rPositions[vIdx] = curP.x + nx * w;
-                rPositions[vIdx + 1] = curP.y + ny * w;
-                rPositions[vIdx + 2] = curP.z;
-
-                rPositions[vIdx + 3] = curP.x - nx * w;
-                rPositions[vIdx + 4] = curP.y - ny * w;
-                rPositions[vIdx + 5] = curP.z;
-              }
-              this.trailRibbonGeo.attributes.position.needsUpdate = true;
-            }
-          }
-        } else {
-          this.starSprite.scale.set(34, 34, 1);
-          this.trailRibbonMesh.visible = false;
-          this.trailHistory.length = 0;
-        }
-
-        if (this.impulseTimer < 0.85) {
-          this.impulseTimer += delta;
-          const progress = Math.min(1.0, this.impulseTimer / 0.85);
-          this.impulseMaterial.uniforms.uProgress.value = progress;
-          this.impulseMesh.position.set(this.x, this.y, this.z);
-          this.impulseMesh.visible = true;
-        } else {
-          this.impulseMesh.visible = false;
-        }
-      }
-    }
-
-    // 1:1 FinaleMeshParticle ported from SakuraCanvas.tsx (lines 3074-3235)
-    class SliderFinaleMeshParticle {
-      x = 0;
-      y = 0;
-      z = 0;
-      renderX = 0;
-      renderY = 0;
-      renderZ = 0;
-      originOffsetX = 0;
-      originOffsetY = 0;
-      originOffsetZ = 0;
-      particleIndex = 0;
-      strandPhase = 0;
-      strandAmp = 42.0;
-      curlPhase = 0;
-      curlSpeed = 2.4;
-      speed = 1.0;
-      vector = { x: 0, y: 0, z: 0 };
-      radius = 18.0;
-      color = { r: 1, g: 1, b: 1 };
-      boundX = 165.0;
-      boundY = 135.0;
-      boundZ = 48.0;
-
-      constructor(
-        boundX: number,
-        boundY: number,
-        boundZ: number,
-        palette: { r: number; g: number; b: number }[],
-        originOffset: { x: number; y: number; z: number },
-        particleIndex: number
-      ) {
-        this.boundX = boundX;
-        this.boundY = boundY;
-        this.boundZ = boundZ;
-        this.particleIndex = particleIndex;
-        this.originOffsetX = originOffset.x + (Math.random() - 0.5) * 14.0;
-        this.originOffsetY = originOffset.y + (Math.random() - 0.5) * 14.0;
-        this.originOffsetZ = originOffset.z + (Math.random() - 0.5) * 10.0;
-
-        this.strandPhase = (particleIndex % 20) / 20.0;
-        this.strandAmp = 42.0 + (particleIndex % 6) * 7.0;
-        this.curlPhase = (particleIndex * 1.45) % (Math.PI * 2);
-        this.curlSpeed = 2.4 + (particleIndex % 3) * 0.65;
-
-        const angle = Math.random() * Math.PI * 2;
-        const rFrac = Math.sqrt(Math.random());
-        this.x = Math.cos(angle) * this.boundX * 0.9 * rFrac;
-        this.y = Math.sin(angle) * this.boundY * 0.9 * rFrac;
-        this.z = (Math.random() - 0.5) * 2.0 * this.boundZ;
-
-        this.speed = 0.75 + Math.random() * 0.75;
-        const dirAngle = Math.random() * Math.PI * 2;
-        const pitchAngle = (Math.random() - 0.5) * Math.PI * 0.7;
-        this.vector = {
-          x: Math.cos(dirAngle) * Math.cos(pitchAngle) * this.speed,
-          y: Math.sin(dirAngle) * Math.cos(pitchAngle) * this.speed,
-          z: Math.sin(pitchAngle) * this.speed * 0.6,
-        };
-
-        this.radius = 18.0 + Math.random() * 9.0;
-        this.color = palette[particleIndex % palette.length];
-      }
-
-      border() {
-        const normY = this.y / this.boundY;
-        const currentBoundX =
-          this.boundX * Math.sqrt(Math.max(0.12, 1.0 - normY * normY * 0.72));
-
-        if (this.x >= currentBoundX) {
-          this.vector.x = -Math.abs(this.vector.x);
-          this.x = currentBoundX;
-        } else if (this.x <= -currentBoundX) {
-          this.vector.x = Math.abs(this.vector.x);
-          this.x = -currentBoundX;
-        }
-
-        if (this.y >= this.boundY) {
-          this.vector.y = -Math.abs(this.vector.y);
-          this.y = this.boundY;
-        } else if (this.y <= -this.boundY) {
-          this.vector.y = Math.abs(this.vector.y);
-          this.y = -this.boundY;
-        }
-
-        if (this.z >= this.boundZ) {
-          this.vector.z = -Math.abs(this.vector.z);
-          this.z = this.boundZ;
-        } else if (this.z <= -this.boundZ) {
-          this.vector.z = Math.abs(this.vector.z);
-          this.z = -this.boundZ;
-        }
-      }
-
-      update(
-        delta: number,
-        transitionProgress: number,
-        finaleAge: number,
-        totalTime: number,
-        centerX: number,
-        centerY: number
-      ) {
-        const dt60 = Math.min(2.0, delta * 60.0);
-        this.border();
-        this.x += this.vector.x * dt60;
-        this.y += this.vector.y * dt60;
-        this.z += this.vector.z * dt60;
-
-        let particleProg = 1.0;
-        let easeProg = 1.0;
-        let waveX = 0.0,
-          waveY = 0.0,
-          waveZ = 0.0;
-
-        if (transitionProgress < 1.0) {
-          const strandStart = this.strandPhase * 0.38;
-          particleProg = Math.max(
-            0.0,
-            Math.min(1.0, (transitionProgress - strandStart) / (1.0 - strandStart))
-          );
-          easeProg = particleProg * particleProg * (3.0 - 2.0 * particleProg);
-
-          const filamentWaveEnvelope = Math.sin(particleProg * Math.PI);
-          waveX =
-            Math.sin(totalTime * this.curlSpeed + this.curlPhase + particleProg * 6.28) *
-            this.strandAmp *
-            filamentWaveEnvelope;
-          waveY =
-            Math.cos(
-              totalTime * (this.curlSpeed * 0.85) +
-                this.curlPhase * 1.3 +
-                particleProg * 5.5
-            ) *
-            (this.strandAmp * 0.8) *
-            filamentWaveEnvelope;
-          waveZ =
-            Math.sin(
-              totalTime * (this.curlSpeed * 1.2) +
-                this.curlPhase * 2.1 +
-                particleProg * 7.0
-            ) *
-            (this.strandAmp * 0.6) *
-            filamentWaveEnvelope;
-        }
-
-        const baseX = THREE.MathUtils.lerp(this.originOffsetX, this.x, easeProg) + waveX;
-        const baseY = THREE.MathUtils.lerp(this.originOffsetY, this.y, easeProg) + waveY;
-        const baseZ = THREE.MathUtils.lerp(this.originOffsetZ, this.z, easeProg) + waveZ;
-
-        // Whole-network 3D rotation around its central Y-axis and X-tilt (SakuraCanvas.tsx lines 3189-3204)
-        const netRotY = finaleAge * 0.24;
-        const netTiltX = Math.sin(finaleAge * 0.32) * 0.08;
-
-        const cosY = Math.cos(netRotY);
-        const sinY = Math.sin(netRotY);
-        const rx = baseX * cosY - baseZ * sinY;
-        const rz1 = baseX * sinY + baseZ * cosY;
-
-        const cosX = Math.cos(netTiltX);
-        const sinX = Math.sin(netTiltX);
-        const ry = baseY * cosX - rz1 * sinX;
-        const rz = baseY * sinX + rz1 * cosX;
-
-        this.renderX = centerX + rx;
-        this.renderY = centerY + ry;
-        this.renderZ = rz;
-      }
-    }
-function SmartphoneDualSlider({ lang }: SakuraverseDualSliderProps) {
+export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -1868,14 +1245,579 @@ function SmartphoneDualSlider({ lang }: SakuraverseDualSliderProps) {
     plexusScene.add(plexusPointsMesh);
 
     // 4 Orbs: Red, Blue, Yellow, Green (1:1 FloatingPlexusOrbInstance visuals + attached Plexus)
+    const ORB_RADIUS = 26.0;
+    const sphereGeom = new THREE.SphereGeometry(ORB_RADIUS, 48, 48);
 
+    class SliderPlexusOrb {
+      id: BlossomColorId;
+      name: string;
+      homeX: number;
+      homeY: number;
+      orbitRx: number;
+      orbitRy: number;
+      orbitSpeed: number;
+      orbitPhase: number;
+      x: number;
+      y: number;
+      z = 0;
+      vx = 0;
+      vy = 0;
+      internalTime = Math.random() * 10;
+      hoverWobbleTimer = 999.0;
+      dockWobbleTimer = 999.0;
+      impulseTimer = 999.0;
+      preset: (typeof FRACTAL_ORB_PRESETS)[BlossomColorId];
+      mesh: THREE.Mesh;
+      material: THREE.ShaderMaterial;
+      atmosphereMesh: THREE.Mesh;
+      atmosphereMaterial: THREE.ShaderMaterial;
+      starSprite: THREE.Sprite;
+      trailRibbonGeo: THREE.BufferGeometry;
+      trailRibbonMat: THREE.ShaderMaterial;
+      trailRibbonMesh: THREE.Mesh;
+      ribbonSamples = 64;
+      trailLength = 54;
+      trailHistory: { x: number; y: number; z: number }[] = [];
+      impulseMesh: THREE.Mesh;
+      impulseMaterial: THREE.ShaderMaterial;
+      attachedNodes: AttachedPlexusNode3D[] = [];
+
+      constructor(
+        id: BlossomColorId,
+        homeX: number,
+        homeY: number,
+        orbitRx: number,
+        orbitRy: number,
+        orbitSpeed: number,
+        orbitPhase: number
+      ) {
+        this.id = id;
+        const config = BLOSSOM_PALETTES[id];
+        this.name = config.name;
+        this.homeX = homeX;
+        this.homeY = homeY;
+        this.orbitRx = orbitRx;
+        this.orbitRy = orbitRy;
+        this.orbitSpeed = orbitSpeed;
+        this.orbitPhase = orbitPhase;
+        this.x = homeX;
+        this.y = homeY;
+
+        const preset = FRACTAL_ORB_PRESETS[id];
+        this.preset = preset;
+
+        this.material = new THREE.ShaderMaterial({
+          vertexShader: fractalOrbVertexShader,
+          fragmentShader: fractalOrbFragmentShader,
+          uniforms: {
+            uTime: { value: this.internalTime },
+            uLocalCamPos: { value: new THREE.Vector3(0, 0, 150) },
+            uPrimaryColor: { value: new THREE.Color(preset.primary) },
+            uSecondaryColor: { value: new THREE.Color(preset.secondary) },
+            uDensity: { value: preset.density },
+            uAlpha: { value: 1.0 },
+            uFractalIters: { value: preset.fractalIters },
+            uFractalScale: { value: preset.fractalScale },
+            uFractalDecay: { value: preset.fractalDecay },
+            uInternalAnim: { value: 0.43 },
+            uSmoothness: { value: preset.smoothness },
+            uAsymmetry: { value: preset.asymmetry },
+            uRadius: { value: ORB_RADIUS },
+          },
+          transparent: true,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          blending: THREE.NormalBlending,
+        });
+
+        this.mesh = new THREE.Mesh(sphereGeom, this.material);
+        this.mesh.position.set(this.x, this.y, this.z);
+
+        this.atmosphereMaterial = new THREE.ShaderMaterial({
+          vertexShader: atmosphereVertexShader,
+          fragmentShader: atmosphereFragmentShader,
+          uniforms: {
+            uColor: { value: new THREE.Color(preset.primary) },
+            uGlow: { value: preset.atmosphereGlow * 0.85 },
+            uLevel: { value: preset.atmosphereLevel },
+            uAlpha: { value: 1.0 },
+          },
+          transparent: true,
+          side: THREE.FrontSide,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        this.atmosphereMesh = new THREE.Mesh(sphereGeom, this.atmosphereMaterial);
+        this.atmosphereMesh.scale.setScalar(preset.atmosphereScale);
+        this.mesh.add(this.atmosphereMesh);
+
+        // Starburst Glint Sprite (70% less white washout)
+        const starTex = generateStarCrossTexture(config.uiColor || preset.primary);
+        const spriteMat = new THREE.SpriteMaterial({
+          map: starTex,
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.55,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        this.starSprite = new THREE.Sprite(spriteMat);
+        this.starSprite.scale.set(34, 34, 1);
+        this.mesh.add(this.starSprite);
+
+        // 1:1 Silky Smooth Continuous Glowing Comet Ribbon Geometry from SakuraCanvas.tsx (lines 2667-2746)
+        const RIBBON_SAMPLES = this.ribbonSamples;
+        const totalVerts = RIBBON_SAMPLES * 2;
+        const totalIndices = (RIBBON_SAMPLES - 1) * 6;
+        const ribbonPositions = new Float32Array(totalVerts * 3);
+        const ribbonUvs = new Float32Array(totalVerts * 2);
+        const ribbonIndices = new Uint16Array(totalIndices);
+
+        let idxOffset = 0;
+        for (let s = 0; s < RIBBON_SAMPLES; s++) {
+          const vY = s / (RIBBON_SAMPLES - 1);
+          ribbonUvs[s * 4] = 0.0;
+          ribbonUvs[s * 4 + 1] = vY;
+          ribbonUvs[s * 4 + 2] = 1.0;
+          ribbonUvs[s * 4 + 3] = vY;
+
+          if (s < RIBBON_SAMPLES - 1) {
+            const i0 = s * 2;
+            const i1 = s * 2 + 1;
+            const i2 = (s + 1) * 2;
+            const i3 = (s + 1) * 2 + 1;
+            ribbonIndices[idxOffset++] = i0;
+            ribbonIndices[idxOffset++] = i1;
+            ribbonIndices[idxOffset++] = i2;
+            ribbonIndices[idxOffset++] = i2;
+            ribbonIndices[idxOffset++] = i1;
+            ribbonIndices[idxOffset++] = i3;
+          }
+        }
+
+        this.trailRibbonGeo = new THREE.BufferGeometry();
+        this.trailRibbonGeo.setAttribute(
+          'position',
+          new THREE.BufferAttribute(ribbonPositions, 3)
+        );
+        this.trailRibbonGeo.setAttribute(
+          'uv',
+          new THREE.BufferAttribute(ribbonUvs, 2)
+        );
+        this.trailRibbonGeo.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
+
+        const satRgb = SATURATED_PLEXUS_PALETTES[this.id][0];
+        this.trailRibbonMat = new THREE.ShaderMaterial({
+          vertexShader: /* glsl */ `
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: /* glsl */ `
+            uniform vec3 uColor;
+            uniform float uAlpha;
+            varying vec2 vUv;
+            void main() {
+              float distFromCenter = abs(vUv.x - 0.5) * 2.0;
+              float lateralGlow = exp(-distFromCenter * distFromCenter * 3.6);
+              float coreBeam = exp(-distFromCenter * distFromCenter * 14.0) * 0.25;
+              float brightness = mix(1.25, 0.35, vUv.y);
+              float lengthAlpha = pow(clamp(1.0 - vUv.y, 0.0, 1.0), 1.2) * uAlpha;
+              float combinedIntensity = (lateralGlow + coreBeam) * lengthAlpha;
+              if (combinedIntensity < 0.002) discard;
+              vec3 beamColor = uColor * brightness;
+              gl_FragColor = vec4(beamColor, clamp(combinedIntensity * 0.85, 0.0, 1.0));
+            }
+          `,
+          uniforms: {
+            uColor: { value: new THREE.Color(satRgb.r, satRgb.g, satRgb.b) },
+            uAlpha: { value: 0.0 },
+          },
+          side: THREE.DoubleSide,
+          transparent: true,
+          blending: THREE.NormalBlending,
+          depthWrite: false,
+        });
+
+        this.trailRibbonMesh = new THREE.Mesh(this.trailRibbonGeo, this.trailRibbonMat);
+        this.trailRibbonMesh.visible = false;
+        plexusScene.add(this.trailRibbonMesh);
+
+        plexusScene.add(this.mesh);
+
+        // 1:1 Dock Impulse Shockwave Ring Mesh from SakuraCanvas.tsx
+        const impulseGeom = new THREE.PlaneGeometry(240, 240);
+        this.impulseMaterial = new THREE.ShaderMaterial({
+          vertexShader: orbMeshVertexShader,
+          fragmentShader: /* glsl */ `
+            varying vec2 vUv;
+            uniform float uProgress;
+            uniform vec3 uColor;
+            void main() {
+              vec2 p = vUv - vec2(0.5);
+              float r = length(p) * 2.0;
+              float targetR = uProgress * 0.92;
+              float ringWidth = 0.07 * (1.0 - uProgress * 0.5);
+              float d = abs(r - targetR);
+              float ring = smoothstep(ringWidth, 0.0, d);
+              float alpha = ring * (1.0 - uProgress) * 0.95;
+              if (alpha < 0.005) discard;
+              gl_FragColor = vec4(uColor * 1.5, alpha);
+            }
+          `,
+          uniforms: {
+            uProgress: { value: 1.0 },
+            uColor: { value: new THREE.Color(config.vortexTint) },
+          },
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        this.impulseMesh = new THREE.Mesh(impulseGeom, this.impulseMaterial);
+        this.impulseMesh.position.set(this.x, this.y, this.z);
+        this.impulseMesh.visible = false;
+        plexusScene.add(this.impulseMesh);
+
+        // Pre-attach 1:1 Local Orb Shell (exact attachCluster behavior outside finale in SakuraCanvas.tsx)
+        const rgbList = SATURATED_PLEXUS_PALETTES[this.id];
+        const nodeCount = 18;
+        for (let i = 0; i < nodeCount; i++) {
+          const tier = i < 10 ? 1 : 2;
+          const layerRadius = 38.0 + (tier - 1) * 14.0;
+          const speedMul = 1.0 + (tier % 2 === 0 ? 0.35 : -0.25);
+          const angle = (i / nodeCount) * Math.PI * 2 + Math.random() * 0.4;
+          const elevation = (Math.random() - 0.5) * Math.PI * 0.6;
+          const rgb = rgbList[i % rgbList.length];
+          this.attachedNodes.push({
+            radius: layerRadius + (Math.random() - 0.5) * 6.0,
+            angle,
+            elevation,
+            orbitSpeed: (0.45 + (i % 3) * 0.2) * (i % 2 === 0 ? 1 : -1) * speedMul,
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b,
+            size: 16.0 + Math.random() * 8.0,
+            rot: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 3.0,
+            waveAmp: tier === 1 ? 14.0 : 24.0,
+            waveFreq: 0.8 + Math.random() * 1.1,
+            wavePhase: Math.random() * Math.PI * 2,
+          });
+        }
+      }
+
+      triggerHoverWobble() {
+        if (this.hoverWobbleTimer > 0.4) {
+          this.hoverWobbleTimer = 0.0;
+        }
+      }
+
+      triggerDockWobble() {
+        this.dockWobbleTimer = 0.0;
+        this.impulseTimer = 0.0;
+      }
+
+      update(delta: number, isFinaleActive = false, finaleAlpha = 1.0) {
+        this.internalTime += delta * 0.55;
+        this.material.uniforms.uTime.value = this.internalTime;
+
+        this.mesh.rotation.y += delta * 0.55;
+        this.mesh.rotation.x += delta * 0.28;
+
+        let scaleX = 1.0,
+          scaleY = 1.0,
+          scaleZ = 1.0;
+        let wobbleDispX = 0.0,
+          wobbleDispY = 0.0;
+
+        if (this.hoverWobbleTimer < 0.7) {
+          this.hoverWobbleTimer += delta;
+          const wt = Math.min(1.0, this.hoverWobbleTimer / 0.7);
+          const wobble = Math.sin(wt * Math.PI * 8.0) * Math.exp(-wt * 3.5);
+          scaleX *= 1.0 + wobble * 0.22;
+          scaleY *= 1.0 - wobble * 0.18;
+          scaleZ *= 1.0 + wobble * 0.22;
+        }
+
+        if (this.dockWobbleTimer < 1.0) {
+          this.dockWobbleTimer += delta;
+          const dtW = Math.min(1.0, this.dockWobbleTimer / 1.0);
+          const dockWobble = Math.sin(dtW * Math.PI * 10.0) * Math.exp(-dtW * 3.2);
+          scaleX *= 1.0 + dockWobble * 0.36;
+          scaleY *= 1.0 - dockWobble * 0.28;
+          scaleZ *= 1.0 + dockWobble * 0.36;
+          wobbleDispX += Math.sin(dtW * Math.PI * 12.0) * (1.0 - dtW) * 6.0;
+          wobbleDispY += Math.cos(dtW * Math.PI * 12.0) * (1.0 - dtW) * 6.0;
+
+          const glowBoost = 1.0 + Math.max(0.0, dockWobble * 2.0);
+          this.atmosphereMaterial.uniforms.uGlow.value =
+            this.preset.atmosphereGlow * glowBoost;
+        } else {
+          this.atmosphereMaterial.uniforms.uGlow.value = isFinaleActive
+            ? 2.4
+            : this.preset.atmosphereGlow * 0.85;
+        }
+
+        this.mesh.scale.set(scaleX, scaleY, scaleZ);
+        this.mesh.position.set(this.x + wobbleDispX, this.y + wobbleDispY, this.z);
+        this.mesh.updateMatrixWorld();
+
+        // Always compute raymarch camera directly in front of the Orb along +Z so it never distorts at the right edge
+        const localCam = new THREE.Vector3(
+          this.mesh.position.x,
+          this.mesh.position.y,
+          this.mesh.position.z + 150.0
+        );
+        this.mesh.worldToLocal(localCam);
+        this.material.uniforms.uLocalCamPos.value.copy(localCam);
+
+        // 1:1 Comet Ribbon Trail during Finale Impulse (from SakuraCanvas.tsx lines 2842-2905)
+        if (isFinaleActive) {
+          this.starSprite.scale.set(44, 44, 1);
+          this.trailHistory.unshift({ x: this.x, y: this.y, z: this.z });
+          if (this.trailHistory.length > this.trailLength) this.trailHistory.pop();
+
+          if (this.trailHistory.length >= 3) {
+            this.trailRibbonMesh.visible = true;
+            this.trailRibbonMat.uniforms.uAlpha.value = finaleAlpha;
+
+            const activePts: THREE.Vector3[] = [];
+            for (let h = 0; h < this.trailHistory.length; h++) {
+              const pt = this.trailHistory[h];
+              activePts.push(new THREE.Vector3(pt.x, pt.y, pt.z));
+            }
+
+            if (activePts.length >= 2) {
+              const spline = new THREE.CatmullRomCurve3(activePts, false, 'centripetal', 0.5);
+              const samples = spline.getSpacedPoints(this.ribbonSamples - 1);
+              const rPositions = this.trailRibbonGeo.attributes.position.array as Float32Array;
+              const BASE_RIBBON_WIDTH = 22.0;
+
+              for (let s = 0; s < this.ribbonSamples; s++) {
+                const curP = samples[s];
+                const prevP = samples[Math.max(0, s - 1)];
+                const nextP = samples[Math.min(this.ribbonSamples - 1, s + 1)];
+
+                let tx = nextP.x - prevP.x;
+                let ty = nextP.y - prevP.y;
+                const tLen = Math.hypot(tx, ty) || 1.0;
+                tx /= tLen;
+                ty /= tLen;
+
+                const nx = -ty;
+                const ny = tx;
+
+                const normS = s / (this.ribbonSamples - 1);
+                const w = BASE_RIBBON_WIDTH * Math.pow(Math.max(0.0, 1.0 - normS), 0.92);
+
+                const vIdx = s * 6;
+                rPositions[vIdx] = curP.x + nx * w;
+                rPositions[vIdx + 1] = curP.y + ny * w;
+                rPositions[vIdx + 2] = curP.z;
+
+                rPositions[vIdx + 3] = curP.x - nx * w;
+                rPositions[vIdx + 4] = curP.y - ny * w;
+                rPositions[vIdx + 5] = curP.z;
+              }
+              this.trailRibbonGeo.attributes.position.needsUpdate = true;
+            }
+          }
+        } else {
+          this.starSprite.scale.set(34, 34, 1);
+          this.trailRibbonMesh.visible = false;
+          this.trailHistory.length = 0;
+        }
+
+        if (this.impulseTimer < 0.85) {
+          this.impulseTimer += delta;
+          const progress = Math.min(1.0, this.impulseTimer / 0.85);
+          this.impulseMaterial.uniforms.uProgress.value = progress;
+          this.impulseMesh.position.set(this.x, this.y, this.z);
+          this.impulseMesh.visible = true;
+        } else {
+          this.impulseMesh.visible = false;
+        }
+      }
+    }
+
+    // Create the 4 requested Orbs (Red, Blue, Yellow, Green) in the right half of the 3D space
     const plexusOrbs: SliderPlexusOrb[] = [
-      new SliderPlexusOrb('red', 105, 85, 34, 24, 0.72, 0.2, plexusScene),
-      new SliderPlexusOrb('blue', 245, 78, 36, 26, -0.64, 1.8, plexusScene),
-      new SliderPlexusOrb('yellow', 115, -82, 36, 24, 0.6, 3.3, plexusScene),
-      new SliderPlexusOrb('green', 250, -78, 34, 26, -0.68, 4.7, plexusScene),
+      new SliderPlexusOrb('red', 105, 85, 34, 24, 0.72, 0.2),
+      new SliderPlexusOrb('blue', 245, 78, 36, 26, -0.64, 1.8),
+      new SliderPlexusOrb('yellow', 115, -82, 36, 24, 0.6, 3.3),
+      new SliderPlexusOrb('green', 250, -78, 34, 26, -0.68, 4.7),
     ];
 
+    // 1:1 FinaleMeshParticle ported from SakuraCanvas.tsx (lines 3074-3235)
+    class SliderFinaleMeshParticle {
+      x = 0;
+      y = 0;
+      z = 0;
+      renderX = 0;
+      renderY = 0;
+      renderZ = 0;
+      originOffsetX = 0;
+      originOffsetY = 0;
+      originOffsetZ = 0;
+      particleIndex = 0;
+      strandPhase = 0;
+      strandAmp = 42.0;
+      curlPhase = 0;
+      curlSpeed = 2.4;
+      speed = 1.0;
+      vector = { x: 0, y: 0, z: 0 };
+      radius = 18.0;
+      color = { r: 1, g: 1, b: 1 };
+      boundX = 165.0;
+      boundY = 135.0;
+      boundZ = 48.0;
+
+      constructor(
+        boundX: number,
+        boundY: number,
+        boundZ: number,
+        palette: { r: number; g: number; b: number }[],
+        originOffset: { x: number; y: number; z: number },
+        particleIndex: number
+      ) {
+        this.boundX = boundX;
+        this.boundY = boundY;
+        this.boundZ = boundZ;
+        this.particleIndex = particleIndex;
+        this.originOffsetX = originOffset.x + (Math.random() - 0.5) * 14.0;
+        this.originOffsetY = originOffset.y + (Math.random() - 0.5) * 14.0;
+        this.originOffsetZ = originOffset.z + (Math.random() - 0.5) * 10.0;
+
+        this.strandPhase = (particleIndex % 20) / 20.0;
+        this.strandAmp = 42.0 + (particleIndex % 6) * 7.0;
+        this.curlPhase = (particleIndex * 1.45) % (Math.PI * 2);
+        this.curlSpeed = 2.4 + (particleIndex % 3) * 0.65;
+
+        const angle = Math.random() * Math.PI * 2;
+        const rFrac = Math.sqrt(Math.random());
+        this.x = Math.cos(angle) * this.boundX * 0.9 * rFrac;
+        this.y = Math.sin(angle) * this.boundY * 0.9 * rFrac;
+        this.z = (Math.random() - 0.5) * 2.0 * this.boundZ;
+
+        this.speed = 0.75 + Math.random() * 0.75;
+        const dirAngle = Math.random() * Math.PI * 2;
+        const pitchAngle = (Math.random() - 0.5) * Math.PI * 0.7;
+        this.vector = {
+          x: Math.cos(dirAngle) * Math.cos(pitchAngle) * this.speed,
+          y: Math.sin(dirAngle) * Math.cos(pitchAngle) * this.speed,
+          z: Math.sin(pitchAngle) * this.speed * 0.6,
+        };
+
+        this.radius = 18.0 + Math.random() * 9.0;
+        this.color = palette[particleIndex % palette.length];
+      }
+
+      border() {
+        const normY = this.y / this.boundY;
+        const currentBoundX =
+          this.boundX * Math.sqrt(Math.max(0.12, 1.0 - normY * normY * 0.72));
+
+        if (this.x >= currentBoundX) {
+          this.vector.x = -Math.abs(this.vector.x);
+          this.x = currentBoundX;
+        } else if (this.x <= -currentBoundX) {
+          this.vector.x = Math.abs(this.vector.x);
+          this.x = -currentBoundX;
+        }
+
+        if (this.y >= this.boundY) {
+          this.vector.y = -Math.abs(this.vector.y);
+          this.y = this.boundY;
+        } else if (this.y <= -this.boundY) {
+          this.vector.y = Math.abs(this.vector.y);
+          this.y = -this.boundY;
+        }
+
+        if (this.z >= this.boundZ) {
+          this.vector.z = -Math.abs(this.vector.z);
+          this.z = this.boundZ;
+        } else if (this.z <= -this.boundZ) {
+          this.vector.z = Math.abs(this.vector.z);
+          this.z = -this.boundZ;
+        }
+      }
+
+      update(
+        delta: number,
+        transitionProgress: number,
+        finaleAge: number,
+        totalTime: number,
+        centerX: number,
+        centerY: number
+      ) {
+        const dt60 = Math.min(2.0, delta * 60.0);
+        this.border();
+        this.x += this.vector.x * dt60;
+        this.y += this.vector.y * dt60;
+        this.z += this.vector.z * dt60;
+
+        let particleProg = 1.0;
+        let easeProg = 1.0;
+        let waveX = 0.0,
+          waveY = 0.0,
+          waveZ = 0.0;
+
+        if (transitionProgress < 1.0) {
+          const strandStart = this.strandPhase * 0.38;
+          particleProg = Math.max(
+            0.0,
+            Math.min(1.0, (transitionProgress - strandStart) / (1.0 - strandStart))
+          );
+          easeProg = particleProg * particleProg * (3.0 - 2.0 * particleProg);
+
+          const filamentWaveEnvelope = Math.sin(particleProg * Math.PI);
+          waveX =
+            Math.sin(totalTime * this.curlSpeed + this.curlPhase + particleProg * 6.28) *
+            this.strandAmp *
+            filamentWaveEnvelope;
+          waveY =
+            Math.cos(
+              totalTime * (this.curlSpeed * 0.85) +
+                this.curlPhase * 1.3 +
+                particleProg * 5.5
+            ) *
+            (this.strandAmp * 0.8) *
+            filamentWaveEnvelope;
+          waveZ =
+            Math.sin(
+              totalTime * (this.curlSpeed * 1.2) +
+                this.curlPhase * 2.1 +
+                particleProg * 7.0
+            ) *
+            (this.strandAmp * 0.6) *
+            filamentWaveEnvelope;
+        }
+
+        const baseX = THREE.MathUtils.lerp(this.originOffsetX, this.x, easeProg) + waveX;
+        const baseY = THREE.MathUtils.lerp(this.originOffsetY, this.y, easeProg) + waveY;
+        const baseZ = THREE.MathUtils.lerp(this.originOffsetZ, this.z, easeProg) + waveZ;
+
+        // Whole-network 3D rotation around its central Y-axis and X-tilt (SakuraCanvas.tsx lines 3189-3204)
+        const netRotY = finaleAge * 0.24;
+        const netTiltX = Math.sin(finaleAge * 0.32) * 0.08;
+
+        const cosY = Math.cos(netRotY);
+        const sinY = Math.sin(netRotY);
+        const rx = baseX * cosY - baseZ * sinY;
+        const rz1 = baseX * sinY + baseZ * cosY;
+
+        const cosX = Math.cos(netTiltX);
+        const sinX = Math.sin(netTiltX);
+        const ry = baseY * cosX - rz1 * sinX;
+        const rz = baseY * sinX + rz1 * cosX;
+
+        this.renderX = centerX + rx;
+        this.renderY = centerY + ry;
+        this.renderZ = rz;
+      }
+    }
 
     interface Active3sImpulse {
       orbA: SliderPlexusOrb;
@@ -2813,1507 +2755,77 @@ function SmartphoneDualSlider({ lang }: SakuraverseDualSliderProps) {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className="relative h-72 w-full rounded-[28px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.22)] select-none"
-    >
-      <canvas
-        ref={canvasRef}
-        className={`w-full h-full block touch-none ${
-          cursorStyle === 'grabbing'
-            ? 'cursor-grabbing'
-            : cursorStyle === 'grab'
-            ? 'cursor-grab'
-            : 'cursor-default'
-        }`}
-      />
-
-      {/* Top-Left Badge: Sumi-e */}
-      <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 lg:top-4 lg:left-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-start gap-1 sm:gap-1.5 pointer-events-none z-10">
-        <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
-          <span className="truncate">{t.sliderSumieBadge}</span>
-        </div>
-        {isVortexUI && (
-          <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#ff2a9d]">
-            {t.sliderVortexActive}
-          </div>
-        )}
-      </div>
-
-      {/* Top-Right Badge: Plexus */}
-      <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 lg:top-4 lg:right-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-end gap-1 sm:gap-1.5 pointer-events-none z-10">
-        <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
-          <span className="truncate">{t.sliderPlexusBadge}</span>
-        </div>
-        {isImpulseUI && (
-          <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#00c3ff]">
-            {t.sliderPulseActive}
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Interaction Hints */}
-      <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 lg:bottom-3.5 lg:left-4 lg:right-4 flex items-end justify-between gap-2 pointer-events-none z-10">
-        <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-pink-100/90 font-light">
-          {t.sliderHintSumie}
-        </span>
-        <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-light text-right sm:text-left">
-          {t.sliderHintPlexus}
-        </span>
-      </div>
-
-      {/* Divider Line — ONLY visible in Smartphone view (< 640px) */}
+    <div className="mb-10 sm:mb-12">
       <div
-        style={{ left: `${splitRatio * 100}%` }}
-        className="sm:hidden absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none z-10"
-      />
-
-      {/* Interactive Handle Button — ONLY visible and draggable in Smartphone view (< 640px)! */}
-      <button
-        type="button"
-        aria-label="Slider verschieben"
-        style={{ left: `${splitRatio * 100}%` }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          isDraggingHandleRef.current = true;
-        }}
-        className="sm:hidden absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#12091c]/95 border-2 border-white shadow-[0_0_22px_rgba(255,42,157,0.85)] active:scale-95 transition-transform flex items-center justify-center text-[11px] text-white font-bold cursor-ew-resize touch-none z-20"
+        ref={containerRef}
+        className="relative h-72 sm:h-96 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.22)] select-none"
       >
-        ↔
-      </button>
-    </div>
-  );
-}
-
-// ============================================================================
-// DEDICATED SUMI-E CARD BOX (PC & TABLET)
-// ============================================================================
-
-function SumiePreviewBox({ lang }: SakuraverseDualSliderProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isVortexUI, setIsVortexUI] = useState<boolean>(false);
-  const t = translations[lang].experience;
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
-
-    let width = Math.max(280, container.clientWidth);
-    let height = Math.max(240, container.clientHeight);
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: false,
-      powerPreference: 'high-performance',
-    });
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(width, height);
-    renderer.autoClear = false;
-
-    // Background Scene
-    const bgScene = new THREE.Scene();
-    const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const noiseTex = createNoiseTexture();
-
-    const bgUniforms = {
-      iResolution: {
-        value: new THREE.Vector3(renderer.domElement.width, renderer.domElement.height, 1),
-      },
-      iTime: { value: 0 },
-      iChannel0: { value: noiseTex },
-      uKaleidoscope: { value: 0.0 },
-      uGridVibe: { value: 0.0 },
-      uRippleActive: { value: 0.0 },
-      uRippleTime: { value: 0.0 },
-      uBgColor1: { value: BG_COLOR_PALETTES.default.c1.clone() },
-      uBgColor2: { value: BG_COLOR_PALETTES.default.c2.clone() },
-      uBgColor3: { value: BG_COLOR_PALETTES.default.c3.clone() },
-      uRippleCrest: { value: BG_COLOR_PALETTES.default.crest.clone() },
-      uBgBlend: { value: 0.0 },
-      uBgDim: { value: 1.0 },
-    };
-
-    const bgMat = new THREE.ShaderMaterial({
-      vertexShader: bgVertexShader,
-      fragmentShader: bgFragmentShader,
-      uniforms: bgUniforms,
-      depthWrite: false,
-      depthTest: false,
-    });
-    const bgMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat);
-    bgScene.add(bgMesh);
-
-    // Sumi-e 3D Scene
-    const blutenScene = new THREE.Scene();
-    const blutenCamera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
-
-    const updateCameras = (w: number, h: number) => {
-      const aspect = w / h;
-      blutenCamera.aspect = aspect;
-      blutenCamera.fov = 45;
-      blutenCamera.updateProjectionMatrix();
-      const visibleWidth = 2 * Math.tan(THREE.MathUtils.degToRad(22.5)) * 16 * aspect;
-      const targetCamX = -6.2 + visibleWidth * 0.12;
-      blutenCamera.position.set(targetCamX, -0.3, 16);
-      blutenCamera.lookAt(targetCamX, -0.3, 0);
-    };
-
-    const strokeGroup = new THREE.Group();
-    const petalGroup = new THREE.Group();
-    blutenScene.add(strokeGroup);
-    blutenScene.add(petalGroup);
-
-    const allSumieStrokes: ImmersiveStroke[] = [];
-
-    // Main Trunk Curve
-    const trunkCurve = new THREE.CatmullRomCurve3(
-      [
-        new THREE.Vector3(-12.2, -2.8, 0.0),
-        new THREE.Vector3(-10.2, -1.7, 0.25),
-        new THREE.Vector3(-8.4, -2.0, -0.2),
-        new THREE.Vector3(-6.6, -0.7, 0.3),
-        new THREE.Vector3(-4.8, -0.1, -0.15),
-        new THREE.Vector3(-3.1, 0.9, 0.2),
-        new THREE.Vector3(-1.6, 0.4, -0.25),
-        new THREE.Vector3(-0.2, 1.1, 0.15),
-      ],
-      false,
-      'centripetal',
-      0.5
-    );
-
-    const mainTrunkStroke = new ImmersiveStroke(strokeGroup, 0.58, 0, 0xf5e4cf);
-    const trunkPts = trunkCurve.getSpacedPoints(140);
-    for (let i = 0; i <= 140; i++) {
-      const tVal = i / 140;
-      mainTrunkStroke.addPoint(trunkPts[i], Math.max(0.18, 1.0 - tVal * 0.55));
-    }
-    allSumieStrokes.push(mainTrunkStroke);
-
-    // 5 Sub-Branches
-    const subBranchConfigs = [
-      { t: 0.22, angleDeg: 32, len: 4.6, seed: 0.15 },
-      { t: 0.38, angleDeg: -28, len: 4.2, seed: 0.42 },
-      { t: 0.54, angleDeg: 30, len: 3.9, seed: 0.68 },
-      { t: 0.7, angleDeg: -26, len: 3.4, seed: 0.81 },
-      { t: 0.84, angleDeg: 25, len: 2.8, seed: 0.33 },
-    ];
-
-    const subBranchCurves: THREE.CatmullRomCurve3[] = [];
-    subBranchConfigs.forEach((cfg) => {
-      const startPos = trunkCurve.getPointAt(cfg.t);
-      const angleRad = THREE.MathUtils.degToRad(cfg.angleDeg);
-      const guideDir = new THREE.Vector3(Math.cos(angleRad), Math.sin(angleRad), 0).normalize();
-      const normal = new THREE.Vector3(-guideDir.y, guideDir.x, 0).normalize();
-      const numPts = 45;
-      const pts = [startPos.clone()];
-
-      for (let i = 1; i <= numPts; i++) {
-        const frac = i / numPts;
-        const currentDist = cfg.len * frac;
-        const wave1 = Math.sin(frac * Math.PI * 4.0 + cfg.seed * 6.0) * 0.38;
-        const wave2 = Math.cos(frac * Math.PI * 8.0 + cfg.seed * 3.0) * 0.16;
-        const sideOffset = (wave1 + wave2) * (1.0 - frac * 0.35);
-
-        const p = startPos
-          .clone()
-          .addScaledVector(guideDir, currentDist)
-          .addScaledVector(normal, sideOffset);
-        p.z += (Math.sin(frac * Math.PI * 2.0 + cfg.seed) - 0.5) * 0.25;
-        pts.push(p);
-      }
-
-      const childCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
-      subBranchCurves.push(childCurve);
-
-      const childStroke = new ImmersiveStroke(strokeGroup, 0.32, 1, 0xf5e4cf);
-      const spacedPts = childCurve.getSpacedPoints(70);
-      for (let i = 0; i <= 70; i++) {
-        const frac = i / 70;
-        childStroke.addPoint(spacedPts[i], Math.max(0.15, 1.0 - frac * 0.6));
-      }
-      allSumieStrokes.push(childStroke);
-    });
-
-    // Blossom Clusters
-    const allCurves = [trunkCurve, ...subBranchCurves];
-    const blossomPalette = BLOSSOM_PALETTES.pink;
-    const clusterLocations = [
-      { curveIdx: 0, t: 0.26 },
-      { curveIdx: 0, t: 0.45 },
-      { curveIdx: 0, t: 0.62 },
-      { curveIdx: 0, t: 0.78 },
-      { curveIdx: 0, t: 0.94 },
-      { curveIdx: 1, t: 0.45 },
-      { curveIdx: 1, t: 0.82 },
-      { curveIdx: 2, t: 0.55 },
-      { curveIdx: 2, t: 0.88 },
-      { curveIdx: 3, t: 0.5 },
-      { curveIdx: 3, t: 0.85 },
-      { curveIdx: 4, t: 0.65 },
-      { curveIdx: 5, t: 0.72 },
-    ];
-
-    clusterLocations.forEach((loc, cIdx) => {
-      const curve = allCurves[loc.curveIdx % allCurves.length];
-      const centerPos = curve.getPointAt(loc.t).clone();
-      const numLayerStrokes = 3;
-
-      for (let s = 0; s < numLayerStrokes; s++) {
-        const strokeColor =
-          blossomPalette.shades[(cIdx + s) % blossomPalette.shades.length];
-        const clusterRadius = 0.22 + (s % 2) * 0.1;
-        const baseAngle = s * 2.1 + cIdx;
-        const pts: THREE.Vector3[] = [];
-
-        for (let i = 0; i <= 20; i++) {
-          const frac = i / 20;
-          const angle = baseAngle + frac * Math.PI * 1.55;
-          const r = clusterRadius * (0.65 + 0.35 * Math.sin(frac * Math.PI * 2.0 + s));
-          pts.push(
-            centerPos
-              .clone()
-              .add(
-                new THREE.Vector3(
-                  Math.cos(angle) * r,
-                  Math.sin(angle) * r,
-                  0.08 + s * 0.03
-                )
-              )
-          );
-        }
-
-        const clusterCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
-        const clusterStroke = new ImmersiveStroke(strokeGroup, 0.36, 3, strokeColor);
-        const spacedPts = clusterCurve.getSpacedPoints(35);
-        for (let i = 0; i <= 35; i++) {
-          const frac = i / 35;
-          clusterStroke.addPoint(spacedPts[i], 0.65 + 0.85 * Math.sin(frac * Math.PI));
-        }
-        allSumieStrokes.push(clusterStroke);
-      }
-    });
-
-    // 135 Instanced Blossom Petals
-    const SLIDER_PETALS = 135;
-    const petalGeo = new THREE.PlaneGeometry(1, 1);
-    const petalTex = generatePetalTexture();
-    const petalMat = new THREE.MeshBasicMaterial({
-      map: petalTex,
-      transparent: true,
-      opacity: 0.96,
-      depthWrite: false,
-      blending: THREE.NormalBlending,
-      side: THREE.DoubleSide,
-    });
-
-    const instancedPetalMesh = new THREE.InstancedMesh(
-      petalGeo,
-      petalMat,
-      SLIDER_PETALS
-    );
-    instancedPetalMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    petalGroup.add(instancedPetalMesh);
-
-    const petalPosX = new Float32Array(SLIDER_PETALS);
-    const petalPosY = new Float32Array(SLIDER_PETALS);
-    const petalPosZ = new Float32Array(SLIDER_PETALS);
-    const petalSpeed = new Float32Array(SLIDER_PETALS);
-    const petalScales = new Float32Array(SLIDER_PETALS);
-    const petalAge = new Float32Array(SLIDER_PETALS);
-    const petalSeed = new Float32Array(SLIDER_PETALS);
-    const petalAmpX = new Float32Array(SLIDER_PETALS);
-    const petalAmpY = new Float32Array(SLIDER_PETALS);
-    const petalAmpZ = new Float32Array(SLIDER_PETALS);
-    const petalFreqX = new Float32Array(SLIDER_PETALS);
-    const petalFreqY = new Float32Array(SLIDER_PETALS);
-    const petalFreqZ = new Float32Array(SLIDER_PETALS);
-    const petalPhaseX = new Float32Array(SLIDER_PETALS);
-    const petalPhaseY = new Float32Array(SLIDER_PETALS);
-    const petalPhaseZ = new Float32Array(SLIDER_PETALS);
-    const petalRadiusX = new Float32Array(SLIDER_PETALS);
-    const petalAngle = new Float32Array(SLIDER_PETALS);
-
-    for (let i = 0; i < SLIDER_PETALS; i++) {
-      petalPosX[i] = -12.5 + Math.random() * 14.5;
-      petalPosY[i] = -3.8 + Math.random() * 7.5;
-      petalPosZ[i] = -2.5 + Math.random() * 4.0;
-      petalSpeed[i] = 0.5 + Math.random() * 0.9;
-      petalScales[i] = (0.24 + Math.random() * 0.22) * 2.0;
-      petalAge[i] = Math.random() * 100;
-      petalSeed[i] = Math.random() * Math.PI * 2;
-      petalAmpX[i] = 0.4 + Math.random() * 0.5;
-      petalAmpY[i] = 0.35 + Math.random() * 0.45;
-      petalAmpZ[i] = 0.2 + Math.random() * 0.3;
-      petalFreqX[i] = 0.7 + Math.random() * 0.8;
-      petalFreqY[i] = 0.8 + Math.random() * 0.9;
-      petalFreqZ[i] = 0.5 + Math.random() * 0.6;
-      petalPhaseX[i] = Math.random() * Math.PI * 2;
-      petalPhaseY[i] = Math.random() * Math.PI * 2;
-      petalPhaseZ[i] = Math.random() * Math.PI * 2;
-      petalRadiusX[i] = 3.2 + Math.random() * 3.5;
-      petalAngle[i] = Math.random() * Math.PI * 2;
-    }
-
-    const dummy = new THREE.Object3D();
-    const VORTEX_TRANS_IN = 0.65;
-    const VORTEX_HOLD_DURATION = 3.0;
-    const VORTEX_TRANS_OUT = 0.75;
-    const VORTEX_TOTAL_CYCLE = VORTEX_TRANS_IN + VORTEX_HOLD_DURATION + VORTEX_TRANS_OUT;
-
-    let vortexCycleTimer = -1.0;
-    let hasSyncedVortexOut = false;
-    const mouseTrailHistory: { x: number; y: number; t: number }[] = [];
-
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const localX = e.clientX - rect.left;
-      const localY = e.clientY - rect.top;
-      const now = performance.now();
-
-      mouseTrailHistory.push({ x: localX, y: localY, t: now });
-      while (mouseTrailHistory.length > 0 && now - mouseTrailHistory[0].t > 1100) {
-        mouseTrailHistory.shift();
-      }
-
-      if (mouseTrailHistory.length >= 12 && vortexCycleTimer < 0) {
-        const filtered: { x: number; y: number }[] = [mouseTrailHistory[0]];
-        for (let i = 1; i < mouseTrailHistory.length; i++) {
-          const prev = filtered[filtered.length - 1];
-          const cur = mouseTrailHistory[i];
-          if (Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 10) {
-            filtered.push({ x: cur.x, y: cur.y });
-          }
-        }
-
-        if (filtered.length >= 10) {
-          const n = filtered.length;
-          let cx = 0;
-          let cy = 0;
-          for (let i = 0; i < n; i++) {
-            cx += filtered[i].x;
-            cy += filtered[i].y;
-          }
-          cx /= n;
-          cy /= n;
-
-          let sxx = 0;
-          let syy = 0;
-          let sxy = 0;
-          let avgRadius = 0;
-          const radii = new Float32Array(n);
-          for (let i = 0; i < n; i++) {
-            const dx = filtered[i].x - cx;
-            const dy = filtered[i].y - cy;
-            sxx += dx * dx;
-            syy += dy * dy;
-            sxy += dx * dy;
-            const r = Math.hypot(dx, dy);
-            radii[i] = r;
-            avgRadius += r;
-          }
-          sxx /= n;
-          syy /= n;
-          sxy /= n;
-          avgRadius /= n;
-
-          const trace = sxx + syy;
-          const det = sxx * syy - sxy * sxy;
-          const disc = Math.sqrt(Math.max(0, trace * trace * 0.25 - det));
-          const lambda1 = trace * 0.5 + disc;
-          const lambda2 = Math.max(0, trace * 0.5 - disc);
-          const axisRatio = Math.sqrt(lambda2 / Math.max(1e-5, lambda1));
-
-          if (avgRadius >= 22 && Math.sqrt(lambda2) >= 14 && axisRatio >= 0.36) {
-            let netAngle = 0;
-            let posSteps = 0;
-            let negSteps = 0;
-            let cutsThroughCenter = false;
-
-            for (let i = 0; i < n; i++) {
-              if (radii[i] < avgRadius * 0.35) {
-                cutsThroughCenter = true;
-                break;
-              }
-              if (i > 0) {
-                const a1 = Math.atan2(filtered[i - 1].y - cy, filtered[i - 1].x - cx);
-                const a2 = Math.atan2(filtered[i].y - cy, filtered[i].x - cx);
-                let da = a2 - a1;
-                while (da > Math.PI) da -= Math.PI * 2;
-                while (da < -Math.PI) da += Math.PI * 2;
-
-                if (Math.abs(da) > Math.PI * 0.62) {
-                  cutsThroughCenter = true;
-                  break;
-                }
-
-                netAngle += da;
-                if (da > 0.02) posSteps++;
-                else if (da < -0.02) negSteps++;
-              }
-            }
-
-            const activeSteps = posSteps + negSteps;
-            const directionalConsistency =
-              activeSteps > 0 ? Math.max(posSteps, negSteps) / activeSteps : 0;
-
-            if (
-              !cutsThroughCenter &&
-              Math.abs(netAngle) >= Math.PI * 1.65 &&
-              directionalConsistency >= 0.78
-            ) {
-              vortexCycleTimer = 0.0;
-              hasSyncedVortexOut = false;
-              setIsVortexUI(true);
-              mouseTrailHistory.length = 0;
-            }
-          }
-        }
-      }
-    };
-
-    canvas.addEventListener('pointermove', onPointerMove);
-
-    const handleResize = () => {
-      if (!container) return;
-      width = Math.max(280, container.clientWidth);
-      height = Math.max(240, container.clientHeight);
-      renderer.setSize(width, height);
-      bgUniforms.iResolution.value.set(
-        renderer.domElement.width,
-        renderer.domElement.height,
-        1
-      );
-      updateCameras(width, height);
-    };
-    updateCameras(width, height);
-    window.addEventListener('resize', handleResize);
-
-    let animId = 0;
-    const clock = new THREE.Clock();
-    let totalTime = 0;
-
-    const animate = () => {
-      animId = requestAnimationFrame(animate);
-      const delta = Math.min(clock.getDelta(), 0.05);
-      totalTime += delta;
-
-      bgUniforms.iTime.value = totalTime;
-
-      for (let i = 0; i < allSumieStrokes.length; i++) {
-        allSumieStrokes[i].setTime(totalTime);
-      }
-
-      const vortexCenterX = -6.2;
-      const vortexCenterY = -0.2;
-      const vortexCenterZ = -2.8;
-      const sideTilt = 0.15;
-
-      let smoothPower = 0.0;
-      let driftSpeedFactor = 1.0;
-      let allowBoundaryWrap = true;
-
-      if (vortexCycleTimer >= 0.0) {
-        vortexCycleTimer += delta;
-        allowBoundaryWrap = false;
-
-        if (vortexCycleTimer < VORTEX_TRANS_IN) {
-          const tIn = Math.min(1.0, vortexCycleTimer / VORTEX_TRANS_IN);
-          smoothPower = tIn * tIn * (3.0 - 2.0 * tIn);
-          driftSpeedFactor = 1.0 - smoothPower;
-        } else if (vortexCycleTimer < VORTEX_TRANS_IN + VORTEX_HOLD_DURATION) {
-          smoothPower = 1.0;
-          driftSpeedFactor = 0.0;
-        } else if (vortexCycleTimer < VORTEX_TOTAL_CYCLE) {
-          if (!hasSyncedVortexOut) {
-            hasSyncedVortexOut = true;
-            setIsVortexUI(false);
-
-            for (let i = 0; i < SLIDER_PETALS; i++) {
-              const a = petalAngle[i];
-              const normH = i / SLIDER_PETALS;
-              const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
-              const radialWobble =
-                Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalTime * 0.6) * 0.75;
-              const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
-              const rawY =
-                (normH - 0.5) * 10.8 +
-                Math.sin(a) * (currentRadius * 0.38) +
-                Math.sin(a * 2.2 + totalTime * 0.5) * 0.85;
-              const rawX = Math.cos(a) * (currentRadius * 1.38);
-              const rawZ = Math.sin(a) * currentRadius * 0.55;
-
-              petalPosX[i] = rawX + vortexCenterX;
-              petalPosY[i] =
-                vortexCenterY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-              petalPosZ[i] =
-                vortexCenterZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
-            }
-          }
-
-          const tOut = Math.min(
-            1.0,
-            (vortexCycleTimer - (VORTEX_TRANS_IN + VORTEX_HOLD_DURATION)) /
-              VORTEX_TRANS_OUT
-          );
-          smoothPower = 1.0 - tOut * tOut * (3.0 - 2.0 * tOut);
-          driftSpeedFactor = tOut;
-        } else {
-          vortexCycleTimer = -1.0;
-          smoothPower = 0.0;
-          driftSpeedFactor = 1.0;
-          allowBoundaryWrap = true;
-          hasSyncedVortexOut = false;
-          setIsVortexUI(false);
-        }
-      }
-
-      for (let i = 0; i < SLIDER_PETALS; i++) {
-        petalAge[i] += delta;
-
-        if (driftSpeedFactor > 0.001) {
-          petalPosX[i] += (0.65 + petalSpeed[i] * 0.6) * delta * driftSpeedFactor;
-          petalPosY[i] -= (0.16 + petalSpeed[i] * 0.22) * delta * driftSpeedFactor;
-          petalPosZ[i] +=
-            Math.sin(petalAge[i] * 0.7 + petalSeed[i]) * 0.05 * driftSpeedFactor;
-
-          if (allowBoundaryWrap && petalPosX[i] > 2.0) {
-            petalPosX[i] = -12.8 - Math.random() * 2.5;
-            petalPosY[i] = -3.5 + Math.random() * 7.0;
-            petalPosZ[i] = -2.5 + Math.random() * 4.0;
-          }
-        }
-
-        const normalX =
-          petalPosX[i] +
-          Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
-        const normalY =
-          petalPosY[i] +
-          Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
-        const normalZ =
-          petalPosZ[i] +
-          Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
-
-        let finalX = normalX;
-        let finalY = normalY;
-        let finalZ = normalZ;
-
-        if (smoothPower > 0.001) {
-          const spinFactor = (0.45 + smoothPower * 2.35) * smoothPower;
-          petalAngle[i] += petalSpeed[i] * delta * spinFactor;
-          const a = petalAngle[i];
-          const normH = i / SLIDER_PETALS;
-          const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
-          const radialWobble =
-            Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalTime * 0.6) * 0.75;
-          const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
-          const rawY =
-            (normH - 0.5) * 10.8 +
-            Math.sin(a) * (currentRadius * 0.38) +
-            Math.sin(a * 2.2 + totalTime * 0.5) * 0.85;
-          const rawX = Math.cos(a) * (currentRadius * 1.38);
-          const rawZ = Math.sin(a) * currentRadius * 0.55;
-
-          const tornadoX = rawX + vortexCenterX;
-          const tornadoY =
-            vortexCenterY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-          const tornadoZ =
-            vortexCenterZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
-
-          finalX = THREE.MathUtils.lerp(normalX, tornadoX, smoothPower);
-          finalY = THREE.MathUtils.lerp(normalY, tornadoY, smoothPower);
-          finalZ = THREE.MathUtils.lerp(normalZ, tornadoZ, smoothPower);
-        }
-
-        dummy.position.set(finalX, finalY, finalZ);
-        dummy.rotation.set(
-          Math.sin(petalAge[i] * 0.55 + petalSeed[i]) * 0.25,
-          Math.cos(petalAge[i] * 0.5 + petalSeed[i]) * 0.25,
-          petalAge[i] * 0.65 + petalSeed[i] + petalAngle[i] * smoothPower
-        );
-        const zScale = Math.max(
-          0.35,
-          Math.min(0.85, (0.58 + (finalZ + 3.0) * 0.14) * 0.78)
-        );
-        dummy.scale.setScalar(petalScales[i] * zScale);
-        dummy.updateMatrix();
-        instancedPetalMesh.setMatrixAt(i, dummy.matrix);
-      }
-      instancedPetalMesh.instanceMatrix.needsUpdate = true;
-
-      renderer.clear();
-      renderer.render(bgScene, bgCamera);
-      renderer.render(blutenScene, blutenCamera);
-    };
-
-    animId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', handleResize);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      renderer.dispose();
-    };
-  }, []);
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative h-72 sm:h-80 md:h-96 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_35px_rgba(255,42,157,0.20)] select-none"
-    >
-      <canvas ref={canvasRef} className="w-full h-full block touch-none cursor-default" />
-
-      {/* Top-Left Badge: Sumi-e */}
-      <div className="absolute top-3 left-3 sm:top-3.5 sm:left-3.5 lg:top-4 lg:left-4 max-w-[85%] flex flex-col items-start gap-1 sm:gap-1.5 pointer-events-none z-10">
-        <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-[10px] sm:text-[11px] lg:text-xs font-bold uppercase tracking-wide leading-tight inline-flex items-center gap-1 shadow-lg">
-          <span>{t.sliderSumieBadge}</span>
-        </div>
-        {isVortexUI && (
-          <div className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-[10px] sm:text-[11px] lg:text-xs font-bold tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#ff2a9d]">
-            {t.sliderVortexActive}
+        <canvas
+          ref={canvasRef}
+          className={`w-full h-full block touch-none ${
+            cursorStyle === 'grabbing'
+              ? 'cursor-grabbing'
+              : cursorStyle === 'grab'
+              ? 'cursor-grab'
+              : 'cursor-default'
+          }`}
+        />
+
+        {/* Top-Left Badge: Sumi-e */}
+        <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 lg:top-4 lg:left-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-start gap-1 sm:gap-1.5 pointer-events-none z-10">
+          <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
+            <span className="truncate">{t.sliderSumieBadge}</span>
           </div>
-        )}
-      </div>
-
-      {/* Bottom Interaction Hint */}
-      <div className="absolute bottom-3 left-3 right-3 sm:bottom-3.5 sm:left-3.5 sm:right-3.5 lg:bottom-4 lg:left-4 lg:right-4 pointer-events-none z-10">
-        <span className="inline-block px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-[10px] sm:text-[11px] lg:text-xs leading-tight text-pink-100/90 font-light">
-          {t.sliderHintSumie}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// DEDICATED PLEXUS CARD BOX (PC & TABLET)
-// ============================================================================
-
-
-// ============================================================================
-// DEDICATED PLEXUS CARD BOX (PC & TABLET)
-// ============================================================================
-// DEDICATED PLEXUS CARD BOX FOR PC & TABLET (All 4 Orbs: Red, Blue, Yellow, Green)
-// ============================================================================
-
-function PlexusPreviewBox({ lang }: SakuraverseDualSliderProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isImpulseUI, setIsImpulseUI] = useState<boolean>(false);
-  const [cursorStyle, setCursorStyle] = useState<'default' | 'grab' | 'grabbing'>('default');
-  const t = translations[lang].experience;
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
-
-    let width = Math.max(280, container.clientWidth);
-    let height = Math.max(240, container.clientHeight);
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: false,
-      powerPreference: 'high-performance',
-    });
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(width, height);
-    renderer.autoClear = false;
-
-    // Background Scene
-    const bgScene = new THREE.Scene();
-    const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const noiseTex = createNoiseTexture();
-
-    const bgUniforms = {
-      iResolution: {
-        value: new THREE.Vector3(renderer.domElement.width, renderer.domElement.height, 1),
-      },
-      iTime: { value: 0 },
-      iChannel0: { value: noiseTex },
-      uKaleidoscope: { value: 0.0 },
-      uGridVibe: { value: 0.0 },
-      uRippleActive: { value: 0.0 },
-      uRippleTime: { value: 0.0 },
-      uBgColor1: { value: BG_COLOR_PALETTES.default.c1.clone() },
-      uBgColor2: { value: BG_COLOR_PALETTES.default.c2.clone() },
-      uBgColor3: { value: BG_COLOR_PALETTES.default.c3.clone() },
-      uRippleCrest: { value: BG_COLOR_PALETTES.default.crest.clone() },
-      uBgBlend: { value: 0.0 },
-      uBgDim: { value: 1.0 },
-    };
-
-    const bgMat = new THREE.ShaderMaterial({
-      vertexShader: bgVertexShader,
-      fragmentShader: bgFragmentShader,
-      uniforms: bgUniforms,
-      depthWrite: false,
-      depthTest: false,
-    });
-    bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat));
-
-    // Plexus 3D Scene (1:1 with SmartphoneDualSlider proportions and scaling)
-    const plexusScene = new THREE.Scene();
-    const PLEXUS_HALF_H = 540 * Math.tan(THREE.MathUtils.degToRad(30)); // 311.769
-    let plexusHalfW = PLEXUS_HALF_H * (width / height);
-    const plexusCamera = new THREE.OrthographicCamera(
-      -plexusHalfW,
-      plexusHalfW,
-      PLEXUS_HALF_H,
-      -PLEXUS_HALF_H,
-      1,
-      3000
-    );
-    plexusCamera.position.set(0, 0, 540);
-    plexusCamera.lookAt(0, 0, 0);
-
-    const MAX_BOX_NODES = 600;
-    const MAX_BOX_LINES = 4800;
-
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute(
-      'position',
-      new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 6), 3)
-    );
-    lineGeo.setAttribute(
-      'color',
-      new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 6), 3)
-    );
-    lineGeo.setAttribute(
-      'alpha',
-      new THREE.BufferAttribute(new Float32Array(MAX_BOX_LINES * 2), 1)
-    );
-    const lineMat = new THREE.ShaderMaterial({
-      vertexShader: plexusLineVertexShader,
-      fragmentShader: plexusLineFragmentShader,
-      transparent: true,
-      blending: THREE.NormalBlending,
-      depthWrite: false,
-    });
-    const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
-    plexusScene.add(plexusLinesMesh);
-
-    const nodeGeo = new THREE.BufferGeometry();
-    nodeGeo.setAttribute(
-      'position',
-      new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES * 3), 3)
-    );
-    nodeGeo.setAttribute(
-      'color',
-      new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES * 3), 3)
-    );
-    nodeGeo.setAttribute(
-      'size',
-      new THREE.BufferAttribute(new Float32Array(MAX_BOX_NODES), 1)
-    );
-    const nodeMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uAlpha: { value: 1.0 },
-      },
-      vertexShader: plexusNodeVertexShader,
-      fragmentShader: plexusNodeFragmentShader,
-      transparent: true,
-      blending: THREE.NormalBlending,
-      depthWrite: false,
-    });
-    const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
-    plexusScene.add(plexusPointsMesh);
-
-    // 4 Orbs: Red, Blue, Yellow, Green (1:1 identical proportions & orbital movement as on smartphone)
-    const plexusOrbs: SliderPlexusOrb[] = [
-      new SliderPlexusOrb('red', -74, 85, 34, 24, 0.72, 0.2, plexusScene),
-      new SliderPlexusOrb('blue', 66, 78, 36, 26, -0.64, 1.8, plexusScene),
-      new SliderPlexusOrb('yellow', -64, -83, 36, 24, 0.6, 3.3, plexusScene),
-      new SliderPlexusOrb('green', 71, -79, 34, 26, -0.68, 4.7, plexusScene),
-    ];
-
-    interface ActiveImpulse {
-      orbA: SliderPlexusOrb;
-      orbB: SliderPlexusOrb;
-      age: number;
-      duration: number;
-      remaining: number;
-      midX: number;
-      midY: number;
-      particles: SliderFinaleMeshParticle[];
-    }
-    const activeImpulses: ActiveImpulse[] = [];
-    const pairCooldowns = new Map<string, number>();
-
-    const getPairKey = (a: SliderPlexusOrb, b: SliderPlexusOrb) => {
-      return a.id < b.id ? `${a.id}_${b.id}` : `${b.id}_${a.id}`;
-    };
-
-    let draggedOrb: SliderPlexusOrb | null = null;
-    let hasActivelyDraggedOrb = false;
-    const dragOffset = new THREE.Vector2();
-
-    const screenToPlexusWorld = (clientX: number, clientY: number) => {
-      const rect = canvas.getBoundingClientRect();
-      const nx = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
-      const ny = -((clientY - rect.top) / Math.max(1, rect.height)) * 2 + 1;
-      return new THREE.Vector3(nx * plexusHalfW, ny * PLEXUS_HALF_H, 0);
-    };
-
-    const onPointerDown = (e: PointerEvent) => {
-      const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
-      let closest: SliderPlexusOrb | null = null;
-      let minDist = 68.0;
-
-      for (const orb of plexusOrbs) {
-        const d = Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y);
-        if (d < minDist) {
-          minDist = d;
-          closest = orb;
-        }
-      }
-
-      if (closest) {
-        draggedOrb = closest;
-        hasActivelyDraggedOrb = false;
-        dragOffset.set(closest.x - worldPos.x, closest.y - worldPos.y);
-        closest.triggerHoverWobble();
-        setCursorStyle('grabbing');
-        try {
-          canvas.setPointerCapture?.(e.pointerId);
-        } catch {}
-      }
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (draggedOrb) {
-        const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
-        const boundX = plexusHalfW - 28;
-        const boundY = PLEXUS_HALF_H - 28;
-
-        const nextX = Math.max(-boundX, Math.min(boundX, worldPos.x + dragOffset.x));
-        const nextY = Math.max(-boundY, Math.min(boundY, worldPos.y + dragOffset.y));
-
-        if (Math.hypot(nextX - draggedOrb.x, nextY - draggedOrb.y) > 0.5) {
-          hasActivelyDraggedOrb = true;
-        }
-
-        draggedOrb.x = nextX;
-        draggedOrb.y = nextY;
-        draggedOrb.vx = 0;
-        draggedOrb.vy = 0;
-        draggedOrb.homeX = draggedOrb.x;
-        draggedOrb.homeY = draggedOrb.y;
-
-        for (const other of plexusOrbs) {
-          if (other !== draggedOrb) {
-            if (Math.hypot(other.x - draggedOrb.x, other.y - draggedOrb.y) < 110) {
-              other.triggerHoverWobble();
-            }
-          }
-        }
-        return;
-      }
-
-      const worldPos = screenToPlexusWorld(e.clientX, e.clientY);
-      let hovering = false;
-      for (const orb of plexusOrbs) {
-        if (Math.hypot(worldPos.x - orb.x, worldPos.y - orb.y) < 58) {
-          hovering = true;
-          orb.triggerHoverWobble();
-          break;
-        }
-      }
-      setCursorStyle(hovering ? 'grab' : 'default');
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      if (draggedOrb) {
-        try {
-          canvas.releasePointerCapture?.(e.pointerId);
-        } catch {}
-        draggedOrb = null;
-        hasActivelyDraggedOrb = false;
-        setCursorStyle('default');
-      }
-    };
-
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointercancel', onPointerUp);
-
-    const handleResize = () => {
-      if (!container) return;
-      width = Math.max(280, container.clientWidth);
-      height = Math.max(240, container.clientHeight);
-      renderer.setSize(width, height);
-      bgUniforms.iResolution.value.set(
-        renderer.domElement.width,
-        renderer.domElement.height,
-        1
-      );
-      plexusHalfW = PLEXUS_HALF_H * (width / height);
-      plexusCamera.left = -plexusHalfW;
-      plexusCamera.right = plexusHalfW;
-      plexusCamera.top = PLEXUS_HALF_H;
-      plexusCamera.bottom = -PLEXUS_HALF_H;
-      plexusCamera.updateProjectionMatrix();
-    };
-    window.addEventListener('resize', handleResize);
-
-    const worldNodeX = new Float32Array(MAX_BOX_NODES);
-    const worldNodeY = new Float32Array(MAX_BOX_NODES);
-    const worldNodeZ = new Float32Array(MAX_BOX_NODES);
-    const worldNodeR = new Float32Array(MAX_BOX_NODES);
-    const worldNodeG = new Float32Array(MAX_BOX_NODES);
-    const worldNodeB = new Float32Array(MAX_BOX_NODES);
-    const worldNodeSize = new Float32Array(MAX_BOX_NODES);
-    const worldNodeActivated = new Float32Array(MAX_BOX_NODES);
-    const worldNodeGroup = new Int16Array(MAX_BOX_NODES);
-
-    let animId = 0;
-    const clock = new THREE.Clock();
-    let totalTime = 0;
-
-    const animate = () => {
-      animId = requestAnimationFrame(animate);
-      const delta = Math.min(clock.getDelta(), 0.05);
-      totalTime += delta;
-
-      bgUniforms.iTime.value = totalTime;
-
-      for (const [k, cd] of Array.from(pairCooldowns.entries())) {
-        if (cd - delta <= 0) pairCooldowns.delete(k);
-        else pairCooldowns.set(k, cd - delta);
-      }
-
-      for (const orb of plexusOrbs) {
-        const activeImp = activeImpulses.find(
-          (imp) => imp.orbA === orb || imp.orbB === orb
-        );
-
-        let finaleAlpha = 1.0;
-        if (activeImp) {
-          finaleAlpha = Math.min(
-            1.0,
-            Math.min(activeImp.age / 0.45, Math.max(0.0, activeImp.remaining / 0.55))
-          );
-        }
-
-        if (orb !== draggedOrb) {
-          if (activeImp) {
-            const isA = activeImp.orbA === orb;
-            const pairAngle = totalTime * 1.14 + (isA ? 0 : Math.PI);
-            const targetX = activeImp.midX + Math.cos(pairAngle) * 68.0;
-            const targetY = activeImp.midY + Math.sin(pairAngle) * 48.0;
-            const targetZ = Math.sin(pairAngle * 2.0) * 24.0;
-            orb.x = THREE.MathUtils.lerp(orb.x, targetX, 0.08);
-            orb.y = THREE.MathUtils.lerp(orb.y, targetY, 0.08);
-            orb.z = THREE.MathUtils.lerp(orb.z, targetZ, 0.08);
-          } else {
-            const targetX =
-              orb.homeX +
-              Math.cos(totalTime * orb.orbitSpeed + orb.orbitPhase) * orb.orbitRx;
-            const targetY =
-              orb.homeY +
-              Math.sin(totalTime * orb.orbitSpeed * 1.15 + orb.orbitPhase) *
-                orb.orbitRy;
-
-            orb.x += orb.vx * delta + (targetX - orb.x) * 0.04;
-            orb.y += orb.vy * delta + (targetY - orb.y) * 0.04;
-            orb.z = THREE.MathUtils.lerp(orb.z, 0.0, 0.1);
-            orb.vx *= 0.93;
-            orb.vy *= 0.93;
-          }
-        }
-
-        orb.update(delta, Boolean(activeImp), finaleAlpha);
-      }
-
-      // Trigger 3-second Dual-Color Finale Network Impulse ONLY when an Orb is actively pushed onto another Orb!
-      if (draggedOrb && hasActivelyDraggedOrb) {
-        for (let i = 0; i < plexusOrbs.length; i++) {
-          const other = plexusOrbs[i];
-          if (other === draggedOrb) continue;
-
-          const a = draggedOrb;
-          const b = other;
-          const key = getPairKey(a, b);
-          const alreadyActive = activeImpulses.some(
-            (imp) =>
-              (imp.orbA === a && imp.orbB === b) ||
-              (imp.orbA === b && imp.orbB === a)
-          );
-          if (alreadyActive || pairCooldowns.has(key)) continue;
-
-          const dist = Math.hypot(a.x - b.x, a.y - b.y);
-          if (dist < 78.0) {
-            draggedOrb = null;
-            hasActivelyDraggedOrb = false;
-            setCursorStyle('default');
-
-            a.triggerDockWobble();
-            b.triggerDockWobble();
-            a.trailHistory = [];
-            b.trailHistory = [];
-
-            const midX = (a.x + b.x) * 0.5;
-            const midY = (a.y + b.y) * 0.5;
-
-            // Spawn 100 1:1 FinaleMeshParticles unfolding along wavy filament threads from both Orbs (SakuraCanvas.tsx lines 3237-3247)
-            const palA = SATURATED_PLEXUS_PALETTES[a.id];
-            const palB = SATURATED_PLEXUS_PALETTES[b.id];
-            const particles: SliderFinaleMeshParticle[] = [];
-            const boundX = 165.0;
-            const boundY = 135.0;
-            const boundZ = 48.0;
-
-            for (let p = 0; p < 100; p++) {
-              const useA = p % 2 === 0;
-              const srcOrb = useA ? a : b;
-              const pal = useA ? palA : palB;
-              const originOffset = new THREE.Vector3(
-                srcOrb.x - midX,
-                srcOrb.y - midY,
-                srcOrb.z
-              );
-              particles.push(
-                new SliderFinaleMeshParticle(
-                  boundX,
-                  boundY,
-                  boundZ,
-                  pal,
-                  originOffset,
-                  p
-                )
-              );
-            }
-
-            activeImpulses.push({
-              orbA: a,
-              orbB: b,
-              age: 0,
-              duration: 3.0,
-              remaining: 3.0,
-              midX,
-              midY,
-              particles,
-            });
-
-            setIsImpulseUI(true);
-            pairCooldowns.set(key, 4.0);
-            break;
-          }
-        }
-      }
-
-      // 1. Regular Attached Plexus Shell Nodes (outside Finale)
-      let worldNodeCount = 0;
-      for (let o = 0; o < plexusOrbs.length; o++) {
-        const orb = plexusOrbs[o];
-        const isOrbInFinale = activeImpulses.some(
-          (imp) => imp.orbA === orb || imp.orbB === orb
-        );
-        if (isOrbInFinale) continue;
-
-        for (let n = 0; n < orb.attachedNodes.length; n++) {
-          if (worldNodeCount >= MAX_BOX_NODES) break;
-          const node = orb.attachedNodes[n];
-          node.angle += node.orbitSpeed * delta * 0.55;
-
-          const localRadius = node.radius;
-          const localX =
-            orb.x + Math.cos(node.angle) * Math.cos(node.elevation) * localRadius;
-          const localY =
-            orb.y +
-            Math.sin(node.angle) * Math.cos(node.elevation) * localRadius * 0.85;
-          const localZ = orb.z + Math.sin(node.elevation) * localRadius;
-
-          const idx = worldNodeCount++;
-          worldNodeX[idx] = localX;
-          worldNodeY[idx] = localY;
-          worldNodeZ[idx] = localZ;
-          worldNodeR[idx] = node.r;
-          worldNodeG[idx] = node.g;
-          worldNodeB[idx] = node.b;
-          worldNodeSize[idx] = node.size;
-          worldNodeActivated[idx] = 0;
-          worldNodeGroup[idx] = o;
-        }
-      }
-
-      // 2. Active Dual-Color Finale Network Impulses
-      for (let idx = activeImpulses.length - 1; idx >= 0; idx--) {
-        const imp = activeImpulses[idx];
-        imp.age += delta;
-        imp.remaining -= delta;
-
-        const transitionProgress = Math.min(1.0, imp.age / 0.85);
-        const finaleAlpha = Math.min(
-          1.0,
-          Math.min(imp.age / 0.35, Math.max(0.0, imp.remaining / 0.45))
-        );
-
-        for (let p = 0; p < imp.particles.length; p++) {
-          if (worldNodeCount >= MAX_BOX_NODES) break;
-          const pt = imp.particles[p];
-          pt.update(
-            delta,
-            transitionProgress,
-            imp.age,
-            totalTime,
-            imp.midX,
-            imp.midY
-          );
-
-          const nIdx = worldNodeCount++;
-          worldNodeX[nIdx] = pt.renderX;
-          worldNodeY[nIdx] = pt.renderY;
-          worldNodeZ[nIdx] = pt.renderZ;
-          worldNodeR[nIdx] = pt.color.r;
-          worldNodeG[nIdx] = pt.color.g;
-          worldNodeB[nIdx] = pt.color.b;
-          worldNodeSize[nIdx] = pt.radius * (0.35 + 0.65 * finaleAlpha);
-          worldNodeActivated[nIdx] = 1;
-          worldNodeGroup[nIdx] = -(idx + 1);
-        }
-
-        // Orbiting Orbs as large Hub Nodes inside the Finale Network
-        const pairOrbs = [imp.orbA, imp.orbB];
-        for (let k = 0; k < 2; k++) {
-          if (worldNodeCount >= MAX_BOX_NODES) break;
-          const hOrb = pairOrbs[k];
-          const hubCol = SATURATED_PLEXUS_PALETTES[hOrb.id][0];
-          const hubIdx = worldNodeCount++;
-          worldNodeX[hubIdx] = hOrb.x;
-          worldNodeY[hubIdx] = hOrb.y;
-          worldNodeZ[hubIdx] = hOrb.z;
-          worldNodeR[hubIdx] = hubCol.r;
-          worldNodeG[hubIdx] = hubCol.g;
-          worldNodeB[hubIdx] = hubCol.b;
-          worldNodeSize[hubIdx] = 42.0 * finaleAlpha;
-          worldNodeActivated[hubIdx] = 1;
-          worldNodeGroup[hubIdx] = -(idx + 1);
-        }
-
-        // Separation impulse when impulse finishes
-        if (imp.remaining <= 0) {
-          const dx = imp.orbB.x - imp.orbA.x;
-          const dy = imp.orbB.y - imp.orbA.y;
-          const d = Math.hypot(dx, dy) || 1;
-          const nx = dx / d;
-          const ny = dy / d;
-
-          const sepImpulse = 165.0;
-          imp.orbA.vx = -nx * sepImpulse;
-          imp.orbA.vy = -ny * sepImpulse;
-          imp.orbB.vx = nx * sepImpulse;
-          imp.orbB.vy = ny * sepImpulse;
-          imp.orbA.trailHistory = [];
-          imp.orbB.trailHistory = [];
-
-          if (Math.hypot(imp.orbA.homeX - imp.orbB.homeX, imp.orbA.homeY - imp.orbB.homeY) < 95) {
-            imp.orbA.homeX -= nx * 55;
-            imp.orbA.homeY -= ny * 45;
-            imp.orbB.homeX += nx * 55;
-            imp.orbB.homeY += ny * 45;
-          }
-
-          pairCooldowns.set(getPairKey(imp.orbA, imp.orbB), 2.4);
-          activeImpulses.splice(idx, 1);
-          if (activeImpulses.length === 0) {
-            setIsImpulseUI(false);
-          }
-        }
-      }
-
-      // Populate GPU Node Buffers
-      const nodePosArr = nodeGeo.attributes.position.array as Float32Array;
-      const nodeColArr = nodeGeo.attributes.color.array as Float32Array;
-      const nodeSizeArr = nodeGeo.attributes.size.array as Float32Array;
-
-      for (let k = 0; k < worldNodeCount; k++) {
-        const k3 = k * 3;
-        nodePosArr[k3] = worldNodeX[k];
-        nodePosArr[k3 + 1] = worldNodeY[k];
-        nodePosArr[k3 + 2] = worldNodeZ[k];
-
-        nodeColArr[k3] = worldNodeR[k];
-        nodeColArr[k3 + 1] = worldNodeG[k];
-        nodeColArr[k3 + 2] = worldNodeB[k];
-
-        nodeSizeArr[k] = worldNodeSize[k];
-      }
-      nodeGeo.setDrawRange(0, worldNodeCount);
-      nodeGeo.attributes.position.needsUpdate = true;
-      nodeGeo.attributes.color.needsUpdate = true;
-      nodeGeo.attributes.size.needsUpdate = true;
-
-      // Populate GPU Line Buffers
-      const linePosArr = lineGeo.attributes.position.array as Float32Array;
-      const lineColArr = lineGeo.attributes.color.array as Float32Array;
-      const lineAlphaArr = lineGeo.attributes.alpha.array as Float32Array;
-
-      let lineVertexIdx = 0;
-      let lineColorIdx = 0;
-      let lineAlphaIdx = 0;
-      const maxLineVertices = linePosArr.length - 18;
-      const nodeLinkCounts = new Uint8Array(worldNodeCount);
-
-      for (let i = 0; i < worldNodeCount; i++) {
-        const actA = worldNodeActivated[i];
-        const maxLinksForA = actA === 1 ? 4 : 8;
-        if (nodeLinkCounts[i] >= maxLinksForA) continue;
-
-        const x1 = worldNodeX[i];
-        const y1 = worldNodeY[i];
-        const z1 = worldNodeZ[i];
-        const ar = worldNodeR[i];
-        const ag = worldNodeG[i];
-        const ab = worldNodeB[i];
-        const grpA = worldNodeGroup[i];
-
-        for (let j = i + 1; j < worldNodeCount; j++) {
-          if (lineVertexIdx >= maxLineVertices) break;
-          if (nodeLinkCounts[i] >= maxLinksForA) break;
-          if (worldNodeGroup[j] !== grpA) continue;
-
-          const isActivatedLine = actA === 1 && worldNodeActivated[j] === 1;
-          const maxLinksForB = isActivatedLine ? 4 : 8;
-          if (nodeLinkCounts[j] >= maxLinksForB) continue;
-
-          const cutoff = isActivatedLine ? 88.0 : 85.0;
-          const cutoffSq = cutoff * cutoff;
-
-          const x2 = worldNodeX[j];
-          const y2 = worldNodeY[j];
-          const z2 = worldNodeZ[j];
-
-          const dx = x2 - x1;
-          if (dx > cutoff || dx < -cutoff) continue;
-          const dy = y2 - y1;
-          if (dy > cutoff || dy < -cutoff) continue;
-          const dz = z2 - z1;
-          if (dz > cutoff || dz < -cutoff) continue;
-
-          const distSq = dx * dx + dy * dy + dz * dz;
-          if (distSq >= cutoffSq) continue;
-
-          const distance = Math.sqrt(distSq);
-          const opacity = 1.0 - distance / cutoff;
-          if (opacity <= 0.01) continue;
-
-          const r2 = worldNodeR[j];
-          const g2 = worldNodeG[j];
-          const b2 = worldNodeB[j];
-
-          if (isActivatedLine) {
-            const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
-            const flickerA = Math.sin(totalTime * 14.0 + lineSeed);
-            const flickerB = Math.cos(totalTime * 25.0 + lineSeed * 1.7);
-            const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
-
-            let flickerMul = 1.0;
-            if (flickerNoise < -0.32) {
-              flickerMul = (flickerNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35;
-            } else if (flickerNoise > 0.68) {
-              flickerMul = 1.65;
-            }
-            if (flickerMul <= 0.02) continue;
-
-            nodeLinkCounts[i]++;
-            nodeLinkCounts[j]++;
-
-            const lineAlpha = Math.min(0.96, Math.pow(opacity, 0.55) * 1.15 * flickerMul);
-
-            const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
-            const perpX = (-dy / pLen) * 0.85;
-            const perpY = (dx / pLen) * 0.85;
-
-            // 1. Center Line
-            linePosArr[lineVertexIdx++] = x1;
-            linePosArr[lineVertexIdx++] = y1;
-            linePosArr[lineVertexIdx++] = z1;
-            linePosArr[lineVertexIdx++] = x2;
-            linePosArr[lineVertexIdx++] = y2;
-            linePosArr[lineVertexIdx++] = z2;
-
-            lineColArr[lineColorIdx++] = ar;
-            lineColArr[lineColorIdx++] = ag;
-            lineColArr[lineColorIdx++] = ab;
-            lineColArr[lineColorIdx++] = r2;
-            lineColArr[lineColorIdx++] = g2;
-            lineColArr[lineColorIdx++] = b2;
-
-            lineAlphaArr[lineAlphaIdx++] = lineAlpha;
-            lineAlphaArr[lineAlphaIdx++] = lineAlpha;
-
-            // 2. Positive Perpendicular Filament
-            if (lineVertexIdx < maxLineVertices) {
-              linePosArr[lineVertexIdx++] = x1 + perpX;
-              linePosArr[lineVertexIdx++] = y1 + perpY;
-              linePosArr[lineVertexIdx++] = z1;
-              linePosArr[lineVertexIdx++] = x2 + perpX;
-              linePosArr[lineVertexIdx++] = y2 + perpY;
-              linePosArr[lineVertexIdx++] = z2;
-
-              lineColArr[lineColorIdx++] = ar;
-              lineColArr[lineColorIdx++] = ag;
-              lineColArr[lineColorIdx++] = ab;
-              lineColArr[lineColorIdx++] = r2;
-              lineColArr[lineColorIdx++] = g2;
-              lineColArr[lineColorIdx++] = b2;
-
-              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
-              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
-            }
-
-            // 3. Negative Perpendicular Filament
-            if (lineVertexIdx < maxLineVertices) {
-              linePosArr[lineVertexIdx++] = x1 - perpX;
-              linePosArr[lineVertexIdx++] = y1 - perpY;
-              linePosArr[lineVertexIdx++] = z1;
-              linePosArr[lineVertexIdx++] = x2 - perpX;
-              linePosArr[lineVertexIdx++] = y2 - perpY;
-              linePosArr[lineVertexIdx++] = z2;
-
-              lineColArr[lineColorIdx++] = ar;
-              lineColArr[lineColorIdx++] = ag;
-              lineColArr[lineColorIdx++] = ab;
-              lineColArr[lineColorIdx++] = r2;
-              lineColArr[lineColorIdx++] = g2;
-              lineColArr[lineColorIdx++] = b2;
-
-              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
-              lineAlphaArr[lineAlphaIdx++] = lineAlpha * 0.78;
-            }
-          } else {
-            nodeLinkCounts[i]++;
-            nodeLinkCounts[j]++;
-
-            const effAlpha = Math.min(0.92, Math.pow(opacity * 0.92, 0.72) * 1.15);
-
-            linePosArr[lineVertexIdx++] = x1;
-            linePosArr[lineVertexIdx++] = y1;
-            linePosArr[lineVertexIdx++] = z1;
-            linePosArr[lineVertexIdx++] = x2;
-            linePosArr[lineVertexIdx++] = y2;
-            linePosArr[lineVertexIdx++] = z2;
-
-            lineColArr[lineColorIdx++] = ar;
-            lineColArr[lineColorIdx++] = ag;
-            lineColArr[lineColorIdx++] = ab;
-            lineColArr[lineColorIdx++] = r2;
-            lineColArr[lineColorIdx++] = g2;
-            lineColArr[lineColorIdx++] = b2;
-
-            lineAlphaArr[lineAlphaIdx++] = effAlpha;
-            lineAlphaArr[lineAlphaIdx++] = effAlpha;
-          }
-        }
-      }
-
-      lineGeo.setDrawRange(0, lineVertexIdx / 3);
-      nodeGeo.setDrawRange(0, worldNodeCount);
-      lineGeo.attributes.position.needsUpdate = true;
-      lineGeo.attributes.color.needsUpdate = true;
-      lineGeo.attributes.alpha.needsUpdate = true;
-      nodeGeo.attributes.position.needsUpdate = true;
-      nodeGeo.attributes.color.needsUpdate = true;
-      nodeGeo.attributes.size.needsUpdate = true;
-
-      renderer.clear();
-      renderer.render(bgScene, bgCamera);
-      renderer.render(plexusScene, plexusCamera);
-    };
-
-    animId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', handleResize);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointercancel', onPointerUp);
-      renderer.dispose();
-    };
-  }, []);
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative h-72 sm:h-80 md:h-96 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-cyan-500/40 bg-[#0d0006] shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_35px_rgba(0,195,255,0.20)] select-none"
-    >
-      <canvas
-        ref={canvasRef}
-        className={`w-full h-full block touch-none ${
-          cursorStyle === 'grabbing'
-            ? 'cursor-grabbing'
-            : cursorStyle === 'grab'
-            ? 'cursor-grab'
-            : 'cursor-default'
-        }`}
-      />
-
-      {/* Top-Right Badge: Plexus */}
-      <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 lg:top-4 lg:right-4 max-w-[85%] flex flex-col items-end gap-1 sm:gap-1.5 pointer-events-none z-10">
-        <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
-          <span className="truncate">{t.sliderPlexusBadge}</span>
+          {isVortexUI && (
+            <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#ff2a9d]">
+              {t.sliderVortexActive}
+            </div>
+          )}
         </div>
-        {isImpulseUI && (
-          <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#00c3ff]">
-            {t.sliderPulseActive}
+
+        {/* Top-Right Badge: Plexus */}
+        <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 lg:top-4 lg:right-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-end gap-1 sm:gap-1.5 pointer-events-none z-10">
+          <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
+            <span className="truncate">{t.sliderPlexusBadge}</span>
           </div>
-        )}
+          {isImpulseUI && (
+            <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#00c3ff]">
+              {t.sliderPulseActive}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Interaction Hints */}
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 lg:bottom-3.5 lg:left-4 lg:right-4 flex items-end justify-between gap-2 pointer-events-none z-10">
+          <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-pink-100/90 font-light">
+            {t.sliderHintSumie}
+          </span>
+          <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-light text-right sm:text-left">
+            {t.sliderHintPlexus}
+          </span>
+        </div>
+
+        {/* Divider Line — ONLY visible in Smartphone view (< 640px) */}
+        <div
+          style={{ left: `${splitRatio * 100}%` }}
+          className="sm:hidden absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none z-10"
+        />
+
+        {/* Interactive Handle Button — ONLY visible and draggable in Smartphone view (< 640px)! */}
+        <button
+          type="button"
+          aria-label="Slider verschieben"
+          style={{ left: `${splitRatio * 100}%` }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            isDraggingHandleRef.current = true;
+          }}
+          className="sm:hidden absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#12091c]/95 border-2 border-white shadow-[0_0_22px_rgba(255,42,157,0.85)] active:scale-95 transition-transform flex items-center justify-center text-[11px] text-white font-bold cursor-ew-resize touch-none z-20"
+        >
+          ↔
+        </button>
       </div>
-
-      {/* Bottom Interaction Hint */}
-      <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 lg:bottom-3.5 lg:left-4 lg:right-4 pointer-events-none z-10 flex justify-end">
-        <span className="inline-block px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-light text-right">
-          {t.sliderHintPlexus}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// MAIN EXPORT: RESPONSIVE SAKURAVERSE DUAL ARTWORK COMPONENT
-// ============================================================================
-
-export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
-  const [isMobile, setIsMobile] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  if (isMobile === null) {
-    return (
-      <div className="mb-10 sm:mb-12 h-72 sm:h-80 md:h-96 w-full rounded-[28px] sm:rounded-[34px] bg-[#0d0006] border border-pink-500/20" />
-    );
-  }
-
-  if (isMobile) {
-    return (
-      <div className="mb-10 sm:mb-12">
-        <SmartphoneDualSlider lang={lang} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-10 sm:mb-12 grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-      <SumiePreviewBox lang={lang} />
-      <PlexusPreviewBox lang={lang} />
     </div>
   );
 }

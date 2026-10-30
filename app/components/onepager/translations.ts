@@ -25,6 +25,7 @@ export const translations = {
       titleHighlight: 'Sakuraverse.',
       subline: 'Die räumlichen und emotionalen Grenzen zwischen dir und der Kunst verschwinden. Tauche in das Kunstwerk "Sakuraverse" ein und erlebe, wie die Pixel vor dir durch deine Bewegungen die Leinwand zum Leben erwecken. Sakuraverse ist unser Kunstwerk der "ersten Generation". Inspiriert wurde es von der Bedeutung der Kirschblüte (Sakura) für Schönheit und Vergänglichkeit. In zwei unterschiedlichen Modi (Sumi-e und Plexus) werden Entstehung und Zerfall auf besondere Art und Weise dargestellt, die, wenn Künstler oder Künstlerin (ihr) es wünscht, nie dem vorherigen Erlebnis gleicht. Verschiedene Elemente können in den Kunstwerken angeklickt werden, wodurch sie im Endergebnis unterschiedliche Erscheinungen haben können.',
       sublineModalLink: 'Lerne mehr über die beiden Kunstwerke',
+      sliderPrompt: 'Hier kannst du Sakuraverse testen:',
       artworksModal: {
         title: 'Die zwei Welten von Sakuraverse',
         subtitle: 'Traditionelle Tuschekunst & Digitale Netzwerk-Ästhetik',
@@ -181,6 +182,7 @@ export const translations = {
       titleHighlight: 'Sakuraverse.',
       subline: 'The spatial and emotional boundaries between you and the artwork dissolve. Immerse yourself in "Sakuraverse" and experience how pixels come alive through your movements, turning before your eyes into a living canvas. Sakuraverse is our "first-generation" artwork, inspired by the significance of cherry blossoms (Sakura) for beauty and impermanence. Across two distinct modes (Sumi-e and Plexus), genesis and decay are visualised in ways that never repeat if you choose. Interactive elements can be clicked throughout the artwork, shaping different visual outcomes.',
       sublineModalLink: 'Learn more about the two artworks',
+      sliderPrompt: 'Test Sakuraverse here:',
       artworksModal: {
         title: 'The Two Worlds of Sakuraverse',
         subtitle: 'Traditional Ink Wash & Digital Network Aesthetics',

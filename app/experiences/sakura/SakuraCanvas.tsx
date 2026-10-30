@@ -1462,7 +1462,6 @@ export function SakuraCanvas({
   const [completedArtworksCount, setCompletedArtworksCount] = useState(0);
   const [blutenCounted, setBlutenCounted] = useState(false);
   const [plexusCounted, setPlexusCounted] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [plexusAttachedCount, setPlexusAttachedCount] = useState(0);
   const [isPlexusFinale, setIsPlexusFinale] = useState(false);
 
@@ -1519,10 +1518,7 @@ export function SakuraCanvas({
   const isCreationModeRef = useRef(isCreationMode);
   useEffect(() => { isCreationModeRef.current = isCreationMode; }, [isCreationMode]);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  }, []);
+  const showToast = useCallback((_msg: string) => {}, []);
 
   // Wake HUD Controls upon any user interaction
   const wakeHUDControls = useCallback(() => {
@@ -4686,13 +4682,6 @@ export function SakuraCanvas({
       {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
       {isRunning && (
         <>
-          {/* Toast Notification Message */}
-          {toastMessage && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-[#120c1c]/90 text-white text-xs font-semibold tracking-wider px-6 py-2.5 rounded-full border border-[#4ee2ec]/60 backdrop-blur-md shadow-[0_8px_25px_rgba(0,0,0,0.5)] animate-pulse z-50 pointer-events-none uppercase">
-          {toastMessage}
-        </div>
-      )}
-
       {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape) */}
       {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && !isPortraitMode && (
         <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-3.5 p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">

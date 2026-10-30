@@ -15,7 +15,7 @@ interface ExperienceStationProps {
   isJoined: boolean;
   onJoin: () => void;
   onStart: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => void;
-  showToast: (msg: string) => void;
+  showToast?: (msg: string) => void;
   onModalToggle?: (open: boolean) => void;
 }
 
@@ -121,12 +121,11 @@ export function ExperienceStation({
         document.body.removeChild(ta);
       }
       setCopied(true);
-      showToast(t.toastCopied);
       setTimeout(() => setCopied(false), 2400);
     } catch {
       prompt(t.copyBtn + ':', shareUrl);
     }
-  }, [shareUrl, showToast, t.toastCopied, t.copyBtn]);
+  }, [shareUrl, t.copyBtn]);
 
   const handleStartArtwork = (modeToStart: 'test' | 'souvenir', artworkToStart: 'bluten' | 'plexus' = 'bluten') => {
     setActiveMode(modeToStart);
@@ -143,7 +142,6 @@ export function ExperienceStation({
       onNameChange(finalName);
     }
     onJoin();
-    showToast(t.toastJoined);
   };
 
   return (
@@ -172,6 +170,13 @@ export function ExperienceStation({
           >
             <span>{t.sublineModalLink}</span>
           </button>
+        </p>
+      </div>
+
+      {/* Test Prompt above Dual Slider */}
+      <div className="text-center -mt-4 mb-4 sm:-mt-6 sm:mb-6">
+        <p className="text-sm sm:text-base font-semibold text-pink-200/90 tracking-wide">
+          {t.sliderPrompt}
         </p>
       </div>
 

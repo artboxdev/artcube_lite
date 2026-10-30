@@ -43,7 +43,6 @@ export function StartScreen({
   const [shareUrl, setShareUrl] = useState('');
   const [showValidation, setShowValidation] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Sakura v3 Modals
   const [testModeModalOpen, setTestModeModalOpen] = useState(false);
@@ -58,12 +57,7 @@ export function StartScreen({
     }
   }, [sessionId]);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((current) => (current === msg ? null : current));
-    }, 2800);
-  }, []);
+  const showToast = useCallback((_msg: string) => {}, []);
 
   const handleCopyLink = useCallback(async () => {
     try {
@@ -613,13 +607,6 @@ export function StartScreen({
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast Notification Message */}
-      {toastMessage && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-2.5 rounded-full bg-[rgba(18,12,28,0.92)] border border-[rgba(78,226,236,0.6)] text-white text-xs font-semibold tracking-wider shadow-[0_8px_30px_rgba(0,0,0,0.7)] backdrop-blur-md animate-in slide-in-from-bottom-5 duration-200">
-          {toastMessage}
         </div>
       )}
 

@@ -33,7 +33,6 @@ export function OnepagerView({
 }: OnepagerViewProps) {
   const [lang, setLang] = useState<Language>('de');
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Restore language from localStorage on mount
@@ -95,13 +94,6 @@ export function OnepagerView({
     }
   }, [onNameChange]);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((cur) => (cur === msg ? null : cur));
-    }, 3000);
-  }, []);
-
   const handleNavigateTo = useCallback((id: string) => {
     if (id === 'top') {
       containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -153,7 +145,6 @@ export function OnepagerView({
         isJoined={isJoined}
         onJoin={onJoin}
         onStart={onStart}
-        showToast={showToast}
         onModalToggle={handleModalToggle}
       />
 
@@ -169,13 +160,6 @@ export function OnepagerView({
         onScrollToTop={() => handleNavigateTo('top')}
         onModalToggle={handleModalToggle}
       />
-
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl bg-[rgba(18,12,28,0.95)] border border-[#4ee2ec] text-white text-xs sm:text-sm font-semibold tracking-wider shadow-[0_10px_35px_rgba(0,0,0,0.8),0_0_20px_rgba(78,226,236,0.4)] backdrop-blur-xl animate-in slide-in-from-bottom-5 duration-200">
-          {toastMessage}
-        </div>
-      )}
 
       {/* Wallet Unavailable Modal */}
       <WalletUnavailableModal
