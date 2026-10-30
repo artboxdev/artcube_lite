@@ -1192,7 +1192,8 @@ class OrbNode {
     roundId: number,
     orbT: number,
     type = 'branch',
-    customPos: THREE.Vector3 | null = null
+    customPos: THREE.Vector3 | null = null,
+    bounds?: { minX: number; maxX: number; minY: number; maxY: number }
   ) {
     this.basePosition = customPos ? customPos.clone() : (parentBranchInfo ? parentBranchInfo.curve.getPointAt(orbT).clone() : new THREE.Vector3(0, 0, 0));
     this.position = this.basePosition.clone();
@@ -1201,13 +1202,38 @@ class OrbNode {
     this.roundId = roundId;
     this.type = type;
 
-    const parentLen = parentBranchInfo ? parentBranchInfo.totalLength : 16.0;
-    this.targetChildLength = parentLen * (0.45 + Math.random() * 0.12);
+    // Proportioned branch length that respects visible screen boundaries
+    this.targetChildLength = level === 0
+      ? (3.6 + Math.random() * 1.4)
+      : (2.2 + Math.random() * 1.1);
 
-    const sideSign = Math.random() > 0.5 ? 1 : -1;
-    const angleDeg = sideSign * (20 + Math.random() * 20);
+    let sideSign = Math.random() > 0.5 ? 1 : -1;
+    if (bounds) {
+      if (this.basePosition.y > bounds.maxY - 2.2) {
+        sideSign = -1;
+      } else if (this.basePosition.y < bounds.minY + 2.2) {
+        sideSign = 1;
+      }
+    }
+    const angleDeg = sideSign * (20 + Math.random() * 18);
     this.angleRad = THREE.MathUtils.degToRad(angleDeg);
     this.guideDir = new THREE.Vector3(Math.cos(this.angleRad), Math.sin(this.angleRad), 0).normalize();
+
+    if (bounds && this.type === 'branch') {
+      let maxDistX = Infinity;
+      if (this.guideDir.x > 0.05) {
+        maxDistX = Math.max(1.2, (bounds.maxX - 0.45 - this.basePosition.x) / this.guideDir.x);
+      } else if (this.guideDir.x < -0.05) {
+        maxDistX = Math.max(1.2, (this.basePosition.x - (bounds.minX + 0.45)) / -this.guideDir.x);
+      }
+      let maxDistY = Infinity;
+      if (this.guideDir.y > 0.05) {
+        maxDistY = Math.max(1.2, (bounds.maxY - 0.55 - this.basePosition.y) / this.guideDir.y);
+      } else if (this.guideDir.y < -0.05) {
+        maxDistY = Math.max(1.2, (this.basePosition.y - (bounds.minY + 0.55)) / -this.guideDir.y);
+      }
+      this.targetChildLength = Math.max(1.2, Math.min(this.targetChildLength, maxDistX, maxDistY));
+    }
 
     const planeSize = this.type === 'petal' ? 1.1 : 2.2;
     const geom = new THREE.PlaneGeometry(planeSize, planeSize);
@@ -2220,7 +2246,43 @@ export function SakuraCanvas({
     let vortexUser2Ready = false;
     const circleTrailHistory: { x: number; y: number; t: number }[] = [];
 
-    const syncFlyingPetalColors = () => {
+    const getVisibleBranchBounds = () => {
+      const cam = cameraRef.current;
+      const aspect = cam ? cam.aspect : (window.innerWidth / Math.max(1, window.innerHeight));
+      const halfH = Math.tan(THREE.MathUtils.degToRad(22.5)) * 16.0; // ~6.627 at z=0
+      const halfW = halfH * aspect;
+      const camX = cam ? cam.position.x : 2.4;
+      const camY = cam ? cam.position.y : -0.4;
+      // Safe inner padding accounting for branch sway (0.52), stroke width, and blossom clusters
+      return {
+        minX: camX - halfW + 1.15,
+        maxX: camX + halfW - 1.45,
+        minY: camY - halfH + 1.35,
+        maxY: camY + halfH - 1.35,
+      };
+    };
+
+    const getVisiblePetalEdges = () => {
+      const cam = cameraRef.current;
+      const aspect = cam ? cam.aspect : (window.innerWidth / Math.max(1, window.innerHeight));
+      // Petals fly at z ≈ -2.8 (distance 18.8 from camera at z=16)
+      const visHalfH = Math.tan(THREE.MathUtils.degToRad(22.5)) * 18.8; // ~7.79
+      const visHalfW = visHalfH * aspect;
+      const cx = cam ? cam.position.x : 2.4;
+      const cy = cam ? cam.position.y : -0.4;
+      return {
+        cx,
+        cy,
+        visHalfW,
+        visHalfH,
+        leftEdge: cx - visHalfW - 1.3,
+        rightEdge: cx + visHalfW + 1.3,
+        bottomEdge: cy - visHalfH - 1.3,
+        topEdge: cy + visHalfH + 1.3,
+      };
+    };
+
+    const buildWeightedColorPool = (): BlossomColorId[] => {
       const counts = colorCountsRef.current;
       const activeColors = (Object.keys(counts) as BlossomColorId[]).filter(c => counts[c] > 0);
       const weightedColorPool: BlossomColorId[] = [];
@@ -2233,7 +2295,36 @@ export function SakuraCanvas({
       if (weightedColorPool.length === 0) {
         weightedColorPool.push(selectedColorRef.current);
       }
+      return weightedColorPool;
+    };
 
+    const assignPetalColorFromPool = (idx: number, pool?: BlossomColorId[]) => {
+      const weightedColorPool = pool || buildWeightedColorPool();
+      const colorKey = weightedColorPool[(idx + Math.floor(Math.random() * weightedColorPool.length)) % weightedColorPool.length];
+      const pal = BLOSSOM_PALETTES[colorKey] || BLOSSOM_PALETTES.pink;
+      const shadeHex = pal.shades[(idx + Math.floor(Math.random() * pal.shades.length)) % pal.shades.length];
+      instancedPetalMesh.setColorAt(idx, new THREE.Color(shadeHex));
+    };
+
+    const spawnPetalOnUpwindEdge = (idx: number, upstreamSeconds = 0.0) => {
+      const { cx, cy, visHalfW, visHalfH, leftEdge, topEdge } = getVisiblePetalEdges();
+      let entryX: number;
+      let entryY: number;
+      if (Math.random() < 0.56) {
+        // Enter along the top edge (from left-top across upper width so diagonal flight traverses the image)
+        entryX = leftEdge + Math.random() * (visHalfW * 1.65);
+        entryY = topEdge + Math.random() * 0.6;
+      } else {
+        // Enter along the left edge (upper and mid section)
+        entryX = leftEdge - Math.random() * 0.6;
+        entryY = cy - visHalfH * 0.35 + Math.random() * (visHalfH * 1.35);
+      }
+      petalPosX[idx] = entryX - petalSpeedX[idx] * upstreamSeconds;
+      petalPosY[idx] = entryY - petalSpeedY[idx] * upstreamSeconds;
+    };
+
+    const syncFlyingPetalColors = () => {
+      const weightedColorPool = buildWeightedColorPool();
       petalMat.color.set(0xffffff);
       for (let i = 0; i < activePetalCount; i++) {
         const colorKey = weightedColorPool[i % weightedColorPool.length];
@@ -2251,13 +2342,22 @@ export function SakuraCanvas({
       if (!arePetalsFlying) {
         arePetalsFlying = true;
         petalAppearAlpha = 0.0;
-        const centerX = cameraRef.current ? cameraRef.current.position.x : 2.4;
-        const centerY = cameraRef.current ? cameraRef.current.position.y : -0.4;
+        // Stagger petals along the upwind entry stream so they continuously enter the image from the 1st blossom onwards
         for (let i = 0; i < activePetalCount; i++) {
-          petalPosX[i] = centerX + (Math.random() - 0.5) * 30.0;
-          petalPosY[i] = centerY + (Math.random() - 0.5) * 16.0;
+          const upstreamSec = (i / activePetalCount) * 7.2 - 1.2;
+          spawnPetalOnUpwindEdge(i, upstreamSec);
         }
         instancedPetalMesh.visible = true;
+      }
+    };
+
+    const clampUpstreamPetalsIntoView = () => {
+      const { leftEdge, rightEdge, bottomEdge, topEdge } = getVisiblePetalEdges();
+      for (let i = 0; i < activePetalCount; i++) {
+        if (petalPosX[i] < leftEdge - 0.5 || petalPosY[i] > topEdge + 0.5) {
+          petalPosX[i] = Math.max(leftEdge, Math.min(rightEdge - 2.0, petalPosX[i]));
+          petalPosY[i] = Math.min(topEdge, Math.max(bottomEdge + 2.0, petalPosY[i]));
+        }
       }
     };
 
@@ -2268,6 +2368,7 @@ export function SakuraCanvas({
 
     const startFullVortexFinale = () => {
       startFlyingPetalsIfNeeded();
+      clampUpstreamPetalsIntoView();
       petalAppearAlpha = 1.0;
 
       vortexHalf1Active = true;
@@ -2330,6 +2431,7 @@ export function SakuraCanvas({
 
         if (readyCount === 1) {
           startFlyingPetalsIfNeeded();
+          clampUpstreamPetalsIntoView();
           petalAppearAlpha = 1.0;
           vortexHalf1Active = true;
         } else if (readyCount >= 2) {
@@ -2363,13 +2465,28 @@ export function SakuraCanvas({
       activeOrbs.forEach(o => o.destroy(orbGroup));
       activeOrbs.length = 0;
 
+      const bounds = getVisibleBranchBounds();
+
       if (phase === 'BRANCH') {
         const validBranches = allBranches.filter(b => b.level < 2);
         validBranches.forEach(bInfo => {
           const numOrbs = bInfo.level === 0 ? 2 : 1;
           for (let i = 0; i < numOrbs; i++) {
-            const t = 0.25 + Math.random() * 0.60;
-            const orb = new OrbNode(orbGroup, bInfo, bInfo.level, roundNum, t, 'branch');
+            let t = 0.22 + Math.random() * 0.52;
+            // Ensure branch orb starts well inside visible bounds so child branch has room to grow
+            for (let attempt = 0; attempt < 6; attempt++) {
+              const cand = bInfo.curve.getPointAt(t);
+              if (
+                cand.x >= bounds.minX + 0.5 &&
+                cand.x <= bounds.maxX - 1.8 &&
+                cand.y >= bounds.minY + 0.7 &&
+                cand.y <= bounds.maxY - 0.7
+              ) {
+                break;
+              }
+              t = 0.18 + Math.random() * 0.45;
+            }
+            const orb = new OrbNode(orbGroup, bInfo, bInfo.level, roundNum, t, 'branch', null, bounds);
             orb.setAlpha(0.0);
             activeOrbs.push(orb);
           }
@@ -2378,8 +2495,8 @@ export function SakuraCanvas({
         const numTotalBlossoms = Math.min(6, allBranches.length * 2);
         for (let i = 0; i < numTotalBlossoms; i++) {
           const bInfo = allBranches[i % allBranches.length];
-          const t = 0.20 + Math.random() * 0.70;
-          const orb = new OrbNode(orbGroup, bInfo, bInfo.level, roundNum, t, 'blossom');
+          const t = 0.20 + Math.random() * 0.68;
+          const orb = new OrbNode(orbGroup, bInfo, bInfo.level, roundNum, t, 'blossom', null, bounds);
           orb.setAlpha(0.0);
           activeOrbs.push(orb);
         }
@@ -2393,26 +2510,60 @@ export function SakuraCanvas({
       orb.triggerExplosion();
       orb.setAlpha(0.15);
 
+      const bounds = getVisibleBranchBounds();
       const startPos = orb.basePosition.clone();
+      startPos.x = THREE.MathUtils.clamp(startPos.x, bounds.minX, bounds.maxX);
+      startPos.y = THREE.MathUtils.clamp(startPos.y, bounds.minY, bounds.maxY);
+
       const numPts = 45;
       const pts = [startPos.clone()];
-      const totalLen = orb.targetChildLength;
-
       let effectiveGuideDir = orb.guideDir.clone();
+
+      // Steer guide direction inward if starting near top, bottom, or right boundary
+      if (startPos.y > bounds.maxY - 1.8 && effectiveGuideDir.y > 0) {
+        effectiveGuideDir.y = -Math.abs(effectiveGuideDir.y);
+        effectiveGuideDir.normalize();
+      } else if (startPos.y < bounds.minY + 1.8 && effectiveGuideDir.y < 0) {
+        effectiveGuideDir.y = Math.abs(effectiveGuideDir.y);
+        effectiveGuideDir.normalize();
+      }
+      if (startPos.x > bounds.maxX - 2.0 && effectiveGuideDir.x > 0.35) {
+        effectiveGuideDir.x = 0.25;
+        effectiveGuideDir.y = startPos.y > 0 ? -0.96 : 0.96;
+        effectiveGuideDir.normalize();
+      }
+
+      let maxDistX = Infinity;
+      if (effectiveGuideDir.x > 0.05) {
+        maxDistX = Math.max(1.0, (bounds.maxX - 0.35 - startPos.x) / effectiveGuideDir.x);
+      } else if (effectiveGuideDir.x < -0.05) {
+        maxDistX = Math.max(1.0, (startPos.x - (bounds.minX + 0.35)) / -effectiveGuideDir.x);
+      }
+      let maxDistY = Infinity;
+      if (effectiveGuideDir.y > 0.05) {
+        maxDistY = Math.max(1.0, (bounds.maxY - 0.45 - startPos.y) / effectiveGuideDir.y);
+      } else if (effectiveGuideDir.y < -0.05) {
+        maxDistY = Math.max(1.0, (startPos.y - (bounds.minY + 0.45)) / -effectiveGuideDir.y);
+      }
+
+      const totalLen = Math.max(1.1, Math.min(orb.targetChildLength, maxDistX, maxDistY));
       const normal = new THREE.Vector3(-effectiveGuideDir.y, effectiveGuideDir.x, 0).normalize();
 
       for (let i = 1; i <= numPts; i++) {
         const t = i / numPts;
         const currentDist = totalLen * t;
-        const wave1 = Math.sin(t * Math.PI * 4.0 + orb.seed * 6.0) * 0.48;
-        const wave2 = Math.cos(t * Math.PI * 8.0 + orb.seed * 3.0) * 0.22;
+        const wave1 = Math.sin(t * Math.PI * 4.0 + orb.seed * 6.0) * 0.38;
+        const wave2 = Math.cos(t * Math.PI * 8.0 + orb.seed * 3.0) * 0.16;
         const sideOffset = (wave1 + wave2) * (1.0 - t * 0.35);
 
         const p = startPos.clone()
           .addScaledVector(effectiveGuideDir, currentDist)
           .addScaledVector(normal, sideOffset);
 
-        p.z += (Math.sin(t * Math.PI * 2.0 + orb.seed) - 0.5) * 0.3;
+        // Strictly clamp every branch point within the visible image boundaries
+        p.x = THREE.MathUtils.clamp(p.x, bounds.minX, bounds.maxX);
+        p.y = THREE.MathUtils.clamp(p.y, bounds.minY, bounds.maxY);
+        p.z += (Math.sin(t * Math.PI * 2.0 + orb.seed) - 0.5) * 0.25;
         pts.push(p);
       }
 
@@ -4017,7 +4168,7 @@ export function SakuraCanvas({
 
         // DualSlider-style Flying Sakura Petals + Half/Full 10-Second Vortex Animation
         if (arePetalsFlying) {
-          petalAppearAlpha = Math.min(1.0, petalAppearAlpha + delta * 1.2);
+          petalAppearAlpha = Math.min(1.0, petalAppearAlpha + delta * 1.4);
           if (instancedPetalMesh && instancedPetalMesh.material) {
             (instancedPetalMesh.material as THREE.MeshBasicMaterial).opacity = modeFadeAlpha * petalAppearAlpha * 0.96;
           }
@@ -4034,28 +4185,31 @@ export function SakuraCanvas({
             half2TransProgress = 0.0;
           }
 
-          const centerX = cameraRef.current ? cameraRef.current.position.x : 2.4;
-          const centerY = cameraRef.current ? cameraRef.current.position.y : -0.4;
-          const centerZ = -3.5;
+          const { cx: centerX, cy: centerY, rightEdge, bottomEdge } = getVisiblePetalEdges();
+          const centerZ = -2.8;
           const sideTilt = 0.15;
 
           let outFactor = 1.0;
-          let stormIntensity = 0.5;
 
           if (fullVortexHoldTimer >= 0.0) {
             fullVortexHoldTimer += delta;
-            if (fullVortexHoldTimer < VORTEX_HOLD_DURATION) {
-              stormIntensity = Math.sin((fullVortexHoldTimer / VORTEX_HOLD_DURATION) * Math.PI);
-            } else {
+            if (fullVortexHoldTimer >= VORTEX_HOLD_DURATION) {
               if (!hasSyncedVortexOut) {
                 hasSyncedVortexOut = true;
+                // Synchronize base drift positions to exact current Vortex coordinates (1:1 DualSlider math)
                 for (let i = 0; i < activePetalCount; i++) {
                   const a = petalAngle[i];
                   const normH = i / activePetalCount;
-                  const baseTubeRadius = (5.2 + (petalRadiusX[i] % 2.1)) * 0.80;
-                  const rawY = (normH - 0.5) * 11.4;
-                  const rawX = Math.cos(a) * (baseTubeRadius * 1.28);
-                  const rawZ = Math.sin(a) * baseTubeRadius * 0.50;
+                  const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
+                  const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 0.6) * 0.75;
+                  const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
+                  const rawY =
+                    (normH - 0.5) * 10.8 +
+                    Math.sin(a) * (currentRadius * 0.38) +
+                    Math.sin(a * 2.2 + totalAnimTime * 0.5) * 0.85;
+                  const rawX = Math.cos(a) * (currentRadius * 1.38);
+                  const rawZ = Math.sin(a) * currentRadius * 0.55;
+
                   const tornadoX = rawX + centerX;
                   const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
 
@@ -4065,9 +4219,9 @@ export function SakuraCanvas({
               }
 
               const outAge = fullVortexHoldTimer - VORTEX_HOLD_DURATION;
-              const uOut = Math.max(0.0, Math.min(1.0, 1.0 - outAge / VORTEX_TRANS_OUT));
-              outFactor = uOut * uOut * (3.0 - 2.0 * uOut);
-              stormIntensity = 0.0;
+              const tOut = Math.max(0.0, Math.min(1.0, outAge / VORTEX_TRANS_OUT));
+              const easeOut = tOut * tOut * (3.0 - 2.0 * tOut);
+              outFactor = 1.0 - easeOut;
 
               if (outAge >= VORTEX_TRANS_OUT) {
                 fullVortexHoldTimer = -1.0;
@@ -4092,88 +4246,80 @@ export function SakuraCanvas({
             }
           }
 
+          let colorUpdatedThisFrame = false;
+          const activeColorPool = buildWeightedColorPool();
+
           for (let i = 0; i < activePetalCount; i++) {
             const isFirstHalf = (i % 2 === 0);
             const rawHalfProg = isFirstHalf ? half1TransProgress : half2TransProgress;
             const smoothIn = rawHalfProg * rawHalfProg * (3.0 - 2.0 * rawHalfProg);
-            const vortexBlend = smoothIn * outFactor;
+            const smoothPower = smoothIn * outFactor;
+            const driftSpeedFactor = 1.0 - smoothPower;
+            const allowWrapForPetal = (smoothPower < 0.001);
 
-            // Advance diagonal top-left -> bottom-right drift (exact DualSlider motion)
+            // Advance diagonal top-left -> bottom-right drift (1:1 DualSlider motion)
             petalAge[i] += delta * 0.85;
-            petalPosX[i] += petalSpeedX[i] * delta * 0.85;
-            petalPosY[i] += petalSpeedY[i] * delta * 0.85;
+            petalPosX[i] += petalSpeedX[i] * delta * driftSpeedFactor;
+            petalPosY[i] += petalSpeedY[i] * delta * driftSpeedFactor;
 
-            if (petalPosX[i] > centerX + 16.0) petalPosX[i] = centerX - 16.0;
-            if (petalPosX[i] < centerX - 16.0) petalPosX[i] = centerX + 16.0;
-            if (petalPosY[i] < centerY - 9.5) petalPosY[i] = centerY + 9.5;
-            if (petalPosY[i] > centerY + 9.5) petalPosY[i] = centerY - 9.5;
-
-            const driftX = petalPosX[i] + Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
-            const driftY = petalPosY[i] + Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
-            const driftZ = petalPosZ[i] + Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
-
-            let px = driftX;
-            let py = driftY;
-            let pz = driftZ;
-
-            if (vortexBlend > 0.001) {
-              const spinMult = (0.75 + vortexBlend * 2.55 + stormIntensity * 0.85) * 0.56;
-              petalAngle[i] += petalSpeed[i] * delta * spinMult;
-              const a = petalAngle[i];
-              const normH = i / activePetalCount;
-
-              const baseTubeRadius = (5.2 + (petalRadiusX[i] % 2.1)) * 0.80 * (1.0 - 0.10 * stormIntensity);
-              const radialWobble = (
-                Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 2.0) * (0.55 + 0.30 * (petalRadiusY[i] % 1.5)) +
-                Math.cos(a * 4.5 + petalPhaseZ[i]) * 0.25
-              ) * vortexBlend;
-              const currentRadius = Math.max(1.3, baseTubeRadius + radialWobble);
-
-              const heightWobble = (
-                Math.sin(a * 2.2 + petalPhaseZ[i] * 1.5 + totalAnimTime * 1.6) * 0.85 +
-                Math.cos(a * 1.4 + i * 0.5) * 0.35
-              ) * vortexBlend;
-              const rawY = (normH - 0.5) * 11.4 + heightWobble;
-
-              const flutterX = Math.sin(a * 3.5 + petalPhaseZ[i]) * 0.25 * vortexBlend;
-              const flutterZ = Math.cos(a * 3.5 + petalPhaseZ[i]) * 0.25 * vortexBlend;
-
-              const rawX = Math.cos(a) * (currentRadius * 1.28) + flutterX;
-              const rawZ = (Math.sin(a) * currentRadius + flutterZ) * 0.50;
-
-              const vortexX = rawX + centerX;
-              const vortexY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
-              const vortexZ = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
-
-              px = THREE.MathUtils.lerp(driftX, vortexX, vortexBlend);
-              py = THREE.MathUtils.lerp(driftY, vortexY, vortexBlend);
-              pz = THREE.MathUtils.lerp(driftZ, vortexZ, vortexBlend);
-
-              dummy.rotation.set(
-                petalAge[i] * (0.48 + 0.32 * vortexBlend) + petalSeed[i],
-                petalAge[i] * (0.58 + 0.38 * vortexBlend) + petalSeed[i],
-                THREE.MathUtils.lerp(
-                  Math.sin(petalAge[i] * 0.65 + petalSeed[i]) * 0.78,
-                  a + Math.sin(totalAnimTime * 2.2 + i) * 0.38,
-                  vortexBlend
-                )
-              );
-            } else {
-              dummy.rotation.set(
-                petalAge[i] * 0.48 + petalSeed[i],
-                petalAge[i] * 0.58 + petalSeed[i],
-                Math.sin(petalAge[i] * 0.65 + petalSeed[i]) * 0.78
-              );
+            // Continuously respawn petals along the upwind top/left edges when they exit bottom or right
+            if (allowWrapForPetal && (petalPosX[i] > rightEdge || petalPosY[i] < bottomEdge)) {
+              spawnPetalOnUpwindEdge(i, 0.0);
+              assignPetalColorFromPool(i, activeColorPool);
+              colorUpdatedThisFrame = true;
             }
 
-            dummy.position.set(px, py, pz);
-            const depthScale = Math.max(0.22, Math.min(0.76, (0.46 + (pz + 3.5) * 0.12) * 0.68));
-            const stormBoost = 1.0 + 0.14 * vortexBlend;
-            dummy.scale.setScalar(petalScales[i] * depthScale * stormBoost);
+            const normalX = petalPosX[i] + Math.sin(petalAge[i] * petalFreqX[i] + petalPhaseX[i]) * petalAmpX[i];
+            const normalY = petalPosY[i] + Math.cos(petalAge[i] * petalFreqY[i] + petalPhaseY[i]) * petalAmpY[i];
+            const normalZ = petalPosZ[i] + Math.sin(petalAge[i] * petalFreqZ[i] + petalPhaseZ[i]) * petalAmpZ[i];
+
+            let finalX = normalX;
+            let finalY = normalY;
+            let finalZ = normalZ;
+
+            if (smoothPower > 0.001) {
+              // 1:1 DualSlider 3D Tornado/Vortex math
+              const spinFactor = (0.45 + smoothPower * 2.35) * smoothPower;
+              petalAngle[i] += petalSpeed[i] * delta * spinFactor;
+              const a = petalAngle[i];
+              const normH = i / activePetalCount;
+              const baseTubeRadius = 4.2 + (petalRadiusX[i] % 2.8);
+              const radialWobble = Math.sin(a * 2.8 + petalPhaseZ[i] * 2.0 + totalAnimTime * 0.6) * 0.75;
+              const currentRadius = Math.max(1.8, baseTubeRadius + radialWobble);
+              const rawY =
+                (normH - 0.5) * 10.8 +
+                Math.sin(a) * (currentRadius * 0.38) +
+                Math.sin(a * 2.2 + totalAnimTime * 0.5) * 0.85;
+              const rawX = Math.cos(a) * (currentRadius * 1.38);
+              const rawZ = Math.sin(a) * currentRadius * 0.55;
+
+              const tornadoX = rawX + centerX;
+              const tornadoY = centerY + rawY * Math.cos(sideTilt) - rawZ * Math.sin(sideTilt);
+              const tornadoZ = centerZ + (rawY * Math.sin(sideTilt) + rawZ * Math.cos(sideTilt));
+
+              finalX = THREE.MathUtils.lerp(normalX, tornadoX, smoothPower);
+              finalY = THREE.MathUtils.lerp(normalY, tornadoY, smoothPower);
+              finalZ = THREE.MathUtils.lerp(normalZ, tornadoZ, smoothPower);
+            }
+
+            dummy.position.set(finalX, finalY, finalZ);
+            dummy.rotation.set(
+              Math.sin(petalAge[i] * 0.55 + petalSeed[i]) * 0.25,
+              Math.cos(petalAge[i] * 0.5 + petalSeed[i]) * 0.25,
+              petalAge[i] * 0.65 + petalSeed[i] + petalAngle[i] * smoothPower
+            );
+            const zScale = Math.max(
+              0.35,
+              Math.min(0.85, (0.58 + (finalZ + 3.0) * 0.14) * 0.78)
+            );
+            dummy.scale.setScalar(petalScales[i] * zScale);
             dummy.updateMatrix();
             instancedPetalMesh.setMatrixAt(i, dummy.matrix);
           }
 
+          if (colorUpdatedThisFrame && instancedPetalMesh.instanceColor) {
+            instancedPetalMesh.instanceColor.needsUpdate = true;
+          }
           instancedPetalMesh.instanceMatrix.needsUpdate = true;
         }
 
