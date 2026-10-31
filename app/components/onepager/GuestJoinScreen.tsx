@@ -11,7 +11,6 @@ interface GuestJoinScreenProps {
   onNameChange: (name: string) => void;
   isJoined: boolean;
   onJoin: (name: string) => void;
-  onStart: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => void;
   onDismissToWebsite: () => void;
 }
 
@@ -40,7 +39,6 @@ export function GuestJoinScreen({
   onNameChange,
   isJoined,
   onJoin,
-  onStart,
   onDismissToWebsite,
 }: GuestJoinScreenProps) {
   const [localName, setLocalName] = useState(myName || '');
@@ -161,11 +159,11 @@ export function GuestJoinScreen({
               </button>
             </div>
           ) : (
-            /* STATE 2: After Joining -> Joined Badge & Immediate Start Options */
-            <div className="flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-300">
+            /* STATE 2: After Joining -> Waiting for Host to Start */
+            <div className="flex flex-col items-center gap-6 py-2 animate-in fade-in zoom-in-95 duration-300">
               
               {/* Joined Status Pill */}
-              <div className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-emerald-200">
+              <div className="w-full flex flex-col items-center gap-2 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-emerald-200">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_#34d399] animate-pulse" />
                   <span>{t.joinedSuccessBadge}: {localName || myName}</span>
@@ -175,33 +173,22 @@ export function GuestJoinScreen({
                 </span>
               </div>
 
-              {/* Ready prompt */}
-              <div className="flex flex-col gap-1 text-center">
-                <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
-                  {t.readyToStartTitle}
-                </h3>
-                <p className="text-xs text-white/70 leading-relaxed font-light">
-                  {t.readyToStartDesc}
-                </p>
-              </div>
-
-              {/* Action Buttons to Launch Session */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  onClick={() => onStart('bluten', 'test')}
-                  className="flex-1 py-4 px-5 rounded-2xl font-extrabold text-xs sm:text-sm tracking-[1.5px] uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#d946ef] shadow-[0_8px_25px_rgba(255,42,157,0.4)] hover:shadow-[0_12px_35px_rgba(255,42,157,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>{t.startTestBlutenBtn}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onStart('plexus', 'test')}
-                  className="flex-1 py-4 px-5 rounded-2xl font-extrabold text-xs sm:text-sm tracking-[1.5px] uppercase text-white bg-gradient-to-r from-[#06b6d4] to-[#0284c7] shadow-[0_8px_25px_rgba(6,182,212,0.4)] hover:shadow-[0_12px_35px_rgba(6,182,212,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>{t.startTestPlexusBtn}</span>
-                </button>
+              {/* Waiting Indicator & Animated Visual */}
+              <div className="flex flex-col items-center gap-4 py-2">
+                <div className="relative flex items-center justify-center w-16 h-16">
+                  <span className="absolute inset-0 rounded-full border border-pink-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
+                  <span className="w-12 h-12 rounded-full bg-pink-500/15 border border-pink-500/50 flex items-center justify-center text-2xl shadow-[0_0_25px_rgba(255,42,157,0.45)]">
+                    🌸
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2 text-center max-w-sm">
+                  <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
+                    {t.waitingForHostTitle}
+                  </h3>
+                  <p className="text-xs text-white/70 leading-relaxed font-light">
+                    {t.waitingForHostDesc}
+                  </p>
+                </div>
               </div>
             </div>
           )}

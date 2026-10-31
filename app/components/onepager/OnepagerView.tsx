@@ -186,7 +186,6 @@ export function OnepagerView({
           onNameChange={handleNameUpdate}
           isJoined={isJoined}
           onJoin={onJoin}
-          onStart={onStart}
           onDismissToWebsite={() => {
             setIsGuestScreenDismissed(true);
             handleNavigateTo('erleben');
