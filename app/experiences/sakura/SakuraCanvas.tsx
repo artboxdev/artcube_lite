@@ -1372,6 +1372,8 @@ export function SakuraCanvas({
   isMobile = false,
   isHost = true,
   myName = 'Host',
+  peerName,
+  isJoined = false,
   sessionId = 'sakura-session',
   sendInteraction,
   onCanvasesReady,
@@ -1395,20 +1397,45 @@ export function SakuraCanvas({
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0
   });
 
-  // User Cursors with Names & Multi-Screen Session Sync (Sakura V3)
-  const user1ColorRef = useRef(CURSOR_PALETTE_10[0]); // Cyan Glow for Host
-  const user2ColorRef = useRef(CURSOR_PALETTE_10[1]); // Electric Violet for Guest
+  // Dedicated refs for Local and Remote cursor positions to prevent collision or overwriting
+  const localCursorRef = useRef<{ x: number; y: number; active: boolean }>({
+    x: typeof window !== 'undefined' ? (isHost ? window.innerWidth * 0.4 : window.innerWidth * 0.6) : -100,
+    y: typeof window !== 'undefined' ? window.innerHeight * 0.5 : -100,
+    active: false
+  });
+  const remoteCursorRef = useRef<{ x: number; y: number; active: boolean }>({
+    x: typeof window !== 'undefined' ? (isHost ? window.innerWidth * 0.6 : window.innerWidth * 0.4) : -100,
+    y: typeof window !== 'undefined' ? window.innerHeight * 0.5 : -100,
+    active: false
+  });
+
+  // User Cursors with Names & Multi-Screen Session Sync: Host = Neon Pink, Guest = Cyan Glow
+  const user1ColorRef = useRef({ name: 'Neon Pink', hex: '#ff2a9d', rgb: '255, 42, 157' });
+  const user2ColorRef = useRef({ name: 'Cyan Glow', hex: '#00f0ff', rgb: '0, 240, 255' });
   const [remoteUser1Name, setRemoteUser1Name] = useState<string>('Host');
   const [remoteUser2Name, setRemoteUser2Name] = useState<string>('Gast');
   const [hasRemotePeer, setHasRemotePeer] = useState<boolean>(false);
   const hasRemotePeerRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (isJoined) {
+      setHasRemotePeer(true);
+      hasRemotePeerRef.current = true;
+    }
+  }, [isJoined]);
+
+  const peerConnected = Boolean(isJoined || hasRemotePeer);
+  useEffect(() => {
+    hasRemotePeerRef.current = peerConnected;
+  }, [peerConnected]);
+
   const triggerCircleFromUserRef = useRef<((userIdx: 1 | 2, shouldBroadcast: boolean) => void) | null>(null);
   const syncRemoteBlossomColorRef = useRef<((color: BlossomColorId) => void) | null>(null);
   const onRemoteUserLeaveRef = useRef<(() => void) | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
-  const displayUser1Name = isHost ? (myName || 'Host') : (remoteUser1Name || 'Host');
-  const displayUser2Name = isHost ? (remoteUser2Name || 'Gast') : (myName || 'Gast');
+  const displayUser1Name = isHost ? (myName || 'Host') : (peerName || remoteUser1Name || 'Host');
+  const displayUser2Name = isHost ? (peerName || remoteUser2Name || 'Gast') : (myName || 'Gast');
 
   // Trigger visual gesture feedback on the cursor element
   const triggerCursorGesture = useCallback((userIndex: 1 | 2, type: 'mousedown' | 'mouseup' | 'click' | 'hold') => {
@@ -1701,7 +1728,7 @@ export function SakuraCanvas({
   }, [wakeHUDControls]);
 
   // Request Landscape Fullscreen & Orientation Lock (Android & non-iOS Mobile)
-  const requestLandscapeOrientation = useCallback(() => {
+  const requestLandscapeOrientation = useCallback(async () => {
     try {
       const docEl = document.documentElement as unknown as {
         requestFullscreen?: () => Promise<void>;
@@ -1710,7 +1737,7 @@ export function SakuraCanvas({
         msRequestFullscreen?: () => void;
       };
       if (docEl.requestFullscreen) {
-        docEl.requestFullscreen().catch(() => {});
+        await docEl.requestFullscreen().catch(() => {});
       } else if (docEl.webkitRequestFullscreen) {
         docEl.webkitRequestFullscreen();
       }
@@ -1721,14 +1748,17 @@ export function SakuraCanvas({
         };
       } | null;
       if (screenAny?.orientation?.lock) {
-        screenAny.orientation.lock('landscape').catch(() => {
-          screenAny?.orientation?.lock?.('landscape-primary')?.catch(() => {});
+        await screenAny.orientation.lock('landscape').catch(() => {
+          return screenAny?.orientation?.lock?.('landscape-primary')?.catch(() => {});
         });
       }
     } catch {
       // fallback
     }
-    setIsAndroidPortraitPrompt(false);
+    // Only auto-dismiss if screen actually transitioned to landscape
+    if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
+      setIsAndroidPortraitPrompt(false);
+    }
   }, []);
 
   const requestLandscapeOrientationRef = useRef(requestLandscapeOrientation);
@@ -1865,9 +1895,10 @@ export function SakuraCanvas({
     activeModeRef.current = newMode;
     setActiveMode(newMode);
     modeTransitionTimerRef.current = 0.0;
-    if (containerRef.current) {
-      const w = containerRef.current.clientWidth || window.innerWidth;
-      const h = containerRef.current.clientHeight || window.innerHeight;
+    if (typeof window !== 'undefined') {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const w = window.innerWidth;
+      const h = (isRunningRef.current && isPortrait) ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
       updateCameraDistance(w, h, newMode);
     }
     sendInteractionRef.current?.('MODE_SWITCH', { mode: newMode });
@@ -3739,6 +3770,7 @@ export function SakuraCanvas({
       updatePointerWorld(clientX, clientY);
 
       mousePosRef.current = { x: clientX, y: clientY };
+      localCursorRef.current = { x: clientX, y: clientY, active: true };
       // Position local user cursor element with pixel-exact hardware-accelerated transform
       const activeIdx = isHost ? 1 : 2;
       const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
@@ -3870,6 +3902,7 @@ export function SakuraCanvas({
       updatePointerWorld(clientX, clientY);
 
       mousePosRef.current = { x: clientX, y: clientY };
+      localCursorRef.current = { x: clientX, y: clientY, active: true };
       // Immediately sync cursor hotspot on touch/press
       const activeIdx = isHost ? 1 : 2;
       const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
@@ -3877,6 +3910,21 @@ export function SakuraCanvas({
         activeCursor.classList.add('active');
         activeCursor.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
       }
+
+      // Sync position immediately to remote peer on tap/press
+      if (channelRef.current) {
+        channelRef.current.postMessage({
+          type: 'CURSOR_MOVE',
+          senderIndex: activeIdx,
+          normX: clientX / window.innerWidth,
+          normY: 1.0 - (clientY / window.innerHeight)
+        });
+      }
+      sendInteractionRef.current?.('CURSOR_MOVE', {
+        senderIndex: activeIdx,
+        normX: clientX / window.innerWidth,
+        normY: 1.0 - (clientY / window.innerHeight)
+      });
 
       // Trigger gesture animation and broadcast to session
       triggerCursorGesture(activeIdx, 'mousedown');
@@ -5005,7 +5053,12 @@ export function SakuraCanvas({
         clock.start();
         isRunningRef.current = true;
         const targetMode = (mode === 'plexus' || mode === 'bluten') ? mode : 'bluten';
-        handleSwitchMode(targetMode);
+        activeModeRef.current = targetMode;
+        setActiveMode(targetMode);
+
+        // Reset and initialize scene cleanly for the active session
+        restartTriggerRef.current();
+
         if (expMode === 'souvenir') {
           setIsCreationMode(true);
           isCreationModeRef.current = true;
@@ -5016,6 +5069,9 @@ export function SakuraCanvas({
           setIsCreationMode(false);
           isCreationModeRef.current = false;
         }
+
+        handleResize();
+
         if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
           requestLandscapeOrientationRef.current?.();
         }
@@ -5027,12 +5083,15 @@ export function SakuraCanvas({
         const msg = data as unknown as Record<string, unknown>;
         if (msg.kind === 'CURSOR_MOVE') {
           const remoteIdx = (msg.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
-          const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
-          if (cursorElem && typeof msg.normX === 'number' && typeof msg.normY === 'number') {
-            cursorElem.classList.add('active');
+          if (typeof msg.normX === 'number' && typeof msg.normY === 'number') {
             const cX = (msg.normX as number) * window.innerWidth;
             const cY = (1.0 - (msg.normY as number)) * window.innerHeight;
-            cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
+            remoteCursorRef.current = { x: cX, y: cY, active: true };
+            const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
+            if (cursorElem) {
+              cursorElem.classList.add('active');
+              cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
+            }
           }
         } else if (msg.kind === 'GESTURE' && typeof msg.gestureType === 'string') {
           const remoteIdx = (msg.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
@@ -5724,6 +5783,13 @@ export function SakuraCanvas({
             >
               <span>{isEn ? '🔄 Start Landscape' : '🔄 Querformat starten'}</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setIsAndroidPortraitPrompt(false)}
+              className="text-[11px] text-[#ffc8eb]/70 hover:text-white underline underline-offset-4 tracking-wider cursor-pointer mt-1"
+            >
+              {isEn ? 'Continue in portrait view' : 'Im Hochformat fortfahren'}
+            </button>
           </div>
         </div>
       )}
@@ -5780,14 +5846,14 @@ export function SakuraCanvas({
       {/* Custom Translucent User Cursors with Names (Topmost layer: visible across all modals, completion windows and HUD) */}
       {isRunning && (
         <>
-          {/* User 1 Cursor (Host) */}
-          {(isHost || hasRemotePeer) && (
+          {/* User 1 Cursor (Host - Neon Pink) */}
+          {(isHost || peerConnected) && (
             <div
               id="userCursor1"
-              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${isHost ? 'active' : ''}`}
+              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${(isHost ? localCursorRef.current.active : remoteCursorRef.current.active) ? 'active' : ''}`}
               style={{
                 zIndex: 99999,
-                transform: `translate3d(${mousePosRef.current.x}px, ${mousePosRef.current.y}px, 0)`,
+                transform: `translate3d(${isHost ? localCursorRef.current.x : remoteCursorRef.current.x}px, ${isHost ? localCursorRef.current.y : remoteCursorRef.current.y}px, 0)`,
                 '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
                 '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
               } as React.CSSProperties}
@@ -5799,14 +5865,14 @@ export function SakuraCanvas({
             </div>
           )}
 
-          {/* User 2 Cursor (Guest - only rendered when guest is active or current player is the guest) */}
-          {(!isHost || hasRemotePeer) && (
+          {/* User 2 Cursor (Guest - Cyan Glow) */}
+          {(!isHost || peerConnected) && (
             <div
               id="userCursor2"
-              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${!isHost ? 'active' : ''}`}
+              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${(!isHost ? localCursorRef.current.active : remoteCursorRef.current.active) ? 'active' : ''}`}
               style={{
                 zIndex: 99999,
-                transform: `translate3d(${mousePosRef.current.x}px, ${mousePosRef.current.y}px, 0)`,
+                transform: `translate3d(${!isHost ? localCursorRef.current.x : remoteCursorRef.current.x}px, ${!isHost ? localCursorRef.current.y : remoteCursorRef.current.y}px, 0)`,
                 '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
                 '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
               } as React.CSSProperties}

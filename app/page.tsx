@@ -11,6 +11,7 @@ function ArtCubeApp() {
   const [isStarted, setIsStarted] = useState<boolean>(false);
   const [myName, setMyName] = useState<string>('');
   const [guestName, setGuestName] = useState<string>('');
+  const [hostName, setHostName] = useState<string>('Host');
   const [sessionId, setSessionId] = useState<string>('session-' + Math.random().toString(36).substring(2, 8));
   const [isHost, setIsHost] = useState<boolean>(true);
   const [isJoined, setIsJoined] = useState<boolean>(false);
@@ -68,10 +69,11 @@ function ArtCubeApp() {
     isHost,
     myName,
     onGuestJoined: (name) => {
-      setGuestName(name);
+      if (name) setGuestName(name);
       setIsJoined(true);
     },
-    onHostAck: () => {
+    onHostAck: (name) => {
+      if (name) setHostName(name);
       setIsJoined(true);
     },
     onStartSession: (artwork, mode) => {
@@ -134,6 +136,8 @@ function ArtCubeApp() {
           isRecording={false}
           isHost={isHost}
           myName={myName || (isHost ? 'Host' : (guestName || 'Gast'))}
+          peerName={isHost ? guestName : hostName}
+          isJoined={isJoined}
           sessionId={sessionId}
           sendInteraction={handleSendInteraction}
           onCanvasesReady={handleCanvasesReady}
