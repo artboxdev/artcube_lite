@@ -7,6 +7,7 @@ import { ExperienceStation } from './ExperienceStation';
 import { StorySection } from './StorySection';
 import { NewsletterSection } from './NewsletterSection';
 import { OnepagerFooter } from './OnepagerFooter';
+import { GuestJoinScreen } from './GuestJoinScreen';
 import WalletUnavailableModal from '../WalletUnavailableModal';
 import { Language } from './translations';
 
@@ -15,8 +16,9 @@ interface OnepagerViewProps {
   isHost: boolean;
   sessionId: string;
   myName: string;
+  guestName?: string;
   onNameChange: (name: string) => void;
-  onJoin: () => void;
+  onJoin: (name?: string) => void;
   onStart: (artwork: 'bluten' | 'plexus', mode?: 'test' | 'souvenir') => void;
   isJoined: boolean;
 }
@@ -26,6 +28,7 @@ export function OnepagerView({
   isHost,
   sessionId,
   myName,
+  guestName,
   onNameChange,
   onJoin,
   onStart,
@@ -33,6 +36,7 @@ export function OnepagerView({
 }: OnepagerViewProps) {
   const [lang, setLang] = useState<Language>('de');
   const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [isGuestScreenDismissed, setIsGuestScreenDismissed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Restore language from localStorage on mount
@@ -146,6 +150,7 @@ export function OnepagerView({
         isHost={isHost}
         sessionId={sessionId}
         isJoined={isJoined}
+        guestName={guestName}
         onJoin={onJoin}
         onStart={onStart}
         onModalToggle={handleModalToggle}
@@ -170,6 +175,24 @@ export function OnepagerView({
         onClose={handleCloseWallet}
         lang={lang}
       />
+
+      {/* Dedicated Guest Join Screen (prominently displayed when second user opens the link) */}
+      {!isHost && !isGuestScreenDismissed && (
+        <GuestJoinScreen
+          lang={lang}
+          onLanguageChange={handleLanguageChange}
+          sessionId={sessionId}
+          myName={myName}
+          onNameChange={handleNameUpdate}
+          isJoined={isJoined}
+          onJoin={onJoin}
+          onStart={onStart}
+          onDismissToWebsite={() => {
+            setIsGuestScreenDismissed(true);
+            handleNavigateTo('erleben');
+          }}
+        />
+      )}
     </div>
   );
 }

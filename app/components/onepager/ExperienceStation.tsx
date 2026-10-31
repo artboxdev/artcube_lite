@@ -13,7 +13,8 @@ interface ExperienceStationProps {
   isHost: boolean;
   sessionId: string;
   isJoined: boolean;
-  onJoin: () => void;
+  guestName?: string;
+  onJoin: (name?: string) => void;
   onStart: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => void;
   showToast?: (msg: string) => void;
   onModalToggle?: (open: boolean) => void;
@@ -44,6 +45,7 @@ export function ExperienceStation({
   isHost,
   sessionId,
   isJoined,
+  guestName,
   onJoin,
   onStart,
   showToast,
@@ -141,7 +143,7 @@ export function ExperienceStation({
     if (!myName.trim()) {
       onNameChange(finalName);
     }
-    onJoin();
+    onJoin(finalName);
   };
 
   return (
@@ -287,12 +289,14 @@ export function ExperienceStation({
             {/* Status Indicators */}
             <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-white/5 text-[11px]">
               <div className="flex items-center gap-2 text-white/80">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
                 <span>{t.hostStatus}: {myName || t.you}</span>
               </div>
               <div className="flex items-center gap-2 text-white/50">
-                <span className={`w-2 h-2 rounded-full ${isJoined ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                <span>{t.guestStatus}: {isJoined ? t.connected : t.waiting}</span>
+                <span className={`w-2 h-2 rounded-full transition-colors duration-300 ${isJoined ? 'bg-emerald-400 shadow-[0_0_10px_#34d399] animate-pulse' : 'bg-white/20'}`} />
+                <span className={isJoined ? 'text-emerald-300 font-semibold transition-colors' : ''}>
+                  {t.guestStatus}: {isJoined ? `${t.connected} (${guestName || 'Gast'})` : t.waiting}
+                </span>
               </div>
             </div>
           </div>

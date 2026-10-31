@@ -3,12 +3,14 @@
 import { useState, useCallback, Suspense, useEffect, useRef } from 'react';
 import { EXPERIENCES, DEFAULT_EXPERIENCE_ID } from './experiences';
 import { OnepagerView } from './components/onepager/OnepagerView';
+import { useMultiplayerSession } from './hooks/useMultiplayerSession';
 import type { ExperienceRendererAPI } from './lib/experience-types';
 
 function ArtCubeApp() {
   const [selectedExperienceId, setSelectedExperienceId] = useState<string>(DEFAULT_EXPERIENCE_ID);
   const [isStarted, setIsStarted] = useState<boolean>(false);
   const [myName, setMyName] = useState<string>('');
+  const [guestName, setGuestName] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('session-' + Math.random().toString(36).substring(2, 8));
   const [isHost, setIsHost] = useState<boolean>(true);
   const [isJoined, setIsJoined] = useState<boolean>(false);
@@ -42,16 +44,54 @@ function ArtCubeApp() {
 
   const [activeArtworkMode, setActiveArtworkMode] = useState<'bluten' | 'plexus'>('bluten');
 
-  const handleStart = useCallback((mode?: 'bluten' | 'plexus', expMode?: 'test' | 'souvenir') => {
+  // Trigger local start
+  const handleStart = useCallback((mode?: 'bluten' | 'plexus', expMode?: 'test' | 'souvenir', broadcast = true) => {
     const targetMode = mode || 'bluten';
+    const targetExpMode = expMode || 'test';
     setActiveArtworkMode(targetMode);
     setIsStarted(true);
     setElapsed(0);
     elapsedRef.current = 0;
+
+    if (broadcast) {
+      multiplayerRef.current?.sendStartSession(targetMode, targetExpMode);
+    }
+
     setTimeout(() => {
-      rendererApiRef.current?.start?.(targetMode, expMode);
+      rendererApiRef.current?.start?.(targetMode, targetExpMode);
     }, 50);
   }, []);
+
+  // Real-time PeerJS & BroadcastChannel Multiplayer Synchronization
+  const multiplayer = useMultiplayerSession({
+    sessionId,
+    isHost,
+    myName,
+    onGuestJoined: (name) => {
+      setGuestName(name);
+      setIsJoined(true);
+    },
+    onHostAck: () => {
+      setIsJoined(true);
+    },
+    onStartSession: (artwork, mode) => {
+      handleStart(artwork, mode, false);
+    },
+    onPeerMessage: (data) => {
+      rendererApiRef.current?.handlePeerMessage?.(data as any);
+    },
+  });
+
+  const multiplayerRef = useRef(multiplayer);
+  useEffect(() => {
+    multiplayerRef.current = multiplayer;
+  }, [multiplayer]);
+
+  const handleJoin = useCallback((chosenName?: string) => {
+    const finalName = chosenName || myName;
+    setIsJoined(true);
+    multiplayer.sendGuestJoin(finalName);
+  }, [myName, multiplayer]);
 
   const handleExit = useCallback(() => {
     setIsStarted(false);
@@ -66,7 +106,10 @@ function ArtCubeApp() {
     }
   }, [isStarted, activeArtworkMode]);
 
-  const handleSendInteraction = useCallback(() => {}, []);
+  const handleSendInteraction = useCallback((kind: string, payload: unknown) => {
+    multiplayerRef.current?.sendArtworkInteraction(kind, payload);
+  }, []);
+
   const handleCanvasesReady = useCallback(() => {}, []);
 
   const selectedExperience = EXPERIENCES.find((e) => e.id === selectedExperienceId) || EXPERIENCES[0];
@@ -90,7 +133,7 @@ function ArtCubeApp() {
           isMobile={isMobile}
           isRecording={false}
           isHost={isHost}
-          myName={myName || (isHost ? 'Host' : 'Gast')}
+          myName={myName || (isHost ? 'Host' : (guestName || 'Gast'))}
           sessionId={sessionId}
           sendInteraction={handleSendInteraction}
           onCanvasesReady={handleCanvasesReady}
@@ -105,8 +148,9 @@ function ArtCubeApp() {
         isHost={isHost}
         sessionId={sessionId}
         myName={myName}
+        guestName={guestName}
         onNameChange={setMyName}
-        onJoin={() => setIsJoined(true)}
+        onJoin={handleJoin}
         onStart={handleStart}
         isJoined={isJoined}
       />

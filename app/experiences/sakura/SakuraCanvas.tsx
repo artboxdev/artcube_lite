@@ -3756,6 +3756,11 @@ export function SakuraCanvas({
           normY: 1.0 - (clientY / window.innerHeight)
         });
       }
+      sendInteractionRef.current?.('CURSOR_MOVE', {
+        senderIndex: activeIdx,
+        normX: clientX / window.innerWidth,
+        normY: 1.0 - (clientY / window.innerHeight)
+      });
 
       // Sumi-e Circle Gesture Detection (2D PCA Covariance + Centroid Angular Sweep from DualSlider)
       if (
@@ -3882,6 +3887,10 @@ export function SakuraCanvas({
           gestureType: 'mousedown'
         });
       }
+      sendInteractionRef.current?.('GESTURE', {
+        senderIndex: activeIdx,
+        gestureType: 'mousedown'
+      });
 
       const isTargetButton = e.target instanceof HTMLElement && Boolean(e.target.closest('button'));
       if (activeModeRef.current === 'bluten' && !isTargetButton) {
@@ -5014,8 +5023,27 @@ export function SakuraCanvas({
       handlePeerMessage: (data) => {
         if (!data) return;
         setHasRemotePeer(true);
+        hasRemotePeerRef.current = true;
         const msg = data as unknown as Record<string, unknown>;
-        if (msg.kind === 'MODE_SWITCH' && msg.mode) {
+        if (msg.kind === 'CURSOR_MOVE') {
+          const remoteIdx = (msg.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
+          const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
+          if (cursorElem && typeof msg.normX === 'number' && typeof msg.normY === 'number') {
+            cursorElem.classList.add('active');
+            const cX = (msg.normX as number) * window.innerWidth;
+            const cY = (1.0 - (msg.normY as number)) * window.innerHeight;
+            cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
+          }
+        } else if (msg.kind === 'GESTURE' && typeof msg.gestureType === 'string') {
+          const remoteIdx = (msg.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
+          triggerCursorGesture(remoteIdx, msg.gestureType as any);
+        } else if (msg.kind === 'USER_NAME') {
+          if (isHost && msg.senderIndex === 2 && msg.user2Name) {
+            setRemoteUser2Name(msg.user2Name as string);
+          } else if (!isHost && msg.senderIndex === 1 && msg.user1Name) {
+            setRemoteUser1Name(msg.user1Name as string);
+          }
+        } else if (msg.kind === 'MODE_SWITCH' && msg.mode) {
           handleSwitchMode(msg.mode as 'bluten' | 'plexus');
         } else if (msg.kind === 'COLOR_SELECT' && msg.color) {
           setSelectedColor(msg.color as BlossomColorId);
