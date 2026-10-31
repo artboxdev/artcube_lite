@@ -143,6 +143,32 @@ export function ExperienceStation({
     if (!myName.trim()) {
       onNameChange(finalName);
     }
+
+    // On Android devices, initiate fullscreen and landscape orientation lock directly during this active user gesture
+    if (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)) {
+      try {
+        const docEl = document.documentElement as unknown as {
+          requestFullscreen?: () => Promise<void>;
+          webkitRequestFullscreen?: () => void;
+        };
+        if (docEl.requestFullscreen) {
+          docEl.requestFullscreen().catch(() => {});
+        } else if (docEl.webkitRequestFullscreen) {
+          docEl.webkitRequestFullscreen();
+        }
+        const screenAny = (typeof screen !== 'undefined' ? screen : null) as unknown as {
+          orientation?: {
+            lock?: (orientation: string) => Promise<void>;
+          };
+        } | null;
+        if (screenAny?.orientation?.lock) {
+          screenAny.orientation.lock('landscape').catch(() => {
+            return screenAny?.orientation?.lock?.('landscape-primary')?.catch(() => {});
+          });
+        }
+      } catch {}
+    }
+
     onJoin(finalName);
   };
 
