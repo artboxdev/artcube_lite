@@ -12,8 +12,21 @@ function ArtCubeApp() {
   const [myName, setMyName] = useState<string>('');
   const [guestName, setGuestName] = useState<string>('');
   const [hostName, setHostName] = useState<string>('Host');
-  const [sessionId, setSessionId] = useState<string>('session-' + Math.random().toString(36).substring(2, 8));
-  const [isHost, setIsHost] = useState<boolean>(true);
+  const [sessionId, setSessionId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const sid = params.get('sid') || params.get('room');
+      if (sid) return sid;
+    }
+    return 'session-' + Math.random().toString(36).substring(2, 8);
+  });
+  const [isHost, setIsHost] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('sid') || params.get('room')) return false;
+    }
+    return true;
+  });
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 

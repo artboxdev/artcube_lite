@@ -37,6 +37,12 @@ export function useMultiplayerSession({
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [peerError, setPeerError] = useState<string | null>(null);
 
+  const myNameRef = useRef(myName);
+  myNameRef.current = myName;
+
+  const isHostRef = useRef(isHost);
+  isHostRef.current = isHost;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const peerRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,8 +65,41 @@ export function useMultiplayerSession({
 
   const safeSessionId = (sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '');
 
+  // Transmit message to peer via both WebRTC and BroadcastChannel
+  const broadcastMessage = useCallback((msg: MultiplayerMessage) => {
+    const fullMsg: MultiplayerMessage = {
+      ...msg,
+      id: msg.id || 'msg_' + Math.random().toString(36).substring(2, 9),
+      timestamp: Date.now(),
+      sessionId: safeSessionId,
+    };
+
+    // 1. WebRTC DataConnection
+    if (connRef.current && connRef.current.open) {
+      try {
+        connRef.current.send(fullMsg);
+      } catch {}
+    }
+
+    // 2. BroadcastChannel
+    if (channelRef.current) {
+      try {
+        channelRef.current.postMessage(fullMsg);
+      } catch {}
+    }
+  }, [safeSessionId]);
+
+  const broadcastMessageRef = useRef(broadcastMessage);
+  broadcastMessageRef.current = broadcastMessage;
+
   const dispatchIncomingMessage = useCallback((msg: MultiplayerMessage) => {
     if (!msg || !msg.type) return;
+
+    // Ignore echoes of our own messages
+    const mySenderIndex = isHostRef.current ? 1 : 2;
+    if (msg.senderIndex !== undefined && msg.senderIndex === mySenderIndex) {
+      return;
+    }
 
     // Deduplication check across WebRTC and BroadcastChannel
     const dedupeKey = msg.id || `${msg.type}_${msg.timestamp || 0}_${JSON.stringify(msg.payload || '')}`;
@@ -73,17 +112,16 @@ export function useMultiplayerSession({
     if (msg.type === 'GUEST_JOIN') {
       setIsConnected(true);
       callbacksRef.current.onGuestJoined?.(msg.name || 'Gast');
-      // If Host received guest join, send acknowledgment back
-      if (isHost && connRef.current && connRef.current.open) {
-        try {
-          connRef.current.send({
-            id: 'ack_' + Math.random().toString(36).substring(2, 9),
-            type: 'HOST_ACK',
-            name: myName || 'Host',
-            sessionId: safeSessionId,
-            timestamp: Date.now(),
-          });
-        } catch {}
+      // If Host received guest join, send acknowledgment back via both WebRTC & BroadcastChannel
+      if (isHostRef.current) {
+        broadcastMessageRef.current({
+          id: 'ack_' + Math.random().toString(36).substring(2, 9),
+          type: 'HOST_ACK',
+          name: myNameRef.current || 'Host',
+          sessionId: safeSessionId,
+          timestamp: Date.now(),
+          senderIndex: 1,
+        });
       }
     } else if (msg.type === 'HOST_ACK') {
       setIsConnected(true);
@@ -93,7 +131,10 @@ export function useMultiplayerSession({
     } else if (msg.type === 'ARTWORK_INTERACTION') {
       callbacksRef.current.onPeerMessage?.(msg.payload ?? msg);
     }
-  }, [isHost, myName, safeSessionId]);
+  }, [safeSessionId]);
+
+  const dispatchIncomingMessageRef = useRef(dispatchIncomingMessage);
+  dispatchIncomingMessageRef.current = dispatchIncomingMessage;
 
   // Setup PeerJS & BroadcastChannel
   useEffect(() => {
@@ -108,7 +149,7 @@ export function useMultiplayerSession({
         channelRef.current = bc;
         bc.onmessage = (event) => {
           if (!isMounted) return;
-          dispatchIncomingMessage(event.data);
+          dispatchIncomingMessageRef.current(event.data);
         };
       }
     } catch (e) {
@@ -187,24 +228,11 @@ export function useMultiplayerSession({
         if (!isMounted) return;
         setIsConnected(true);
         setPeerError(null);
-
-        // If Guest has a name, immediately announce join
-        if (!isHost && myName) {
-          try {
-            conn.send({
-              id: 'join_' + Math.random().toString(36).substring(2, 9),
-              type: 'GUEST_JOIN',
-              name: myName,
-              sessionId: safeSessionId,
-              timestamp: Date.now(),
-            });
-          } catch {}
-        }
       });
 
       conn.on('data', (data: unknown) => {
         if (!isMounted) return;
-        dispatchIncomingMessage(data as MultiplayerMessage);
+        dispatchIncomingMessageRef.current(data as MultiplayerMessage);
       });
 
       conn.on('close', () => {
@@ -228,31 +256,7 @@ export function useMultiplayerSession({
         channelRef.current?.close();
       } catch {}
     };
-  }, [safeSessionId, isHost, dispatchIncomingMessage, myName]);
-
-  // Transmit message to peer via both WebRTC and BroadcastChannel
-  const broadcastMessage = useCallback((msg: MultiplayerMessage) => {
-    const fullMsg: MultiplayerMessage = {
-      ...msg,
-      id: msg.id || 'msg_' + Math.random().toString(36).substring(2, 9),
-      timestamp: Date.now(),
-      sessionId: safeSessionId,
-    };
-
-    // 1. WebRTC DataConnection
-    if (connRef.current && connRef.current.open) {
-      try {
-        connRef.current.send(fullMsg);
-      } catch {}
-    }
-
-    // 2. BroadcastChannel
-    if (channelRef.current) {
-      try {
-        channelRef.current.postMessage(fullMsg);
-      } catch {}
-    }
-  }, [safeSessionId]);
+  }, [safeSessionId, isHost]);
 
   // Explicit Guest Join action
   const sendGuestJoin = useCallback((guestName: string) => {
@@ -278,9 +282,9 @@ export function useMultiplayerSession({
       type: 'ARTWORK_INTERACTION',
       kind,
       payload: { kind, ...(typeof payload === 'object' && payload !== null ? payload : { value: payload }) },
-      senderIndex: isHost ? 1 : 2,
+      senderIndex: isHostRef.current ? 1 : 2,
     });
-  }, [isHost, broadcastMessage]);
+  }, [broadcastMessage]);
 
   return {
     isConnected,

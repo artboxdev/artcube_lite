@@ -1397,6 +1397,11 @@ export function SakuraCanvas({
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0
   });
 
+  const isHostRef = useRef(isHost);
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
+
   // Dedicated refs for Local and Remote cursor positions to prevent collision or overwriting
   const localCursorRef = useRef<{ x: number; y: number; active: boolean }>({
     x: typeof window !== 'undefined' ? (isHost ? window.innerWidth * 0.4 : window.innerWidth * 0.6) : -100,
@@ -1460,94 +1465,7 @@ export function SakuraCanvas({
     }
   }, []);
 
-  // Cross-Tab & Multi-Screen Real-Time Session Synchronization via BroadcastChannel
-  const effectiveSessionId = sessionId || 'sakura-session';
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
-    const channel = new BroadcastChannel(`sakura_channel_${effectiveSessionId}`);
-    channelRef.current = channel;
 
-    // Broadcast our name to the session
-    channel.postMessage({
-      type: 'USER_NAME',
-      senderIndex: isHost ? 1 : 2,
-      user1Name: isHost ? (myName || 'Host') : undefined,
-      user2Name: !isHost ? (myName || 'Gast') : undefined
-    });
-
-    channel.onmessage = (event) => {
-      const data = event.data;
-      if (!data || !data.type) return;
-
-      if (data.type === 'CURSOR_MOVE') {
-        hasRemotePeerRef.current = true;
-        setHasRemotePeer(true);
-        const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
-        const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
-        if (cursorElem) {
-          cursorElem.classList.add('active');
-          const cX = data.normX * window.innerWidth;
-          const cY = (1.0 - data.normY) * window.innerHeight;
-          cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
-        }
-      } else if (data.type === 'GESTURE') {
-        hasRemotePeerRef.current = true;
-        setHasRemotePeer(true);
-        const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
-        triggerCursorGesture(remoteIdx as 1 | 2, data.gestureType);
-      } else if (data.type === 'USER_NAME') {
-        hasRemotePeerRef.current = true;
-        setHasRemotePeer(true);
-        if (isHost && data.senderIndex === 2) {
-          if (data.user2Name) setRemoteUser2Name(data.user2Name);
-          // Ping back so the connecting guest immediately knows host is present
-          channel.postMessage({
-            type: 'USER_NAME',
-            senderIndex: 1,
-            user1Name: myName || 'Host'
-          });
-        } else if (!isHost && data.senderIndex === 1) {
-          if (data.user1Name) setRemoteUser1Name(data.user1Name);
-        }
-      } else if (data.type === 'SUMIE_VORTEX_CIRCLE') {
-        hasRemotePeerRef.current = true;
-        setHasRemotePeer(true);
-        const remoteIdx = (data.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
-        triggerCircleFromUserRef.current?.(remoteIdx, false);
-      } else if (data.type === 'BLOSSOM_COLOR_ADD' && data.color) {
-        hasRemotePeerRef.current = true;
-        setHasRemotePeer(true);
-        syncRemoteBlossomColorRef.current?.(data.color as BlossomColorId);
-      } else if (data.type === 'USER_LEAVE') {
-        const remoteIdx = data.senderIndex || (isHost ? 2 : 1);
-        const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
-        if (cursorElem) {
-          cursorElem.classList.remove('active');
-        }
-        hasRemotePeerRef.current = false;
-        setHasRemotePeer(false);
-        onRemoteUserLeaveRef.current?.();
-      }
-    };
-
-    const handleBeforeUnload = () => {
-      try {
-        channel.postMessage({
-          type: 'USER_LEAVE',
-          senderIndex: isHost ? 1 : 2
-        });
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      channel.close();
-      channelRef.current = null;
-    };
-  }, [effectiveSessionId, isHost, myName, triggerCursorGesture]);
 
   // App & Artwork Mode State
   const [activeMode, setActiveMode] = useState<'bluten' | 'plexus'>(
@@ -2668,13 +2586,6 @@ export function SakuraCanvas({
       const curColor = selectedColorRef.current;
       colorCountsRef.current[curColor] += 1;
       startFlyingPetalsIfNeeded();
-      if (channelRef.current) {
-        channelRef.current.postMessage({
-          type: 'BLOSSOM_COLOR_ADD',
-          senderIndex: isHost ? 1 : 2,
-          color: curColor
-        });
-      }
       sendInteractionRef.current?.('BLOSSOM_COLOR_ADD', { color: curColor });
       const palette = BLOSSOM_PALETTES[curColor];
 
@@ -3772,22 +3683,13 @@ export function SakuraCanvas({
       mousePosRef.current = { x: clientX, y: clientY };
       localCursorRef.current = { x: clientX, y: clientY, active: true };
       // Position local user cursor element with pixel-exact hardware-accelerated transform
-      const activeIdx = isHost ? 1 : 2;
+      const activeIdx = isHostRef.current ? 1 : 2;
       const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
       if (activeCursor) {
         activeCursor.classList.add('active');
         activeCursor.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
       }
 
-      // Broadcast cursor move to multi-screen session peer
-      if (channelRef.current) {
-        channelRef.current.postMessage({
-          type: 'CURSOR_MOVE',
-          senderIndex: activeIdx,
-          normX: clientX / window.innerWidth,
-          normY: 1.0 - (clientY / window.innerHeight)
-        });
-      }
       sendInteractionRef.current?.('CURSOR_MOVE', {
         senderIndex: activeIdx,
         normX: clientX / window.innerWidth,
@@ -3904,7 +3806,7 @@ export function SakuraCanvas({
       mousePosRef.current = { x: clientX, y: clientY };
       localCursorRef.current = { x: clientX, y: clientY, active: true };
       // Immediately sync cursor hotspot on touch/press
-      const activeIdx = isHost ? 1 : 2;
+      const activeIdx = isHostRef.current ? 1 : 2;
       const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
       if (activeCursor) {
         activeCursor.classList.add('active');
@@ -3912,14 +3814,6 @@ export function SakuraCanvas({
       }
 
       // Sync position immediately to remote peer on tap/press
-      if (channelRef.current) {
-        channelRef.current.postMessage({
-          type: 'CURSOR_MOVE',
-          senderIndex: activeIdx,
-          normX: clientX / window.innerWidth,
-          normY: 1.0 - (clientY / window.innerHeight)
-        });
-      }
       sendInteractionRef.current?.('CURSOR_MOVE', {
         senderIndex: activeIdx,
         normX: clientX / window.innerWidth,
@@ -3928,13 +3822,6 @@ export function SakuraCanvas({
 
       // Trigger gesture animation and broadcast to session
       triggerCursorGesture(activeIdx, 'mousedown');
-      if (channelRef.current) {
-        channelRef.current.postMessage({
-          type: 'GESTURE',
-          senderIndex: activeIdx,
-          gestureType: 'mousedown'
-        });
-      }
       sendInteractionRef.current?.('GESTURE', {
         senderIndex: activeIdx,
         gestureType: 'mousedown'
@@ -3969,16 +3856,13 @@ export function SakuraCanvas({
     };
 
     const handlePointerUp = (e?: MouseEvent | TouchEvent) => {
-      const activeIdx = isHost ? 1 : 2;
+      const activeIdx = isHostRef.current ? 1 : 2;
       triggerCursorGesture(activeIdx, 'mouseup');
       triggerCursorGesture(activeIdx, 'click');
-      if (channelRef.current) {
-        channelRef.current.postMessage({
-          type: 'GESTURE',
-          senderIndex: activeIdx,
-          gestureType: 'click'
-        });
-      }
+      sendInteractionRef.current?.('GESTURE', {
+        senderIndex: activeIdx,
+        gestureType: 'click'
+      });
 
       const touch = e && 'changedTouches' in e && e.changedTouches.length > 0 ? e.changedTouches[0] : null;
       const clientX = touch ? touch.clientX : (e as MouseEvent | undefined)?.clientX;
@@ -5081,8 +4965,16 @@ export function SakuraCanvas({
         setHasRemotePeer(true);
         hasRemotePeerRef.current = true;
         const msg = data as unknown as Record<string, unknown>;
+        const myIndex = isHostRef.current ? 1 : 2;
+
+        // Ignore echoes of our own messages
+        if (typeof msg.senderIndex === 'number' && msg.senderIndex === myIndex) {
+          return;
+        }
+
+        const remoteIdx = (typeof msg.senderIndex === 'number' ? msg.senderIndex : (myIndex === 1 ? 2 : 1)) as 1 | 2;
+
         if (msg.kind === 'CURSOR_MOVE') {
-          const remoteIdx = (msg.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
           if (typeof msg.normX === 'number' && typeof msg.normY === 'number') {
             const cX = (msg.normX as number) * window.innerWidth;
             const cY = (1.0 - (msg.normY as number)) * window.innerHeight;
@@ -5094,12 +4986,11 @@ export function SakuraCanvas({
             }
           }
         } else if (msg.kind === 'GESTURE' && typeof msg.gestureType === 'string') {
-          const remoteIdx = (msg.senderIndex || (isHost ? 2 : 1)) as 1 | 2;
           triggerCursorGesture(remoteIdx, msg.gestureType as any);
         } else if (msg.kind === 'USER_NAME') {
-          if (isHost && msg.senderIndex === 2 && msg.user2Name) {
+          if (myIndex === 1 && msg.senderIndex === 2 && msg.user2Name) {
             setRemoteUser2Name(msg.user2Name as string);
-          } else if (!isHost && msg.senderIndex === 1 && msg.user1Name) {
+          } else if (myIndex === 2 && msg.senderIndex === 1 && msg.user1Name) {
             setRemoteUser1Name(msg.user1Name as string);
           }
         } else if (msg.kind === 'MODE_SWITCH' && msg.mode) {
@@ -5109,7 +5000,6 @@ export function SakuraCanvas({
         } else if (msg.kind === 'BLOSSOM_COLOR_ADD' && msg.color) {
           syncRemoteBlossomColorRef.current?.(msg.color as BlossomColorId);
         } else if (msg.kind === 'SUMIE_VORTEX_CIRCLE') {
-          const remoteIdx: 1 | 2 = isHost ? 2 : 1;
           triggerCircleFromUserRef.current?.(remoteIdx, false);
         } else if (msg.kind === 'RESTART_ARTWORK') {
           colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
@@ -5847,42 +5737,38 @@ export function SakuraCanvas({
       {isRunning && (
         <>
           {/* User 1 Cursor (Host - Neon Pink) */}
-          {(isHost || peerConnected) && (
-            <div
-              id="userCursor1"
-              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${(isHost ? localCursorRef.current.active : remoteCursorRef.current.active) ? 'active' : ''}`}
-              style={{
-                zIndex: 99999,
-                transform: `translate3d(${isHost ? localCursorRef.current.x : remoteCursorRef.current.x}px, ${isHost ? localCursorRef.current.y : remoteCursorRef.current.y}px, 0)`,
-                '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
-                '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
-              } as React.CSSProperties}
-            >
-              <div id="cursorCircle1" className="cursor-circle" />
-              <div id="cursorName1" className="cursor-name">
-                {displayUser1Name}
-              </div>
+          <div
+            id="userCursor1"
+            className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${(isHost ? localCursorRef.current.active : remoteCursorRef.current.active) ? 'active' : ''}`}
+            style={{
+              zIndex: 99999,
+              transform: `translate3d(${isHost ? localCursorRef.current.x : remoteCursorRef.current.x}px, ${isHost ? localCursorRef.current.y : remoteCursorRef.current.y}px, 0)`,
+              '--user-color-alpha': `rgba(${user1ColorRef.current.rgb}, 0.35)`,
+              '--user-color-glow': `rgba(${user1ColorRef.current.rgb}, 0.8)`
+            } as React.CSSProperties}
+          >
+            <div id="cursorCircle1" className="cursor-circle" />
+            <div id="cursorName1" className="cursor-name">
+              {displayUser1Name}
             </div>
-          )}
+          </div>
 
           {/* User 2 Cursor (Guest - Cyan Glow) */}
-          {(!isHost || peerConnected) && (
-            <div
-              id="userCursor2"
-              className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${(!isHost ? localCursorRef.current.active : remoteCursorRef.current.active) ? 'active' : ''}`}
-              style={{
-                zIndex: 99999,
-                transform: `translate3d(${!isHost ? localCursorRef.current.x : remoteCursorRef.current.x}px, ${!isHost ? localCursorRef.current.y : remoteCursorRef.current.y}px, 0)`,
-                '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
-                '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
-              } as React.CSSProperties}
-            >
-              <div id="cursorCircle2" className="cursor-circle" />
-              <div id="cursorName2" className="cursor-name">
-                {displayUser2Name}
-              </div>
+          <div
+            id="userCursor2"
+            className={`user-cursor pointer-events-none fixed top-0 left-0 select-none ${(!isHost ? localCursorRef.current.active : remoteCursorRef.current.active) ? 'active' : ''}`}
+            style={{
+              zIndex: 99999,
+              transform: `translate3d(${!isHost ? localCursorRef.current.x : remoteCursorRef.current.x}px, ${!isHost ? localCursorRef.current.y : remoteCursorRef.current.y}px, 0)`,
+              '--user-color-alpha': `rgba(${user2ColorRef.current.rgb}, 0.35)`,
+              '--user-color-glow': `rgba(${user2ColorRef.current.rgb}, 0.8)`
+            } as React.CSSProperties}
+          >
+            <div id="cursorCircle2" className="cursor-circle" />
+            <div id="cursorName2" className="cursor-name">
+              {displayUser2Name}
             </div>
-          )}
+          </div>
         </>
       )}
     </div>
