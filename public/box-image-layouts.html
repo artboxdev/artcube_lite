@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>art.cube — Bildanordnungs-Konzepte für PhysicalCubeStation / StorySection</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <script>
+    if (!window.tailwind) {
+      document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
+    }
+  </script>
+  <style>
+    :root {
+      --bg-dark: #08000c;
+      --card-bg: rgba(18, 12, 28, 0.85);
+      --pink-neon: #ff2a9d;
+      --cyan-neon: #4ee2ec;
+      --violet-neon: #a855f7;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #ffffff;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #08000c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2b133d;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #ff2a9d;
+    }
+
+    /* Animated Loading Bar */
+    @keyframes loadingShimmer {
+      0% {
+        transform: translateX(-100%);
+      }
+      50% {
+        transform: translateX(30%);
+      }
+      100% {
+        transform: translateX(110%);
+      }
+    }
+    .animate-loading-bar {
+      animation: loadingShimmer 3s ease-in-out infinite;
+    }
+
+    /* Subtle Glassmorphic Reflections */
+    .glass-card {
+      background: rgba(18, 12, 28, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+    .glass-pill {
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Glow utilities */
+    .glow-pink-box {
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(255, 42, 157, 0.15);
+    }
+    .glow-cyan-box {
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(78, 226, 236, 0.15);
+    }
+
+    /* Interactive Holographic PiP Card Hover */
+    .pip-container {
+      perspective: 1000px;
+      transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    .pip-container:hover {
+      transform: translateY(-2px) scale(1.01);
+    }
+
+    /* Transitions for viewport resizing simulator */
+    .viewport-transition {
+      transition: max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-[#ff2a9d] selection:text-white pb-32">
+
+  <!-- ===================================================================== -->
+  <!-- TOP STICKY APP-HEADER & CONTROLS                                       -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-50 bg-[#08000c]/90 backdrop-blur-xl border-b border-white/10 px-4 sm:px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_15px_rgba(255,42,157,0.4)]">
+          <div class="w-full h-full bg-[#08000c] rounded-[10px] flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2L29 9.5V22.5L16 30L3 22.5V9.5L16 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M16 2L16 16M16 16L3 9.5M16 16L29 9.5M16 16L16 30" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity="0.6"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold tracking-wider text-sm sm:text-base text-white">ART.CUBE</span>
+            <span class="px-2 py-0.5 rounded-full bg-pink-500/20 text-[#ff80df] text-[10px] font-mono font-bold uppercase tracking-wider border border-pink-500/30">
+              Box-Layout Lab
+            </span>
+          </div>
+          <p class="text-[11px] text-white/50 hidden sm:block">3 Layout-Muster für PhysicalCubeStation / StorySection (Box 1 & Box 2)</p>
+        </div>
+      </div>
+
+      <!-- Quick Control Hub -->
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <!-- Pattern Segmented Tabs -->
+        <div class="flex items-center rounded-xl bg-white/5 p-1 border border-white/10 text-xs">
+          <button id="tab-btn-all" onclick="switchView('all')" class="px-3 py-1.5 rounded-lg font-bold transition-all text-white bg-gradient-to-r from-pink-500 to-purple-600 shadow-md">
+            Alle Muster
+          </button>
+          <button id="tab-btn-m1" onclick="switchView('m1')" class="px-3 py-1.5 rounded-lg font-medium transition-all text-white/70 hover:text-white">
+            1. Hero-Banner
+          </button>
+          <button id="tab-btn-m2" onclick="switchView('m2')" class="px-3 py-1.5 rounded-lg font-medium transition-all text-white/70 hover:text-white">
+            2. Split-Stage
+          </button>
+          <button id="tab-btn-m3" onclick="switchView('m3')" class="px-3 py-1.5 rounded-lg font-medium transition-all text-white/70 hover:text-white">
+            3. Holographic PiP
+          </button>
+        </div>
+
+        <!-- Asset Toggle: SVG vs Sample Images -->
+        <div class="flex items-center rounded-xl bg-white/5 p-1 border border-white/10 text-xs">
+          <button id="source-btn-svg" onclick="setImageSource('svg')" class="px-2.5 py-1.5 rounded-lg font-bold transition-all text-cyan-300 bg-cyan-500/20 border border-cyan-500/30 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            SVG Vektor
+          </button>
+          <button id="source-btn-sample" onclick="setImageSource('sample')" class="px-2.5 py-1.5 rounded-lg font-medium transition-all text-white/60 hover:text-white flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            JPG Previews
+          </button>
+        </div>
+
+        <!-- Viewport Simulator Controls -->
+        <div class="hidden xl:flex items-center rounded-xl bg-white/5 p-1 border border-white/10 text-xs">
+          <span class="px-2 text-white/40 text-[10px] uppercase font-mono">Simulieren:</span>
+          <button onclick="setSimulatorWidth('max-w-7xl', this)" class="sim-btn px-2 py-1 rounded-md text-white font-bold bg-white/10">100%</button>
+          <button onclick="setSimulatorWidth('max-w-4xl', this)" class="sim-btn px-2 py-1 rounded-md text-white/60 hover:text-white">Tablet</button>
+          <button onclick="setSimulatorWidth('max-w-md', this)" class="sim-btn px-2 py-1 rounded-md text-white/60 hover:text-white">Mobile</button>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- HERO INTRO / ARCHITEKTUR-KONTEXT                                       -->
+  <!-- ===================================================================== -->
+  <section class="relative pt-12 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <!-- Ambient Neon Glow Blurs -->
+    <div class="absolute top-0 left-1/4 -translate-x-1/2 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-gradient-to-tr from-[#ff2a9d]/15 via-purple-600/10 to-transparent blur-[120px] pointer-events-none -z-10"></div>
+    <div class="absolute top-10 right-1/4 translate-x-1/2 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-gradient-to-bl from-[#4ee2ec]/15 via-blue-600/10 to-transparent blur-[120px] pointer-events-none -z-10"></div>
+
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-300 text-xs font-bold tracking-[0.2em] uppercase mb-4 shadow-[0_0_15px_rgba(255,42,157,0.2)]">
+        <span class="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse"></span>
+        Konzept & Interaktiver Showroom
+      </div>
+      <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
+        Visuelle Bildanordnungen für <br/>
+        <span class="bg-gradient-to-r from-[#ff80df] via-[#ff2a9d] to-[#4ee2ec] bg-clip-text text-transparent">
+          art.cube & PhysicalCubeStation
+        </span>
+      </h1>
+      <p class="text-sm sm:text-base text-white/75 font-light leading-relaxed max-w-3xl mx-auto mb-6">
+        Die Sektion <strong>„Was ist art.cube?“</strong> (komponententechnisch in <code class="text-pink-300 font-mono text-xs bg-white/5 px-1.5 py-0.5 rounded">StorySection.tsx</code> verankert) stellt den digitalen Prototyp (Phase 1) und den physischen art.cube (Phase 2) in zwei responsiven Boxen gegenüber. Nachfolgend sind <strong>3 produktionsreife Gestaltungsmuster</strong> ausgearbeitet, die Grafiken harmonisch in das bestehende Dark-Cyberpunk-Design einbetten.
+      </p>
+
+      <!-- Comparison Metric Badges -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+        <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-pink-300 font-bold text-xs uppercase tracking-wider mb-1">
+            <span class="w-2 h-2 rounded-full bg-pink-400"></span>
+            Muster 1: Hero-Cover Top
+          </div>
+          <p class="text-[12px] text-white/60">Panorama-Header (16:9) mit weichem Verlauf. Maximaler emotionaler Ersteindruck auf Mobilgeräten.</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-cyan-300 font-bold text-xs uppercase tracking-wider mb-1">
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+            Muster 2: Split Horizontal
+          </div>
+          <p class="text-[12px] text-white/60">Zwei-Spalten-Aufteilung (4:5 Visual). Maximale Höhen-Kompaktheit auf Desktop & Tablets.</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+          <div class="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wider mb-1">
+            <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+            Muster 3: Holographic PiP
+          </div>
+          <p class="text-[12px] text-white/60">Schwebende Glas-Preview-Karte mit HUD-Optik & Lightbox-Zoom. Höchste Cyberpunk-Immersion.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN CONTAINER WITH SIMULATOR WIDTH SUPPORT                           -->
+  <!-- ===================================================================== -->
+  <main id="main-viewport-container" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-24 viewport-transition">
+
+    <!-- =================================================================== -->
+    <!-- MUSTER 1: HERO-COVER BANNER (SPLIT-VERTICAL / TOP-IMAGE)            -->
+    <!-- =================================================================== -->
+    <section id="pattern-1-section" class="pattern-section relative pt-4 scroll-mt-24">
+      
+      <!-- Section Pattern Descriptor Bar -->
+      <div class="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-pink-500/15 via-purple-500/10 to-transparent border border-pink-500/30 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2.5 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full bg-pink-500 text-black text-[11px] font-black uppercase tracking-wider">MUSTER 1</span>
+            <h2 class="text-lg sm:text-xl font-extrabold text-white">Hero-Cover Banner (Split-Vertical / Top-Image)</h2>
+          </div>
+          <p class="text-xs sm:text-sm text-white/70">
+            Das Bild sitzt als markanter Panorama-Header (16:9) direkt im oberen Bereich jeder Box. Badges schweben mit Glassmorphic-Effekt im Bild, und ein Farbverlauf sorgt für nahtlose Lesbarkeit des Textkörpers.
+          </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="text-[11px] font-mono text-pink-300/80 bg-black/40 px-3 py-1.5 rounded-xl border border-pink-500/20">
+            Fokus: Hero-Emotion & Mobile-Flow
+          </span>
+        </div>
+      </div>
+
+      <!-- Live Two Boxes Grid (Original StorySection Replica) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+
+        <!-- BOX 1: DER DIGITALE PROTOTYP (MUSTER 1) -->
+        <div class="relative rounded-[32px] p-7 sm:p-10 glass-card border border-pink-500/30 glow-pink-box flex flex-col justify-between overflow-hidden group hover:border-pink-500/60 transition-all duration-300">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-pink-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div>
+            <!-- MUSTER 1 VISUAL: Hero Top Banner -->
+            <div class="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-pink-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <!-- Visual Content (SVG or Sample Image) -->
+              <div class="media-container w-full h-full cursor-pointer" onclick="openLightbox('svg-phase1', 'Phase 1: Der digitale Prototyp')">
+                <div class="svg-slot w-full h-full flex items-center justify-center bg-[#0d0714]">
+                  <!-- SVG Phase 1 Inline -->
+                  <svg class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" viewBox="0 0 800 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="bgGradP1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#14061f"/>
+                        <stop offset="50%" stop-color="#240b36"/>
+                        <stop offset="100%" stop-color="#0a0210"/>
+                      </linearGradient>
+                      <radialGradient id="pinkGlowRad" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ff2a9d" stop-opacity="0.45"/>
+                        <stop offset="100%" stop-color="#ff2a9d" stop-opacity="0"/>
+                      </radialGradient>
+                      <linearGradient id="phoneBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ff80df"/>
+                        <stop offset="100%" stop-color="#4ee2ec"/>
+                      </linearGradient>
+                    </defs>
+                    <rect width="800" height="450" fill="url(#bgGradP1)"/>
+                    <circle cx="400" cy="225" r="220" fill="url(#pinkGlowRad)"/>
+                    
+                    <!-- Cyber grid lines in background -->
+                    <g opacity="0.15" stroke="#ff2a9d" stroke-width="1">
+                      <line x1="0" y1="100" x2="800" y2="100"/>
+                      <line x1="0" y1="200" x2="800" y2="200"/>
+                      <line x1="0" y1="300" x2="800" y2="300"/>
+                      <line x1="0" y1="400" x2="800" y2="400"/>
+                      <line x1="200" y1="0" x2="200" y2="450"/>
+                      <line x1="400" y1="0" x2="400" y2="450"/>
+                      <line x1="600" y1="0" x2="600" y2="450"/>
+                    </g>
+
+                    <!-- Synced Connection Laser Beam -->
+                    <path d="M 280 230 C 340 180, 460 180, 520 230" stroke="url(#phoneBorder)" stroke-width="4" stroke-dasharray="8 6" opacity="0.9">
+                      <animate attributeName="stroke-dashoffset" values="100;0" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                    <circle cx="400" cy="195" r="8" fill="#4ee2ec" opacity="0.8">
+                      <animate attributeName="r" values="6;11;6" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                    <text x="400" y="170" text-anchor="middle" fill="#4ee2ec" font-size="11" font-family="monospace" font-weight="bold" letter-spacing="2">P2P WEBRTC SYNC · 60 FPS</text>
+
+                    <!-- Smartphone 1 (Left - Host) -->
+                    <g transform="translate(160, 110) rotate(-8)">
+                      <rect width="130" height="230" rx="20" fill="#0c0714" stroke="#ff2a9d" stroke-width="2.5" opacity="0.95"/>
+                      <rect x="8" y="12" width="114" height="206" rx="14" fill="#1b0c26"/>
+                      <!-- Screen Content: Sumi-e Swirl -->
+                      <path d="M 25 150 Q 55 50, 95 100 T 90 180" stroke="#ff80df" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.85"/>
+                      <!-- Host touch cursor -->
+                      <circle cx="65" cy="110" r="14" fill="#ff2a9d" fill-opacity="0.3" stroke="#ff2a9d" stroke-width="2"/>
+                      <circle cx="65" cy="110" r="4" fill="#ffffff"/>
+                      <text x="65" y="90" text-anchor="middle" fill="#ff80df" font-size="9" font-family="sans-serif" font-weight="bold">HOST CURSOR</text>
+                    </g>
+
+                    <!-- Smartphone 2 (Right - Guest) -->
+                    <g transform="translate(510, 110) rotate(8)">
+                      <rect width="130" height="230" rx="20" fill="#0c0714" stroke="#4ee2ec" stroke-width="2.5" opacity="0.95"/>
+                      <rect x="8" y="12" width="114" height="206" rx="14" fill="#0a1926"/>
+                      <!-- Screen Content: Matching Swirl -->
+                      <path d="M 25 150 Q 55 50, 95 100 T 90 180" stroke="#4ee2ec" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.85"/>
+                      <!-- Guest touch cursor -->
+                      <circle cx="65" cy="110" r="14" fill="#4ee2ec" fill-opacity="0.3" stroke="#4ee2ec" stroke-width="2"/>
+                      <circle cx="65" cy="110" r="4" fill="#ffffff"/>
+                      <text x="65" y="90" text-anchor="middle" fill="#4ee2ec" font-size="9" font-family="sans-serif" font-weight="bold">GUEST CURSOR</text>
+                    </g>
+
+                    <!-- Floating Sakura Petals -->
+                    <g opacity="0.8">
+                      <path d="M 370 120 C 375 110, 395 115, 390 130 C 385 140, 365 135, 370 120 Z" fill="#ff80df"/>
+                      <path d="M 430 260 C 435 250, 455 255, 450 270 C 445 280, 425 275, 430 260 Z" fill="#ff80df"/>
+                      <path d="M 330 290 C 335 282, 350 286, 346 298 C 342 306, 326 302, 330 290 Z" fill="#ff2a9d"/>
+                      <path d="M 470 100 C 474 92, 488 96, 485 106 C 481 114, 467 110, 470 100 Z" fill="#ff80df"/>
+                    </g>
+                    <!-- Bottom Telemetry Pill -->
+                    <rect x="250" y="405" width="300" height="26" rx="13" fill="#000000" fill-opacity="0.7" stroke="#ff2a9d" stroke-width="1"/>
+                    <text x="400" y="422" text-anchor="middle" fill="#ffffff" font-size="11" font-family="monospace">PHASE 1 · ZWEI GERÄTE · EIN KUNSTWERK</text>
+                  </svg>
+                </div>
+                <!-- Sample Image Slot (Hidden by default) -->
+                <div class="sample-slot hidden w-full h-full relative">
+                  <img src="sumie_preview.jpg" onerror="this.src='sumie-lightbox.jpg'" alt="Sumi-e Entstehung" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div class="absolute bottom-2 left-3 px-2.5 py-1 rounded-md bg-black/75 text-[11px] font-mono text-pink-300 border border-pink-500/30">
+                    Live-Kunstwerk: Sumi-e Entstehung
+                  </div>
+                </div>
+              </div>
+
+              <!-- Top Left Floating Badge -->
+              <div class="absolute top-3 left-3 z-10 flex items-center gap-2">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-pill border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase shadow-lg">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Now Live
+                </span>
+              </div>
+              <!-- Top Right Phase Badge -->
+              <div class="absolute top-3 right-3 z-10">
+                <span class="glass-pill px-2.5 py-1 rounded-full border border-pink-500/30 text-xs font-mono text-pink-300 tracking-wider">
+                  PHASE 1
+                </span>
+              </div>
+              <!-- Bottom Gradient Fade into Card -->
+              <div class="absolute inset-0 bg-gradient-to-t from-[rgba(18,12,28,0.95)] via-transparent to-black/20 pointer-events-none"></div>
+            </div>
+
+            <!-- Card Header & Titles -->
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-6">
+              Der digitale Prototyp
+            </h3>
+
+            <!-- 3 Bullet Points -->
+            <ul class="space-y-5">
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Allein oder zu zweit erleben</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Verbindet euch per Einladungslink in Sekundenschnelle und gestaltet synchron die visuellen Elemente. Keine Apps und kein Download — es geht direkt los.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Auf allen Geräten erlebbar</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Läuft auf Desktops, Tablets und Smartphones.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Eigenes digitales Souvenir</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Haltet eure Schöpfung in einem 14-sekündigen animierten Video-Souvenir
+                    <span class="font-extrabold bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#4ee2ec] bg-clip-text text-transparent">
+                      für immer
+                    </span>
+                    fest.
+                    <button type="button" onclick="openNftModal()" class="inline-flex items-center font-semibold text-[#4ee2ec] hover:text-[#ff80df] underline underline-offset-4 decoration-[#4ee2ec]/60 hover:decoration-[#ff80df] transition-colors cursor-pointer">
+                      Wie funktioniert das?
+                    </button>
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- BOX 2: DER ART.CUBE (MUSTER 1) -->
+        <div class="relative rounded-[32px] p-7 sm:p-10 glass-card border border-cyan-500/30 glow-cyan-box flex flex-col justify-between overflow-hidden group hover:border-cyan-500/60 transition-all duration-300">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div>
+            <!-- MUSTER 1 VISUAL: Hero Top Banner -->
+            <div class="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-cyan-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <!-- Visual Content (SVG or Sample Image) -->
+              <div class="media-container w-full h-full cursor-pointer" onclick="openLightbox('svg-phase2', 'Phase 2: Der physische art.cube')">
+                <div class="svg-slot w-full h-full flex items-center justify-center bg-[#06121a]">
+                  <!-- SVG Phase 2 Inline -->
+                  <svg class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" viewBox="0 0 800 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="bgGradP2" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#04121c"/>
+                        <stop offset="50%" stop-color="#082233"/>
+                        <stop offset="100%" stop-color="#020910"/>
+                      </linearGradient>
+                      <radialGradient id="cyanGlowRad" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#4ee2ec" stop-opacity="0.4"/>
+                        <stop offset="100%" stop-color="#4ee2ec" stop-opacity="0"/>
+                      </radialGradient>
+                    </defs>
+                    <rect width="800" height="450" fill="url(#bgGradP2)"/>
+                    <circle cx="400" cy="225" r="230" fill="url(#cyanGlowRad)"/>
+
+                    <!-- Perspective Floor Grid -->
+                    <g opacity="0.2" stroke="#4ee2ec" stroke-width="1">
+                      <line x1="100" y1="450" x2="350" y2="280"/>
+                      <line x1="250" y1="450" x2="380" y2="280"/>
+                      <line x1="400" y1="450" x2="400" y2="280"/>
+                      <line x1="550" y1="450" x2="420" y2="280"/>
+                      <line x1="700" y1="450" x2="450" y2="280"/>
+                      <line x1="150" y1="400" x2="650" y2="400"/>
+                      <line x1="220" y1="350" x2="580" y2="350"/>
+                      <line x1="280" y1="310" x2="520" y2="310"/>
+                    </g>
+
+                    <!-- 3D Holographic Cube Structure Wireframe -->
+                    <!-- Back lines -->
+                    <g stroke="#4ee2ec" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.5">
+                      <line x1="280" y1="120" x2="520" y2="120"/>
+                      <line x1="280" y1="120" x2="280" y2="300"/>
+                      <line x1="520" y1="120" x2="520" y2="300"/>
+                    </g>
+                    <!-- Cube Projection Surfaces -->
+                    <polygon points="220,160 280,120 520,120 460,160" fill="#4ee2ec" fill-opacity="0.08"/>
+                    <polygon points="220,160 280,120 280,300 220,340" fill="#ff2a9d" fill-opacity="0.05"/>
+                    <polygon points="460,160 520,120 520,300 460,340" fill="#4ee2ec" fill-opacity="0.12"/>
+                    <!-- Front Frame -->
+                    <g stroke="#4ee2ec" stroke-width="2.5" opacity="0.95">
+                      <line x1="220" y1="160" x2="460" y2="160"/>
+                      <line x1="460" y1="160" x2="460" y2="340"/>
+                      <line x1="460" y1="340" x2="220" y2="340"/>
+                      <line x1="220" y1="340" x2="220" y2="160"/>
+                      <!-- Connection to Back Vertices -->
+                      <line x1="220" y1="160" x2="280" y2="120"/>
+                      <line x1="460" y1="160" x2="520" y2="120"/>
+                      <line x1="460" y1="340" x2="520" y2="300"/>
+                      <line x1="220" y1="340" x2="280" y2="300"/>
+                    </g>
+
+                    <!-- Corner Cyber Joints -->
+                    <circle cx="220" cy="160" r="4" fill="#ffffff"/>
+                    <circle cx="460" cy="160" r="4" fill="#ffffff"/>
+                    <circle cx="460" cy="340" r="4" fill="#ffffff"/>
+                    <circle cx="220" cy="340" r="4" fill="#ffffff"/>
+
+                    <!-- Plexus Nodes inside the Cube -->
+                    <g stroke="#4ee2ec" stroke-width="1" opacity="0.7">
+                      <line x1="310" y1="180" x2="370" y2="210"/>
+                      <line x1="370" y1="210" x2="430" y2="190"/>
+                      <line x1="370" y1="210" x2="350" y2="250"/>
+                      <line x1="430" y1="190" x2="410" y2="240"/>
+                      <line x1="310" y1="180" x2="330" y2="230"/>
+                    </g>
+                    <circle cx="310" cy="180" r="3.5" fill="#ff80df"/>
+                    <circle cx="370" cy="210" r="5" fill="#4ee2ec"/>
+                    <circle cx="430" cy="190" r="4" fill="#ff2a9d"/>
+                    <circle cx="350" cy="250" r="4" fill="#4ee2ec"/>
+                    <circle cx="410" cy="240" r="3.5" fill="#ffffff"/>
+
+                    <!-- 2 Human Silhouettes inside Cube experiencing the 360 projection -->
+                    <!-- Person 1 (Center-Left) -->
+                    <g fill="#0b1b24" stroke="#4ee2ec" stroke-width="0.8">
+                      <circle cx="330" cy="275" r="7"/>
+                      <path d="M 320 325 L 325 287 Q 330 284, 335 287 L 340 325 Z"/>
+                      <!-- Smartphone light beam -->
+                      <circle cx="337" cy="298" r="2" fill="#4ee2ec"/>
+                      <line x1="337" y1="298" x2="370" y2="210" stroke="#4ee2ec" stroke-width="1" stroke-dasharray="2 2" opacity="0.8"/>
+                    </g>
+                    <!-- Person 2 (Center-Right) -->
+                    <g fill="#0b1b24" stroke="#ff2a9d" stroke-width="0.8">
+                      <circle cx="380" cy="278" r="7"/>
+                      <path d="M 370 325 L 375 289 Q 380 286, 385 289 L 390 325 Z"/>
+                      <!-- Smartphone light beam -->
+                      <circle cx="376" cy="299" r="2" fill="#ff2a9d"/>
+                      <line x1="376" y1="299" x2="370" y2="210" stroke="#ff2a9d" stroke-width="1" stroke-dasharray="2 2" opacity="0.8"/>
+                    </g>
+
+                    <!-- Bottom Telemetry Pill -->
+                    <rect x="230" y="405" width="340" height="26" rx="13" fill="#000000" fill-opacity="0.7" stroke="#4ee2ec" stroke-width="1"/>
+                    <text x="400" y="422" text-anchor="middle" fill="#ffffff" font-size="11" font-family="monospace">PHASE 2 · 360° PROJEKTION · BEGEHBARER KUBUS</text>
+                  </svg>
+                </div>
+                <!-- Sample Image Slot (Hidden by default) -->
+                <div class="sample-slot hidden w-full h-full relative">
+                  <img src="plexus_preview.jpg" alt="Plexus Transformation" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div class="absolute bottom-2 left-3 px-2.5 py-1 rounded-md bg-black/75 text-[11px] font-mono text-cyan-300 border border-cyan-500/30">
+                    Live-Kunstwerk: Plexus Transformation
+                  </div>
+                </div>
+              </div>
+
+              <!-- Top Left Floating Badge -->
+              <div class="absolute top-3 left-3 z-10 flex items-center gap-2">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-pill border border-cyan-500/40 text-cyan-300 text-[10px] font-bold tracking-widest uppercase shadow-lg">
+                  <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                  Coming Soon
+                </span>
+              </div>
+              <!-- Top Right Phase Badge -->
+              <div class="absolute top-3 right-3 z-10">
+                <span class="glass-pill px-2.5 py-1 rounded-full border border-cyan-500/30 text-xs font-mono text-cyan-300 tracking-wider">
+                  PHASE 2
+                </span>
+              </div>
+              <!-- Bottom Gradient Fade into Card -->
+              <div class="absolute inset-0 bg-gradient-to-t from-[rgba(18,12,28,0.95)] via-transparent to-black/20 pointer-events-none"></div>
+            </div>
+
+            <!-- Card Header & Titles -->
+            <div class="flex items-baseline gap-2 mb-3">
+              <h3 class="text-2xl sm:text-3xl font-extrabold text-white tracking-wide">
+                Der art.cube.
+              </h3>
+              <span class="text-sm sm:text-base font-semibold text-cyan-300 tracking-wider">
+                Loading...
+              </span>
+            </div>
+
+            <!-- Animated Loading Progress Bar -->
+            <div class="relative w-full h-2 rounded-full bg-white/10 overflow-hidden mb-6">
+              <div class="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_12px_rgba(78,226,236,0.8)]"></div>
+            </div>
+
+            <!-- 3 Bullet Points -->
+            <ul class="space-y-5">
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Audioreaktive 360° Projektionen</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Gemeinsam in Gruppen 360-Grad-Projektionen erleben, die auf Interaktion reagieren.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Smartphone als magischer Controller</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Mit euren eigenen Smartphones steuert und formt ihr Kunstwerke auf magische Art und Weise.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Einzigartige Gruppen-Erlebnisse</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Keine zwei Besuche sind gleich: Das kollektive Verhalten der Gruppe formt das Kunstwerk jedes Mal neu.
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- MUSTER 2: SPLIT-STAGE HORIZONTAL (ZWEI-SPALTEN-LAYOUT)              -->
+    <!-- =================================================================== -->
+    <section id="pattern-2-section" class="pattern-section relative pt-4 scroll-mt-24">
+      
+      <!-- Section Pattern Descriptor Bar -->
+      <div class="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent border border-cyan-500/30 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2.5 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full bg-cyan-400 text-black text-[11px] font-black uppercase tracking-wider">MUSTER 2</span>
+            <h2 class="text-lg sm:text-xl font-extrabold text-white">Split-Stage Horizontal (Zwei-Spalten-Layout pro Box)</h2>
+          </div>
+          <p class="text-xs sm:text-sm text-white/70">
+            Innerhalb jeder Box teilen sich Text und Visual nebeneinander auf. Die Bildkachel (Seitenverhältnis 4:5) steht auf Augenhöhe mit den Features. Dies spart vertikalen Scroll-Platz und schafft eine balancierte Bühnenoptik.
+          </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="text-[11px] font-mono text-cyan-300/80 bg-black/40 px-3 py-1.5 rounded-xl border border-cyan-500/20">
+            Fokus: Platzersparnis & Desktop-Harmonie
+          </span>
+        </div>
+      </div>
+
+      <!-- Live Two Boxes Grid (Split-Stage Architecture) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+
+        <!-- BOX 1: DER DIGITALE PROTOTYP (MUSTER 2) -->
+        <div class="relative rounded-[32px] p-6 sm:p-8 glass-card border border-pink-500/30 glow-pink-box flex flex-col justify-between overflow-hidden group hover:border-pink-500/60 transition-all duration-300">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-pink-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- Top Meta Row -->
+          <div class="flex items-center justify-between gap-3 mb-5">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Now Live
+            </span>
+            <span class="text-xs font-mono text-pink-300/60 tracking-wider">PHASE 1</span>
+          </div>
+
+          <!-- Two-Column Internal Split (Text Left, Image Right) -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center flex-1">
+            
+            <!-- Left Text Column (7 cols) -->
+            <div class="md:col-span-7 flex flex-col justify-between h-full">
+              <div>
+                <h3 class="text-xl sm:text-2xl font-extrabold text-white tracking-wide mb-4">
+                  Der digitale Prototyp
+                </h3>
+
+                <ul class="space-y-4">
+                  <li>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-semibold text-white">Allein oder zu zweit</h4>
+                      <p class="text-[11px] sm:text-xs text-white/70 mt-0.5 leading-relaxed">
+                        Einladungslink in Sekundenschnelle teilen und synchron malen. Keine Downloads.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-semibold text-white">Auf allen Endgeräten</h4>
+                      <p class="text-[11px] sm:text-xs text-white/70 mt-0.5 leading-relaxed">
+                        Webbasierter Zugang via Smartphone, Tablet und Desktop.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-semibold text-white">Eigenes digitales Souvenir</h4>
+                      <p class="text-[11px] sm:text-xs text-white/70 mt-0.5 leading-relaxed">
+                        14-Sekunden Video-Souvenir
+                        <span class="font-extrabold bg-gradient-to-r from-[#ff2a9d] to-[#4ee2ec] bg-clip-text text-transparent">für immer</span>
+                        festhalten.
+                        <button type="button" onclick="openNftModal()" class="text-[#4ee2ec] hover:text-[#ff80df] underline font-semibold text-[11px]">
+                          Details
+                        </button>
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Right Visual Showcase Column (5 cols, Aspect 4:5) -->
+            <div class="md:col-span-5 h-full flex flex-col justify-center">
+              <div class="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border border-pink-500/30 group-hover:border-pink-500/70 shadow-[0_15px_35px_rgba(0,0,0,0.6)] cursor-pointer" onclick="openLightbox('svg-phase1', 'Phase 1: Digitaler Prototyp (Split-Stage)')">
+                
+                <!-- Media Slot -->
+                <div class="media-container w-full h-full">
+                  <div class="svg-slot w-full h-full bg-[#12071c] flex items-center justify-center p-2">
+                    <svg class="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105" viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="400" height="500" rx="16" fill="#14061f"/>
+                      <circle cx="200" cy="240" r="140" fill="#ff2a9d" fill-opacity="0.2"/>
+                      
+                      <!-- Isometric Phone Pair in Portrait -->
+                      <g transform="translate(60, 110) rotate(-6)">
+                        <rect width="110" height="200" rx="18" fill="#0d0514" stroke="#ff2a9d" stroke-width="2"/>
+                        <path d="M 20 120 Q 55 40, 85 90 T 75 160" stroke="#ff80df" stroke-width="6" stroke-linecap="round" fill="none"/>
+                        <circle cx="55" cy="90" r="10" fill="#ff2a9d" fill-opacity="0.4" stroke="#ff2a9d" stroke-width="1.5"/>
+                      </g>
+                      <g transform="translate(230, 150) rotate(8)">
+                        <rect width="110" height="200" rx="18" fill="#0d0514" stroke="#4ee2ec" stroke-width="2"/>
+                        <path d="M 20 120 Q 55 40, 85 90 T 75 160" stroke="#4ee2ec" stroke-width="6" stroke-linecap="round" fill="none"/>
+                        <circle cx="55" cy="90" r="10" fill="#4ee2ec" fill-opacity="0.4" stroke="#4ee2ec" stroke-width="1.5"/>
+                      </g>
+                      
+                      <!-- Sakura Petals Rain -->
+                      <path d="M 190 80 C 195 72, 208 76, 204 88 C 200 96, 186 92, 190 80 Z" fill="#ff80df"/>
+                      <path d="M 210 260 C 215 252, 228 256, 224 268 C 220 276, 206 272, 210 260 Z" fill="#ff2a9d"/>
+                      <path d="M 180 380 C 185 372, 198 376, 194 388 C 190 396, 176 392, 180 380 Z" fill="#ff80df"/>
+
+                      <!-- Pulse connecting curve -->
+                      <path d="M 150 200 C 180 180, 220 230, 260 210" stroke="#4ee2ec" stroke-width="3" stroke-dasharray="4 4"/>
+                    </svg>
+                  </div>
+                  <div class="sample-slot hidden w-full h-full">
+                    <img src="sumie_preview.jpg" onerror="this.src='sumie-lightbox.jpg'" alt="Sumi-e Entstehung" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  </div>
+                </div>
+
+                <!-- Subtle Overlay Gradient -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"></div>
+                <div class="absolute bottom-2.5 inset-x-2.5 text-center">
+                  <span class="inline-block px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-[10px] font-mono text-pink-300">
+                    Live Co-Creation
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- BOX 2: DER ART.CUBE (MUSTER 2) -->
+        <div class="relative rounded-[32px] p-6 sm:p-8 glass-card border border-cyan-500/30 glow-cyan-box flex flex-col justify-between overflow-hidden group hover:border-cyan-500/60 transition-all duration-300">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- Top Meta Row -->
+          <div class="flex items-center justify-between gap-3 mb-5">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold tracking-widest uppercase">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+              Coming Soon
+            </span>
+            <span class="text-xs font-mono text-cyan-300/60 tracking-wider">PHASE 2</span>
+          </div>
+
+          <!-- Two-Column Internal Split (Text Left, Image Right) -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center flex-1">
+            
+            <!-- Left Text Column (7 cols) -->
+            <div class="md:col-span-7 flex flex-col justify-between h-full">
+              <div>
+                <div class="flex items-baseline gap-2 mb-2">
+                  <h3 class="text-xl sm:text-2xl font-extrabold text-white tracking-wide">
+                    Der art.cube.
+                  </h3>
+                  <span class="text-xs font-semibold text-cyan-300">
+                    Loading...
+                  </span>
+                </div>
+
+                <!-- Animated Loading Bar -->
+                <div class="relative w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-4">
+                  <div class="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 to-[#4ee2ec]"></div>
+                </div>
+
+                <ul class="space-y-4">
+                  <li>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-semibold text-white">Audioreaktive 360° Räume</h4>
+                      <p class="text-[11px] sm:text-xs text-white/70 mt-0.5 leading-relaxed">
+                        Gemeinsam in Gruppen 360-Grad-Projektionen begehen und erleben.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-semibold text-white">Magischer Smartphone-Controller</h4>
+                      <p class="text-[11px] sm:text-xs text-white/70 mt-0.5 leading-relaxed">
+                        Mit dem eigenen Handy Lichtstrahlen & Klangwelten im Raum formen.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <h4 class="text-xs sm:text-sm font-semibold text-white">Kollektive Erlebnisse</h4>
+                      <p class="text-[11px] sm:text-xs text-white/70 mt-0.5 leading-relaxed">
+                        Keine zwei Besuche sind gleich — jede Gruppe formt ein Unikat.
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Right Visual Showcase Column (5 cols, Aspect 4:5) -->
+            <div class="md:col-span-5 h-full flex flex-col justify-center">
+              <div class="relative w-full aspect-[4/5] rounded-2xl overflow-hidden border border-cyan-500/30 group-hover:border-cyan-500/70 shadow-[0_15px_35px_rgba(0,0,0,0.6)] cursor-pointer" onclick="openLightbox('svg-phase2', 'Phase 2: Der art.cube (Split-Stage)')">
+                
+                <!-- Media Slot -->
+                <div class="media-container w-full h-full">
+                  <div class="svg-slot w-full h-full bg-[#051522] flex items-center justify-center p-2">
+                    <svg class="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105" viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="400" height="500" rx="16" fill="#06121a"/>
+                      <circle cx="200" cy="240" r="140" fill="#4ee2ec" fill-opacity="0.2"/>
+
+                      <!-- 3D Perspective Isometric Cube (Vertical framing) -->
+                      <g stroke="#4ee2ec" stroke-width="2" opacity="0.9">
+                        <polygon points="120,180 200,130 280,180 200,230" fill="#4ee2ec" fill-opacity="0.1"/>
+                        <polygon points="120,180 200,230 200,350 120,300" fill="#4ee2ec" fill-opacity="0.18"/>
+                        <polygon points="280,180 200,230 200,350 280,300" fill="#ff2a9d" fill-opacity="0.08"/>
+                      </g>
+                      <!-- Internal Nodes -->
+                      <g stroke="#4ee2ec" stroke-width="1.5">
+                        <line x1="160" y1="210" x2="200" y2="180"/>
+                        <line x1="200" y1="180" x2="240" y2="210"/>
+                        <line x1="200" y1="180" x2="200" y2="280"/>
+                      </g>
+                      <circle cx="160" cy="210" r="4" fill="#ff80df"/>
+                      <circle cx="200" cy="180" r="6" fill="#4ee2ec"/>
+                      <circle cx="240" cy="210" r="4" fill="#ffffff"/>
+                      <circle cx="200" cy="280" r="5" fill="#4ee2ec"/>
+
+                      <!-- Visitors Silhouettes -->
+                      <circle cx="170" cy="380" r="6" fill="#082030" stroke="#4ee2ec" stroke-width="1"/>
+                      <path d="M 162 420 L 166 390 Q 170 387, 174 390 L 178 420 Z" fill="#082030" stroke="#4ee2ec" stroke-width="1"/>
+                      
+                      <circle cx="230" cy="380" r="6" fill="#082030" stroke="#ff2a9d" stroke-width="1"/>
+                      <path d="M 222 420 L 226 390 Q 230 387, 234 390 L 238 420 Z" fill="#082030" stroke="#ff2a9d" stroke-width="1"/>
+                    </svg>
+                  </div>
+                  <div class="sample-slot hidden w-full h-full">
+                    <img src="plexus_preview.jpg" alt="Plexus Transformation" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  </div>
+                </div>
+
+                <!-- Subtle Overlay Gradient -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"></div>
+                <div class="absolute bottom-2.5 inset-x-2.5 text-center">
+                  <span class="inline-block px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-[10px] font-mono text-cyan-300">
+                    360° Raum-Kubus
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- MUSTER 3: HOLOGRAPHIC PICTURE-IN-PICTURE CARD (PIP-PREVIEW)         -->
+    <!-- =================================================================== -->
+    <section id="pattern-3-section" class="pattern-section relative pt-4 scroll-mt-24">
+      
+      <!-- Section Pattern Descriptor Bar -->
+      <div class="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-transparent border border-purple-500/30 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2.5 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full bg-purple-500 text-white text-[11px] font-black uppercase tracking-wider">MUSTER 3</span>
+            <h2 class="text-lg sm:text-xl font-extrabold text-white">Holographic Picture-in-Picture Card (Schwebendes Glas-Preview)</h2>
+          </div>
+          <p class="text-xs sm:text-sm text-white/70">
+            Das Bild ist als eigenständiges, interaktives Cyber-Modul zwischen Header/Titel und den Feature-Listenpunkten eingebettet. Ausgestattet mit HUD-Eckklammern, 3D-Tilt-Hover und Direktklick zur Vollbild-Lightbox.
+          </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="text-[11px] font-mono text-purple-300/80 bg-black/40 px-3 py-1.5 rounded-xl border border-purple-500/20">
+            Fokus: Interaktives Cyber-Preview & Vertiefung
+          </span>
+        </div>
+      </div>
+
+      <!-- Live Two Boxes Grid (PiP Architecture) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+
+        <!-- BOX 1: DER DIGITALE PROTOTYP (MUSTER 3) -->
+        <div class="relative rounded-[32px] p-7 sm:p-10 glass-card border border-pink-500/30 glow-pink-box flex flex-col justify-between overflow-hidden group hover:border-pink-500/60 transition-all duration-300">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-pink-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div>
+            <!-- Badge & Phase Header -->
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Now Live
+              </span>
+              <span class="text-xs font-mono text-pink-300/60 tracking-wider">PHASE 1</span>
+            </div>
+
+            <!-- Title -->
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-3">
+              Der digitale Prototyp
+            </h3>
+
+            <!-- MUSTER 3 VISUAL: Floating PiP Holographic Card -->
+            <div class="pip-container my-5 p-2 rounded-2xl bg-black/50 border border-pink-500/40 backdrop-blur-md shadow-[0_15px_30px_rgba(0,0,0,0.6)] cursor-pointer" onclick="openLightbox('svg-phase1', 'Holographic Preview: Phase 1 Digital Prototyp')">
+              <div class="relative aspect-[16/9] sm:aspect-[16/10] rounded-xl overflow-hidden group/pipimg">
+                
+                <!-- HUD Corner Tech Brackets -->
+                <div class="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-pink-400 z-20 pointer-events-none"></div>
+                <div class="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-pink-400 z-20 pointer-events-none"></div>
+                <div class="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-pink-400 z-20 pointer-events-none"></div>
+                <div class="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-pink-400 z-20 pointer-events-none"></div>
+
+                <!-- Media Content -->
+                <div class="media-container w-full h-full">
+                  <div class="svg-slot w-full h-full bg-[#11051b]">
+                    <!-- Reuse rich Phase 1 SVG -->
+                    <svg class="w-full h-full object-cover transition-transform duration-500 group-hover/pipimg:scale-105" viewBox="0 0 800 450" fill="none">
+                      <rect width="800" height="450" fill="#14061f"/>
+                      <circle cx="400" cy="225" r="200" fill="#ff2a9d" fill-opacity="0.3"/>
+                      <!-- Synced dual phone graphics -->
+                      <g transform="translate(190, 110) rotate(-6)">
+                        <rect width="130" height="230" rx="18" fill="#0d0514" stroke="#ff2a9d" stroke-width="3"/>
+                        <path d="M 25 150 Q 55 50, 95 100 T 90 180" stroke="#ff80df" stroke-width="8" stroke-linecap="round" fill="none"/>
+                        <circle cx="65" cy="110" r="14" fill="#ff2a9d" fill-opacity="0.3" stroke="#ff2a9d" stroke-width="2"/>
+                        <circle cx="65" cy="110" r="4" fill="#ffffff"/>
+                      </g>
+                      <g transform="translate(480, 110) rotate(6)">
+                        <rect width="130" height="230" rx="18" fill="#0a1926" stroke="#4ee2ec" stroke-width="3"/>
+                        <path d="M 25 150 Q 55 50, 95 100 T 90 180" stroke="#4ee2ec" stroke-width="8" stroke-linecap="round" fill="none"/>
+                        <circle cx="65" cy="110" r="14" fill="#4ee2ec" fill-opacity="0.3" stroke="#4ee2ec" stroke-width="2"/>
+                        <circle cx="65" cy="110" r="4" fill="#ffffff"/>
+                      </g>
+                      <path d="M 310 220 C 370 170, 430 170, 490 220" stroke="#ff80df" stroke-width="4" stroke-dasharray="6 6"/>
+                    </svg>
+                  </div>
+                  <div class="sample-slot hidden w-full h-full">
+                    <img src="sumie_preview.jpg" onerror="this.src='sumie-lightbox.jpg'" alt="Sumi-e Entstehung" class="w-full h-full object-cover transition-transform duration-500 group-hover/pipimg:scale-105" />
+                  </div>
+                </div>
+
+                <!-- PiP Overlay Status Bar -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end justify-between p-3 z-10">
+                  <div class="flex items-center gap-1.5 text-[10px] font-mono text-pink-300">
+                    <span class="w-1.5 h-1.5 rounded-full bg-pink-400 animate-ping"></span>
+                    <span>LIVE INTERACTION PREVIEW</span>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-md bg-white/10 text-white text-[10px] font-bold tracking-wider hover:bg-white/20 transition flex items-center gap-1">
+                    🔍 Vergrößern
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bullet Points -->
+            <ul class="space-y-4">
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Allein oder zu zweit erleben</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Verbindet euch per Einladungslink in Sekundenschnelle und gestaltet synchron die visuellen Elemente.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Auf allen Geräten erlebbar</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Läuft ohne Installation auf Smartphones, Tablets und Laptops.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Eigenes digitales Souvenir</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    14-Sekunden animiertes Video-Souvenir
+                    <span class="font-extrabold bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#4ee2ec] bg-clip-text text-transparent">
+                      für immer
+                    </span>
+                    speichern.
+                    <button type="button" onclick="openNftModal()" class="text-[#4ee2ec] hover:text-[#ff80df] underline font-semibold text-xs">
+                      Wie funktioniert das?
+                    </button>
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- BOX 2: DER ART.CUBE (MUSTER 3) -->
+        <div class="relative rounded-[32px] p-7 sm:p-10 glass-card border border-cyan-500/30 glow-cyan-box flex flex-col justify-between overflow-hidden group hover:border-cyan-500/60 transition-all duration-300">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div>
+            <!-- Badge & Phase Header -->
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold tracking-widest uppercase">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                Coming Soon
+              </span>
+              <span class="text-xs font-mono text-cyan-300/60 tracking-wider">PHASE 2</span>
+            </div>
+
+            <!-- Title & Loading Header -->
+            <div class="flex items-baseline gap-2 mb-2">
+              <h3 class="text-2xl sm:text-3xl font-extrabold text-white tracking-wide">
+                Der art.cube.
+              </h3>
+              <span class="text-sm font-semibold text-cyan-300">
+                Loading...
+              </span>
+            </div>
+
+            <!-- Animated Loading Progress Bar -->
+            <div class="relative w-full h-2 rounded-full bg-white/10 overflow-hidden mb-3">
+              <div class="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec]"></div>
+            </div>
+
+            <!-- MUSTER 3 VISUAL: Floating PiP Holographic Card -->
+            <div class="pip-container my-5 p-2 rounded-2xl bg-black/50 border border-cyan-500/40 backdrop-blur-md shadow-[0_15px_30px_rgba(0,0,0,0.6)] cursor-pointer" onclick="openLightbox('svg-phase2', 'Holographic Preview: Phase 2 art.cube Raum')">
+              <div class="relative aspect-[16/9] sm:aspect-[16/10] rounded-xl overflow-hidden group/pipimg">
+                
+                <!-- HUD Corner Tech Brackets -->
+                <div class="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400 z-20 pointer-events-none"></div>
+                <div class="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400 z-20 pointer-events-none"></div>
+                <div class="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400 z-20 pointer-events-none"></div>
+                <div class="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400 z-20 pointer-events-none"></div>
+
+                <!-- Media Content -->
+                <div class="media-container w-full h-full">
+                  <div class="svg-slot w-full h-full bg-[#04121c]">
+                    <!-- Reuse rich Phase 2 SVG -->
+                    <svg class="w-full h-full object-cover transition-transform duration-500 group-hover/pipimg:scale-105" viewBox="0 0 800 450" fill="none">
+                      <rect width="800" height="450" fill="#04121c"/>
+                      <circle cx="400" cy="225" r="220" fill="#4ee2ec" fill-opacity="0.3"/>
+                      <!-- 3D Cube Structure Wireframe -->
+                      <polygon points="240,160 300,120 500,120 440,160" fill="#4ee2ec" fill-opacity="0.12"/>
+                      <polygon points="240,160 300,120 300,300 240,340" fill="#ff2a9d" fill-opacity="0.08"/>
+                      <polygon points="440,160 500,120 500,300 440,340" fill="#4ee2ec" fill-opacity="0.16"/>
+                      <g stroke="#4ee2ec" stroke-width="2.5">
+                        <line x1="240" y1="160" x2="440" y2="160"/>
+                        <line x1="440" y1="160" x2="440" y2="340"/>
+                        <line x1="440" y1="340" x2="240" y2="340"/>
+                        <line x1="240" y1="340" x2="240" y2="160"/>
+                        <line x1="240" y1="160" x2="300" y2="120"/>
+                        <line x1="440" y1="160" x2="500" y2="120"/>
+                        <line x1="440" y1="340" x2="500" y2="300"/>
+                        <line x1="240" y1="340" x2="300" y2="300"/>
+                      </g>
+                      <!-- Silhouette inside -->
+                      <circle cx="370" cy="275" r="8" fill="#082030" stroke="#4ee2ec" stroke-width="1.2"/>
+                      <path d="M 358 325 L 364 288 Q 370 285, 376 288 L 382 325 Z" fill="#082030" stroke="#4ee2ec" stroke-width="1.2"/>
+                    </svg>
+                  </div>
+                  <div class="sample-slot hidden w-full h-full">
+                    <img src="plexus_preview.jpg" alt="Plexus Transformation" class="w-full h-full object-cover transition-transform duration-500 group-hover/pipimg:scale-105" />
+                  </div>
+                </div>
+
+                <!-- PiP Overlay Status Bar -->
+                <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent flex items-end justify-between p-3 z-10">
+                  <div class="flex items-center gap-1.5 text-[10px] font-mono text-cyan-300">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span>360° IMMERSION ARCHITECTURE</span>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-md bg-white/10 text-white text-[10px] font-bold tracking-wider hover:bg-white/20 transition flex items-center gap-1">
+                    🔍 Vergrößern
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bullet Points -->
+            <ul class="space-y-4">
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Audioreaktive 360° Projektionen</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Gemeinsam in Gruppen 360-Grad-Projektionen erleben, die auf Interaktion reagieren.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Smartphone als magischer Controller</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Mit euren Smartphones steuert und formt ihr Kunstwerke auf magische Art.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <div>
+                  <h4 class="text-sm font-semibold text-white">Einzigartige Gruppen-Erlebnisse</h4>
+                  <p class="text-xs text-white/70 mt-1 leading-relaxed">
+                    Das kollektive Verhalten der Gruppe formt das Kunstwerk jedes Mal neu.
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- COMPARISON & EVALUATION MATRIX                                      -->
+    <!-- =================================================================== -->
+    <section class="relative pt-12 pb-6 border-t border-white/10">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-8">
+          <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-white/70 uppercase tracking-widest">
+            Entscheidungsgrundlage
+          </span>
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-white mt-3">
+            Vergleich der 3 Layout-Muster
+          </h3>
+          <p class="text-xs sm:text-sm text-white/60 mt-2">
+            Gegenüberstellung der Eigenschaften zur finalen Auswahl für die Kernanwendung (<code class="text-pink-300 font-mono">StorySection.tsx</code>)
+          </p>
+        </div>
+
+        <div class="overflow-x-auto rounded-2xl border border-white/10 glass-card">
+          <table class="w-full text-left text-xs sm:text-sm text-white/80">
+            <thead class="bg-white/5 uppercase font-mono text-[11px] text-white/60 border-b border-white/10">
+              <tr>
+                <th class="p-4">Kriterium</th>
+                <th class="p-4 text-pink-300 font-bold">1. Hero-Cover Top</th>
+                <th class="p-4 text-cyan-300 font-bold">2. Split-Stage Horiz.</th>
+                <th class="p-4 text-purple-300 font-bold">3. Holographic PiP</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/10">
+              <tr>
+                <td class="p-4 font-semibold text-white">Visueller Ersteindruck</td>
+                <td class="p-4 text-emerald-400 font-bold">★★★★★ (Sehr hoch)</td>
+                <td class="p-4 text-amber-300">★★★★☆ (Balanciert)</td>
+                <td class="p-4 text-emerald-400">★★★★★ (Futuristisch)</td>
+              </tr>
+              <tr>
+                <td class="p-4 font-semibold text-white">Vertikale Kompaktheit</td>
+                <td class="p-4 text-amber-300">★★★☆☆ (Höher)</td>
+                <td class="p-4 text-emerald-400 font-bold">★★★★★ (Extrem schlank)</td>
+                <td class="p-4 text-amber-300">★★★★☆ (Kompakt)</td>
+              </tr>
+              <tr>
+                <td class="p-4 font-semibold text-white">Mobile UX (Smartphone)</td>
+                <td class="p-4 text-emerald-400 font-bold">★★★★★ (Perfekter Fluss)</td>
+                <td class="p-4 text-amber-300">★★★☆☆ (Spalten brechen um)</td>
+                <td class="p-4 text-emerald-400">★★★★☆ (Gute Kartenharmonie)</td>
+              </tr>
+              <tr>
+                <td class="p-4 font-semibold text-white">Interaktivität / Zoom</td>
+                <td class="p-4 text-white/70">Subtiler Bild-Zoom</td>
+                <td class="p-4 text-white/70">Kachel-Hover</td>
+                <td class="p-4 text-emerald-400 font-bold">HUD-Glow & Direkt-Modal</td>
+              </tr>
+              <tr>
+                <td class="p-4 font-semibold text-white">Implementierungs-Aufwand</td>
+                <td class="p-4 text-emerald-400">Gering (1 Tailwind-Container)</td>
+                <td class="p-4 text-amber-300">Mittel (Grid-Breakpoint)</td>
+                <td class="p-4 text-white/70">Mittel (PiP-Komponente)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Recommendation Callout -->
+        <div class="mt-6 p-5 rounded-2xl bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-cyan-500/10 border border-white/15 flex items-start gap-4">
+          <div class="w-8 h-8 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center shrink-0 text-pink-300 font-bold">
+            💡
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-white mb-1">Architektur-Empfehlung für die spätere Übernahme:</h4>
+            <p class="text-xs text-white/75 leading-relaxed">
+              Für die tatsächliche Integration in <code class="text-pink-300 font-mono">StorySection.tsx</code> bietet <strong>Muster 1 (Hero-Cover)</strong> die höchste emotionale Zugkraft und lässt sich ohne Eingriff in das Spaltengitter direkt über den Badges einhängen. Wer maximale Seitenkompaktheit ohne langes Scrollen auf Desktop-Monitoren bevorzugt, greift zu <strong>Muster 2 (Split-Stage)</strong>.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- LIGHTBOX MODAL (FOR DETAILED FULL-SCREEN INSPECTION)                  -->
+  <!-- ===================================================================== -->
+  <div id="lightbox-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-md">
+    <div class="relative w-full max-w-4xl rounded-3xl bg-[rgba(18,12,28,0.95)] border border-white/20 p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <!-- Close Button -->
+      <button onclick="closeLightbox()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition">
+        ✕
+      </button>
+
+      <h3 id="lightbox-title" class="text-xl sm:text-2xl font-extrabold text-white mb-4">Detailansicht</h3>
+      
+      <div id="lightbox-content" class="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black flex items-center justify-center mb-6">
+        <!-- Injected Dynamically -->
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/60">
+        <p>Interaktives Visual-Asset für art.cube Präsentation.</p>
+        <button onclick="closeLightbox()" class="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition">
+          Schließen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- REPLICA NFT MODAL (Wie funktioniert das? from StorySection)           -->
+  <!-- ===================================================================== -->
+  <div id="nft-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md" onclick="handleNftModalBackdrop(event)">
+    <div class="relative w-full max-w-lg rounded-3xl p-6 sm:p-8 bg-[rgba(18,12,28,0.95)] border border-pink-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_40px_rgba(255,42,157,0.25)] text-left animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Ambient Glow -->
+      <div class="absolute -top-20 -right-20 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Close Button -->
+      <button type="button" onclick="closeNftModal()" class="absolute top-5 right-5 p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors">
+        ✕
+      </button>
+
+      <!-- Modal Header -->
+      <div class="flex items-center gap-2 mb-2">
+        <span class="w-2 h-2 rounded-full bg-[#4ee2ec] animate-ping"></span>
+        <span class="text-xs font-mono text-[#4ee2ec] tracking-wider uppercase">Digitale Kunst & Web3-Permanenz</span>
+      </div>
+      <h3 class="text-xl sm:text-2xl font-extrabold text-white tracking-wide mb-6">
+        Wie funktioniert das?
+      </h3>
+
+      <!-- 3 Modal Items -->
+      <div class="space-y-4 text-xs sm:text-sm">
+        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+          <h4 class="font-bold text-white mb-1">Dein persönliches Unikat</h4>
+          <p class="text-white/70 leading-relaxed">
+            Jedes 14-sekündige Video-Souvenir entsteht live aus deinen individuellen Entscheidungen und Berührungen. Kein anderes Kunstwerk existiert ein zweites Mal so wie deins.
+          </p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+          <h4 class="font-bold text-white mb-1">Dein Kunstwerk wird zu einem NFT. Aber was ist ein NFT?</h4>
+          <p class="text-white/70 leading-relaxed">
+            Ein NFT (Non-Fungible Token) funktioniert wie eine digitale Besitzurkunde. Auf einer modernen Blockchain gesichert, belegt es unwiderruflich, wer das Werk erschaffen hat und wem es gehört.
+          </p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+          <h4 class="font-bold text-white mb-1">Für immer gültig & abrufbar</h4>
+          <p class="text-white/70 leading-relaxed">
+            Weil Blockchain-Einträge nicht gelöscht werden können, bleibt dein Kunstwerk für immer dezentral erhalten — ohne Abhängigkeit von einzelnen Apps oder Betreibern.
+          </p>
+        </div>
+      </div>
+
+      <!-- Modal Action -->
+      <div class="mt-6 flex justify-end">
+        <button type="button" onclick="closeNftModal()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold text-xs tracking-wider uppercase shadow-[0_0_15px_rgba(255,42,157,0.4)] transition-all">
+          Verstanden & Schließen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT CONTROLLER FOR INTERACTIVE TABS & ASSET TOGGLING           -->
+  <!-- ===================================================================== -->
+  <script>
+    // Tab Switching Logic
+    function switchView(mode) {
+      const p1 = document.getElementById('pattern-1-section');
+      const p2 = document.getElementById('pattern-2-section');
+      const p3 = document.getElementById('pattern-3-section');
+
+      const btnAll = document.getElementById('tab-btn-all');
+      const btnM1 = document.getElementById('tab-btn-m1');
+      const btnM2 = document.getElementById('tab-btn-m2');
+      const btnM3 = document.getElementById('tab-btn-m3');
+
+      // Reset all buttons style
+      [btnAll, btnM1, btnM2, btnM3].forEach(btn => {
+        btn.className = 'px-3 py-1.5 rounded-lg font-medium transition-all text-white/70 hover:text-white';
+      });
+
+      const activeClass = 'px-3 py-1.5 rounded-lg font-bold transition-all text-white bg-gradient-to-r from-pink-500 to-purple-600 shadow-md';
+
+      if (mode === 'all') {
+        p1.classList.remove('hidden');
+        p2.classList.remove('hidden');
+        p3.classList.remove('hidden');
+        btnAll.className = activeClass;
+      } else if (mode === 'm1') {
+        p1.classList.remove('hidden');
+        p2.classList.add('hidden');
+        p3.classList.add('hidden');
+        btnM1.className = activeClass;
+      } else if (mode === 'm2') {
+        p1.classList.add('hidden');
+        p2.classList.remove('hidden');
+        p3.classList.add('hidden');
+        btnM2.className = activeClass;
+      } else if (mode === 'm3') {
+        p1.classList.add('hidden');
+        p2.classList.add('hidden');
+        p3.classList.remove('hidden');
+        btnM3.className = activeClass;
+      }
+    }
+
+    // Media Source Toggle (SVG vs Sample Images)
+    function setImageSource(type) {
+      const svgSlots = document.querySelectorAll('.svg-slot');
+      const sampleSlots = document.querySelectorAll('.sample-slot');
+      const btnSvg = document.getElementById('source-btn-svg');
+      const btnSample = document.getElementById('source-btn-sample');
+
+      if (type === 'svg') {
+        svgSlots.forEach(el => el.classList.remove('hidden'));
+        sampleSlots.forEach(el => el.classList.add('hidden'));
+
+        btnSvg.className = 'px-2.5 py-1.5 rounded-lg font-bold transition-all text-cyan-300 bg-cyan-500/20 border border-cyan-500/30 flex items-center gap-1.5';
+        btnSample.className = 'px-2.5 py-1.5 rounded-lg font-medium transition-all text-white/60 hover:text-white flex items-center gap-1.5';
+      } else {
+        svgSlots.forEach(el => el.classList.add('hidden'));
+        sampleSlots.forEach(el => el.classList.remove('hidden'));
+
+        btnSample.className = 'px-2.5 py-1.5 rounded-lg font-bold transition-all text-pink-300 bg-pink-500/20 border border-pink-500/30 flex items-center gap-1.5';
+        btnSvg.className = 'px-2.5 py-1.5 rounded-lg font-medium transition-all text-white/60 hover:text-white flex items-center gap-1.5';
+      }
+    }
+
+    // Responsive Simulator Width
+    function setSimulatorWidth(maxWidthClass, clickedBtn) {
+      const container = document.getElementById('main-viewport-container');
+      container.classList.remove('max-w-7xl', 'max-w-4xl', 'max-w-md');
+      container.classList.add(maxWidthClass);
+
+      document.querySelectorAll('.sim-btn').forEach(btn => {
+        btn.className = 'sim-btn px-2 py-1 rounded-md text-white/60 hover:text-white';
+      });
+      clickedBtn.className = 'sim-btn px-2 py-1 rounded-md text-white font-bold bg-white/20';
+    }
+
+    // NFT Modal Controller
+    function openNftModal() {
+      const modal = document.getElementById('nft-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeNftModal() {
+      const modal = document.getElementById('nft-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+    function handleNftModalBackdrop(event) {
+      if (event.target === document.getElementById('nft-modal')) {
+        closeNftModal();
+      }
+    }
+
+    // Lightbox Controller
+    function openLightbox(mediaKey, title) {
+      const modal = document.getElementById('lightbox-modal');
+      const titleEl = document.getElementById('lightbox-title');
+      const contentEl = document.getElementById('lightbox-content');
+
+      titleEl.textContent = title;
+      
+      // Determine what to display: if sample mode is active, show the sample image; else SVG
+      const isSampleActive = !document.getElementById('source-btn-sample').classList.contains('text-white/60');
+
+      if (isSampleActive) {
+        const imgSrc = mediaKey === 'svg-phase1' ? 'sumie_preview.jpg' : 'plexus_preview.jpg';
+        contentEl.innerHTML = `<img src="${imgSrc}" class="w-full h-full object-contain" alt="${title}" />`;
+      } else {
+        if (mediaKey === 'svg-phase1') {
+          contentEl.innerHTML = document.querySelector('#pattern-1-section .svg-slot').innerHTML;
+        } else {
+          contentEl.innerHTML = document.querySelectorAll('#pattern-1-section .svg-slot')[1].innerHTML;
+        }
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+      const modal = document.getElementById('lightbox-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+
+    // Escape Key listener for Modals
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeNftModal();
+        closeLightbox();
+      }
+    });
+  </script>
+</body>
+</html>
