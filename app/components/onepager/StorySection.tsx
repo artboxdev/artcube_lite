@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
 import { Language, translations } from './translations';
+import { PrototypeHeroVisual, ArtcubeHeroVisual } from './StoryHeroVisuals';
 
 interface StorySectionProps {
   lang: Language;
@@ -82,12 +83,24 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
           <div className="absolute top-0 right-0 w-48 h-48 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
 
           <div>
-            <div className="flex items-center justify-between gap-3 mb-6">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                {t.card1Badge}
-              </span>
-              <span className="text-xs font-mono text-pink-300/60 tracking-wider">{t.card1Phase}</span>
+            {/* Hero Top Banner */}
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-pink-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <PrototypeHeroVisual />
+
+              {/* Floating Badges */}
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase shadow-lg">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {t.card1Badge}
+                </span>
+              </div>
+              <div className="absolute top-3 right-3 z-10">
+                <span className="bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-pink-500/30 text-xs font-mono text-pink-300 tracking-wider shadow-lg">
+                  {t.card1Phase}
+                </span>
+              </div>
+              {/* Bottom Gradient Fade */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[rgba(18,12,28,0.95)] via-transparent to-black/20 pointer-events-none" />
             </div>
 
             <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-wide mb-6">
@@ -141,12 +154,24 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
           <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
 
           <div>
-            <div className="flex items-center justify-between gap-3 mb-6">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold tracking-widest uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                {t.card2Badge}
-              </span>
-              <span className="text-xs font-mono text-cyan-300/60 tracking-wider">{t.card2Phase}</span>
+            {/* Hero Top Banner */}
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-cyan-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <ArtcubeHeroVisual />
+
+              {/* Floating Badges */}
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-cyan-500/40 text-cyan-300 text-[10px] font-bold tracking-widest uppercase shadow-lg">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                  {t.card2Badge}
+                </span>
+              </div>
+              <div className="absolute top-3 right-3 z-10">
+                <span className="bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-cyan-500/30 text-xs font-mono text-cyan-300 tracking-wider shadow-lg">
+                  {t.card2Phase}
+                </span>
+              </div>
+              {/* Bottom Gradient Fade */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[rgba(18,12,28,0.95)] via-transparent to-black/20 pointer-events-none" />
             </div>
 
             <div className="flex items-baseline gap-2 mb-3">
