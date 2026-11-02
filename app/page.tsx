@@ -28,6 +28,7 @@ function ArtCubeApp() {
     return true;
   });
   const [isJoined, setIsJoined] = useState<boolean>(false);
+  const [isWaitingForHost, setIsWaitingForHost] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
   const elapsedRef = useRef<number>(0);
@@ -63,6 +64,7 @@ function ArtCubeApp() {
     const targetMode = mode || 'bluten';
     const targetExpMode = expMode || 'test';
     setActiveArtworkMode(targetMode);
+    setIsWaitingForHost(false);
     setIsStarted(true);
     setElapsed(0);
     elapsedRef.current = 0;
@@ -90,6 +92,7 @@ function ArtCubeApp() {
       setIsJoined(true);
     },
     onStartSession: (artwork, mode) => {
+      setIsWaitingForHost(false);
       handleStart(artwork, mode, false);
     },
     onPeerMessage: (data) => {
@@ -105,11 +108,14 @@ function ArtCubeApp() {
   const handleJoin = useCallback((chosenName?: string) => {
     const finalName = chosenName || myName;
     setIsJoined(true);
+    setIsWaitingForHost(true);
+    setIsStarted(true);
     multiplayer.sendGuestJoin(finalName);
   }, [myName, multiplayer]);
 
   const handleExit = useCallback(() => {
     setIsStarted(false);
+    setIsWaitingForHost(false);
     setElapsed(0);
     elapsedRef.current = 0;
   }, []);
@@ -151,6 +157,7 @@ function ArtCubeApp() {
           myName={myName || (isHost ? 'Host' : (guestName || 'Gast'))}
           peerName={isHost ? guestName : hostName}
           isJoined={isJoined}
+          isWaitingForHost={isWaitingForHost}
           sessionId={sessionId}
           sendInteraction={handleSendInteraction}
           onCanvasesReady={handleCanvasesReady}

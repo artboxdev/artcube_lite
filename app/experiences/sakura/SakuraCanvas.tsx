@@ -1170,6 +1170,9 @@ class ImmersiveStroke {
 }
 
 class OrbNode {
+  id: string;
+  branchIndex: number = 0;
+  orbT: number = 0;
   basePosition: THREE.Vector3;
   position: THREE.Vector3;
   parentBranchInfo: { curve: THREE.CatmullRomCurve3; stroke: ImmersiveStroke; level: number; totalLength: number } | null;
@@ -1199,8 +1202,19 @@ class OrbNode {
     orbT: number,
     type = 'branch',
     customPos: THREE.Vector3 | null = null,
-    bounds?: { minX: number; maxX: number; minY: number; maxY: number }
+    bounds?: { minX: number; maxX: number; minY: number; maxY: number },
+    orbId?: string,
+    customSeed?: number,
+    customAngleDeg?: number,
+    customLength?: number,
+    branchIndex?: number
   ) {
+    this.id = orbId || ('orb_' + Math.random().toString(36).substring(2, 8));
+    this.branchIndex = branchIndex ?? 0;
+    this.orbT = orbT;
+    if (customSeed !== undefined) {
+      this.seed = customSeed;
+    }
     this.basePosition = customPos ? customPos.clone() : (parentBranchInfo ? parentBranchInfo.curve.getPointAt(orbT).clone() : new THREE.Vector3(0, 0, 0));
     this.position = this.basePosition.clone();
     this.parentBranchInfo = parentBranchInfo;
@@ -1209,9 +1223,9 @@ class OrbNode {
     this.type = type;
 
     // Proportioned branch length that respects visible screen boundaries
-    this.targetChildLength = level === 0
-      ? (3.6 + Math.random() * 1.4)
-      : (2.2 + Math.random() * 1.1);
+    this.targetChildLength = customLength !== undefined
+      ? customLength
+      : (level === 0 ? (3.6 + Math.random() * 1.4) : (2.2 + Math.random() * 1.1));
 
     let sideSign = Math.random() > 0.5 ? 1 : -1;
     if (bounds) {
@@ -1221,11 +1235,11 @@ class OrbNode {
         sideSign = 1;
       }
     }
-    const angleDeg = sideSign * (20 + Math.random() * 18);
+    const angleDeg = customAngleDeg !== undefined ? customAngleDeg : sideSign * (20 + Math.random() * 18);
     this.angleRad = THREE.MathUtils.degToRad(angleDeg);
     this.guideDir = new THREE.Vector3(Math.cos(this.angleRad), Math.sin(this.angleRad), 0).normalize();
 
-    if (bounds && this.type === 'branch') {
+    if (bounds && this.type === 'branch' && customLength === undefined) {
       let maxDistX = Infinity;
       if (this.guideDir.x > 0.05) {
         maxDistX = Math.max(1.2, (bounds.maxX - 0.45 - this.basePosition.x) / this.guideDir.x);
@@ -1361,6 +1375,16 @@ export const CURSOR_PALETTE_10 = [
   { name: 'Luminous Pink', hex: '#ff66cc', rgb: '255, 102, 204' }
 ];
 
+export interface PlexusNodeDef {
+  dx: number;
+  dy: number;
+  dz: number;
+  freq: number;
+  phase: number;
+  rot: number;
+  rotSpeed: number;
+}
+
 interface SakuraCanvasProps extends ExperienceComponentProps {
   onExit?: () => void;
   initialMode?: 'bluten' | 'plexus' | string;
@@ -1374,6 +1398,7 @@ export function SakuraCanvas({
   myName = 'Host',
   peerName,
   isJoined = false,
+  isWaitingForHost = false,
   sessionId = 'sakura-session',
   sendInteraction,
   onCanvasesReady,
@@ -1438,6 +1463,10 @@ export function SakuraCanvas({
   const syncRemoteBlossomColorRef = useRef<((color: BlossomColorId) => void) | null>(null);
   const onRemoteUserLeaveRef = useRef<(() => void) | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const spawnOrbRoundRef = useRef<((roundNum: number, phase: 'BRANCH' | 'BLOSSOM', remoteOrbs?: any[], shouldBroadcast?: boolean) => void) | null>(null);
+  const onPeerOrbActivateRef = useRef<((orbId: string, color?: BlossomColorId, phase?: string) => void) | null>(null);
+  const onPeerPlexusDockRef = useRef<((orbId: string, clusterId?: number) => void) | null>(null);
+  const onPeerPlexusCreateRef = useRef<((id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[]) => void) | null>(null);
 
   const displayUser1Name = isHost ? (myName || 'Host') : (peerName || remoteUser1Name || 'Host');
   const displayUser2Name = isHost ? (peerName || remoteUser2Name || 'Gast') : (myName || 'Gast');
@@ -1709,8 +1738,8 @@ export function SakuraCanvas({
       }
 
       // 2. Android: Intended mode is Landscape during active session.
-      // Prompt to rotate to landscape if in portrait during active session!
-      if (isRunning && isAndroidPhone && isPortrait) {
+      // Prompt to rotate to landscape if in portrait during active session (unless waiting for host)!
+      if (isRunning && !isWaitingForHost && isAndroidPhone && isPortrait) {
         setIsAndroidPortraitPrompt(true);
       } else {
         setIsAndroidPortraitPrompt(false);
@@ -1724,7 +1753,7 @@ export function SakuraCanvas({
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);
     };
-  }, [isRunning]);
+  }, [isRunning, isWaitingForHost]);
 
   // Mobile Double-Back Session Exit Gesture
   useEffect(() => {
@@ -2440,7 +2469,12 @@ export function SakuraCanvas({
       }
     };
 
-    const spawnOrbRound = (roundNum: number, phase: 'BRANCH' | 'BLOSSOM') => {
+    const spawnOrbRound = (
+      roundNum: number,
+      phase: 'BRANCH' | 'BLOSSOM',
+      remoteOrbs?: any[],
+      shouldBroadcast = true
+    ) => {
       currentRoundNum = roundNum;
       currentRoundRef.current = roundNum;
       setCurrentRound(roundNum);
@@ -2457,41 +2491,140 @@ export function SakuraCanvas({
 
       const bounds = getVisibleBranchBounds();
 
-      if (phase === 'BRANCH') {
-        const validBranches = allBranches.filter(b => b.level < 2);
-        validBranches.forEach(bInfo => {
-          const numOrbs = bInfo.level === 0 ? 2 : 1;
-          for (let i = 0; i < numOrbs; i++) {
-            let t = 0.22 + Math.random() * 0.52;
-            // Ensure branch orb starts well inside visible bounds so child branch has room to grow
-            for (let attempt = 0; attempt < 6; attempt++) {
-              const cand = bInfo.curve.getPointAt(t);
-              if (
-                cand.x >= bounds.minX + 0.5 &&
-                cand.x <= bounds.maxX - 1.8 &&
-                cand.y >= bounds.minY + 0.7 &&
-                cand.y <= bounds.maxY - 0.7
-              ) {
-                break;
-              }
-              t = 0.18 + Math.random() * 0.45;
-            }
-            const orb = new OrbNode(orbGroup, bInfo, bInfo.level, roundNum, t, 'branch', null, bounds);
-            orb.setAlpha(0.0);
-            activeOrbs.push(orb);
-          }
-        });
-      } else if (phase === 'BLOSSOM') {
-        const numTotalBlossoms = Math.min(6, allBranches.length * 2);
-        for (let i = 0; i < numTotalBlossoms; i++) {
-          const bInfo = allBranches[i % allBranches.length];
-          const t = 0.20 + Math.random() * 0.68;
-          const orb = new OrbNode(orbGroup, bInfo, bInfo.level, roundNum, t, 'blossom', null, bounds);
+      if (remoteOrbs && remoteOrbs.length > 0) {
+        // Instantiate synchronized orbs from remote peer
+        remoteOrbs.forEach(def => {
+          const bInfo = allBranches[def.branchIndex] || allBranches[0];
+          const orb = new OrbNode(
+            orbGroup,
+            bInfo,
+            bInfo.level,
+            roundNum,
+            def.t,
+            def.type,
+            null,
+            bounds,
+            def.id,
+            def.seed,
+            def.angleDeg,
+            def.length,
+            def.branchIndex
+          );
           orb.setAlpha(0.0);
           activeOrbs.push(orb);
+        });
+      } else {
+        const createdOrbDefs: any[] = [];
+        if (phase === 'BRANCH') {
+          const validBranches = allBranches.filter(b => b.level < 2);
+          validBranches.forEach(bInfo => {
+            const bIdx = allBranches.indexOf(bInfo);
+            const numOrbs = bInfo.level === 0 ? 2 : 1;
+            for (let i = 0; i < numOrbs; i++) {
+              let t = 0.22 + Math.random() * 0.52;
+              // Ensure branch orb starts well inside visible bounds so child branch has room to grow
+              for (let attempt = 0; attempt < 6; attempt++) {
+                const cand = bInfo.curve.getPointAt(t);
+                if (
+                  cand.x >= bounds.minX + 0.5 &&
+                  cand.x <= bounds.maxX - 1.8 &&
+                  cand.y >= bounds.minY + 0.7 &&
+                  cand.y <= bounds.maxY - 0.7
+                ) {
+                  break;
+                }
+                t = 0.18 + Math.random() * 0.45;
+              }
+              const orbId = `orb_r${roundNum}_b${bIdx}_${i}`;
+              const orbSeed = Math.random();
+              const sideSign = Math.random() > 0.5 ? 1 : -1;
+              const angleDeg = sideSign * (20 + Math.random() * 18);
+              const targetLen = bInfo.level === 0 ? (3.6 + Math.random() * 1.4) : (2.2 + Math.random() * 1.1);
+
+              const orb = new OrbNode(
+                orbGroup,
+                bInfo,
+                bInfo.level,
+                roundNum,
+                t,
+                'branch',
+                null,
+                bounds,
+                orbId,
+                orbSeed,
+                angleDeg,
+                targetLen,
+                bIdx
+              );
+              orb.setAlpha(0.0);
+              activeOrbs.push(orb);
+
+              createdOrbDefs.push({
+                id: orbId,
+                branchIndex: bIdx,
+                t,
+                seed: orbSeed,
+                angleDeg,
+                length: targetLen,
+                type: 'branch'
+              });
+            }
+          });
+        } else if (phase === 'BLOSSOM') {
+          const numTotalBlossoms = Math.min(6, allBranches.length * 2);
+          for (let i = 0; i < numTotalBlossoms; i++) {
+            const bIdx = i % allBranches.length;
+            const bInfo = allBranches[bIdx];
+            const t = 0.20 + Math.random() * 0.68;
+            const orbId = `blossom_r${roundNum}_b${bIdx}_${i}`;
+            const orbSeed = Math.random();
+
+            const orb = new OrbNode(
+              orbGroup,
+              bInfo,
+              bInfo.level,
+              roundNum,
+              t,
+              'blossom',
+              null,
+              bounds,
+              orbId,
+              orbSeed,
+              0,
+              0,
+              bIdx
+            );
+            orb.setAlpha(0.0);
+            activeOrbs.push(orb);
+
+            createdOrbDefs.push({
+              id: orbId,
+              branchIndex: bIdx,
+              t,
+              seed: orbSeed,
+              angleDeg: 0,
+              length: 0,
+              type: 'blossom'
+            });
+          }
+        }
+
+        if (shouldBroadcast && isHostRef.current) {
+          sendInteractionRef.current?.('SAKURA_SPAWN_ROUND', {
+            roundNum,
+            phase,
+            orbs: createdOrbDefs
+          });
+          channelRef.current?.postMessage({
+            type: 'SAKURA_SPAWN_ROUND',
+            roundNum,
+            phase,
+            orbs: createdOrbDefs
+          });
         }
       }
     };
+    spawnOrbRoundRef.current = spawnOrbRound;
 
     const spawnSubBranchFromOrb = (orb: OrbNode) => {
       if (isPausedRef.current || orb.branchSpawned) return;
@@ -2576,18 +2709,18 @@ export function SakuraCanvas({
       growingSubBranches.push({ stroke: childStroke, progress: 0.0, duration: 3.0 });
     };
 
-    const spawnBlossomClusterFromOrb = (orb: OrbNode) => {
+    const spawnBlossomClusterFromOrb = (orb: OrbNode, customColor?: BlossomColorId) => {
       if (isPausedRef.current || orb.branchSpawned) return;
       orb.branchSpawned = true;
       orb.userDrawn = true;
       orb.triggerExplosion();
       orb.setAlpha(0.15);
 
-      const curColor = selectedColorRef.current;
-      colorCountsRef.current[curColor] += 1;
+      const curColor = customColor || selectedColorRef.current;
+      colorCountsRef.current[curColor] = (colorCountsRef.current[curColor] || 0) + 1;
       startFlyingPetalsIfNeeded();
       sendInteractionRef.current?.('BLOSSOM_COLOR_ADD', { color: curColor });
-      const palette = BLOSSOM_PALETTES[curColor];
+      const palette = BLOSSOM_PALETTES[curColor] || BLOSSOM_PALETTES.pink;
 
       const centerPos = orb.basePosition.clone();
       const numLayerStrokes = 2 + Math.floor(Math.random() * 2);
@@ -2619,6 +2752,23 @@ export function SakuraCanvas({
 
         growingBlossomClusters.push({ stroke: clusterStroke, progress: 0.0, duration: 0.5 });
         persistentBlossomStrokes.push(clusterStroke);
+      }
+    };
+
+    onPeerOrbActivateRef.current = (orbId: string, color?: BlossomColorId, phase?: string) => {
+      const targetOrb = activeOrbs.find(o => o.id === orbId);
+      if (targetOrb && !targetOrb.branchSpawned) {
+        if (phase === 'BRANCH' || targetOrb.type === 'branch') {
+          spawnSubBranchFromOrb(targetOrb);
+        } else if (phase === 'BLOSSOM' || targetOrb.type === 'blossom') {
+          spawnBlossomClusterFromOrb(targetOrb, color);
+        }
+
+        const remainingOrbs = activeOrbs.filter(o => !o.userDrawn && !o.branchSpawned);
+        if (remainingOrbs.length === 0 && roundState === 'ACTIVE') {
+          roundState = 'FADING';
+          roundTimer = 0.0;
+        }
       }
     };
 
@@ -2799,16 +2949,6 @@ export function SakuraCanvas({
       chaosFreqY: number;
       chaosFreqZ: number;
       chaosPhase: number;
-    }
-
-    interface PlexusNodeDef {
-      dx: number;
-      dy: number;
-      dz: number;
-      freq: number;
-      phase: number;
-      rot: number;
-      rotSpeed: number;
     }
 
     interface PlexusCluster {
@@ -3565,13 +3705,19 @@ export function SakuraCanvas({
       return nodes;
     };
 
-    const createDriftingPlexusCluster = (x: number, y: number, z: number, customNodes?: PlexusNodeDef[]) => {
+    const createDriftingPlexusCluster = (
+      x: number,
+      y: number,
+      z: number,
+      customNodes?: PlexusNodeDef[],
+      customId?: number
+    ) => {
       const nodes = customNodes || generateRandomPlexusHoldNodes();
-      const clusterId = activePlexusClusters.length + 1;
+      const clusterId = customId || (activePlexusClusters.length + 1);
       const dirX = (activePlexusClusters.length % 2 === 0) ? 1 : -1;
       const dirY = (activePlexusClusters.length % 3 === 0) ? 1 : -1;
 
-      activePlexusClusters.push({
+      const cluster = {
         id: clusterId,
         centerX: x,
         centerY: y,
@@ -3583,7 +3729,59 @@ export function SakuraCanvas({
         r: 1.0,
         g: 0.18,
         b: 0.65
-      });
+      };
+      activePlexusClusters.push(cluster);
+      return cluster;
+    };
+
+    onPeerPlexusCreateRef.current = (id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[]) => {
+      createDriftingPlexusCluster(x, y, z, nodes, id);
+    };
+
+    onPeerPlexusDockRef.current = (orbId: string, clusterId?: number) => {
+      const dockedOrb = floatingPlexusOrbs.find(o => o.id === orbId);
+      if (dockedOrb) {
+        const cluster = (clusterId !== undefined ? activePlexusClusters.find(c => c.id === clusterId) : null) || activePlexusClusters[0];
+        if (cluster) {
+          dockedOrb.attachCluster(cluster);
+          const clusterIdx = activePlexusClusters.indexOf(cluster);
+          if (clusterIdx !== -1) activePlexusClusters.splice(clusterIdx, 1);
+        }
+        dockedOrb.triggerDockImpulse();
+        dockedOrb.triggerDockWobble();
+        totalAttachedPlexusCount++;
+        setPlexusAttachedCount(totalAttachedPlexusCount);
+
+        if (totalAttachedPlexusCount >= 6 && !isPlexusFinaleActive && !isPlexusCompleted) {
+          isPlexusFinaleActive = true;
+          setIsPlexusFinale(true);
+          plexusFinaleStartTime = totalAnimTime;
+          isPlexusRippleActive = true;
+          plexusRippleTimer = 0.0;
+          if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
+          if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+
+          const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
+          const activeOrbsList = activeDockedOrbs.length > 0 ? activeDockedOrbs : floatingPlexusOrbs;
+          const weightedPalettes: { r: number; g: number; b: number }[][] = [];
+          const weightedPositions: { x: number; y: number; z: number }[] = [];
+          activeOrbsList.forEach(orb => {
+            const count = Math.max(1, orb.attachedPlexusCount);
+            const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
+            for (let w = 0; w < count; w++) {
+              weightedPalettes.push(pal);
+              weightedPositions.push({ x: orb.x, y: orb.y, z: orb.z });
+            }
+          });
+          initFinaleParticles(weightedPalettes, weightedPositions);
+
+          showToast('🌟 10s Finale: Stern-Netzwerk aktiviert!');
+
+          if (isCreationModeRef.current) {
+            startSouvenirRecordingRef.current?.(10);
+          }
+        }
+      }
     };
 
     // Scratch instances for zero-allocation pointer & camera math (quality_and_performance.md)
@@ -3657,6 +3855,18 @@ export function SakuraCanvas({
         } else if (currentPhaseName === 'BLOSSOM') {
           spawnBlossomClusterFromOrb(bestOrb);
         }
+
+        // Broadcast activation to remote peer
+        const activatePayload = {
+          orbId: bestOrb.id,
+          color: selectedColorRef.current,
+          phase: currentPhaseName
+        };
+        sendInteractionRef.current?.('SAKURA_ORB_ACTIVATE', activatePayload);
+        channelRef.current?.postMessage({
+          type: 'SAKURA_ORB_ACTIVATE',
+          ...activatePayload
+        });
 
         showToastRef.current?.('🌸 Interaktiver Knotenpunkt aktiviert!');
 
@@ -3906,7 +4116,13 @@ export function SakuraCanvas({
             setPlexusAttachedCount(totalAttachedPlexusCount);
 
             const clusterIdx = activePlexusClusters.indexOf(draggedPlexusCluster);
+            const clusterId = draggedPlexusCluster.id;
             if (clusterIdx !== -1) activePlexusClusters.splice(clusterIdx, 1);
+
+            // Broadcast dock to remote peer
+            const dockMsg = { orbId: dockedOrb.id, clusterId };
+            sendInteractionRef.current?.('PLEXUS_ORB_DOCK', dockMsg);
+            channelRef.current?.postMessage({ type: 'PLEXUS_ORB_DOCK', ...dockMsg });
 
             showToast(`🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${totalAttachedPlexusCount}/6 Gesamt)`);
 
@@ -3944,7 +4160,16 @@ export function SakuraCanvas({
           }
         } else {
           if (plexusHoldTime >= 1.5) {
-            createDriftingPlexusCluster(plexusOriginX, plexusOriginY, 0.0, activeHoldNodes);
+            const newCluster = createDriftingPlexusCluster(plexusOriginX, plexusOriginY, 0.0, activeHoldNodes);
+            const createMsg = {
+              id: newCluster.id,
+              x: plexusOriginX,
+              y: plexusOriginY,
+              z: 0.0,
+              nodes: activeHoldNodes
+            };
+            sendInteractionRef.current?.('PLEXUS_CLUSTER_CREATE', createMsg);
+            channelRef.current?.postMessage({ type: 'PLEXUS_CLUSTER_CREATE', ...createMsg });
           }
         }
       }
@@ -4999,6 +5224,29 @@ export function SakuraCanvas({
           setSelectedColor(msg.color as BlossomColorId);
         } else if (msg.kind === 'BLOSSOM_COLOR_ADD' && msg.color) {
           syncRemoteBlossomColorRef.current?.(msg.color as BlossomColorId);
+        } else if (msg.kind === 'SAKURA_SPAWN_ROUND' && typeof msg.roundNum === 'number') {
+          spawnOrbRoundRef.current?.(
+            msg.roundNum as number,
+            msg.phase as ('BRANCH' | 'BLOSSOM'),
+            msg.orbs as any[],
+            false
+          );
+        } else if (msg.kind === 'SAKURA_ORB_ACTIVATE' && typeof msg.orbId === 'string') {
+          onPeerOrbActivateRef.current?.(
+            msg.orbId as string,
+            msg.color as BlossomColorId,
+            msg.phase as string
+          );
+        } else if (msg.kind === 'PLEXUS_ORB_DOCK' && typeof msg.orbId === 'string') {
+          onPeerPlexusDockRef.current?.(msg.orbId as string, msg.clusterId as number);
+        } else if (msg.kind === 'PLEXUS_CLUSTER_CREATE' && typeof msg.x === 'number') {
+          onPeerPlexusCreateRef.current?.(
+            msg.id as number,
+            msg.x as number,
+            msg.y as number,
+            msg.z as number,
+            msg.nodes as any
+          );
         } else if (msg.kind === 'SUMIE_VORTEX_CIRCLE') {
           triggerCircleFromUserRef.current?.(remoteIdx, false);
         } else if (msg.kind === 'RESTART_ARTWORK') {
@@ -5633,6 +5881,56 @@ export function SakuraCanvas({
             >
               <span>{isNftSaved ? (isEn ? '✅ Video saved!' : '✅ Video gesichert!') : (isEn ? '✨ Save as NFT' : '✨ Als NFT sichern')}</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Waiting for Host Shimmer Modal Overlay (Guest View before Host starts session) */}
+      {isWaitingForHost && isRunning && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
+          <div className="relative w-full max-w-md bg-[rgba(18,10,28,0.92)] border border-pink-500/40 rounded-3xl p-8 sm:p-10 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
+            {/* Ambient Background Glow */}
+            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-36 h-36 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Glowing Icon */}
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <span className="absolute inset-0 rounded-full border border-pink-500/40 animate-ping" style={{ animationDuration: '2.5s' }} />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_20px_rgba(255,42,157,0.5)]">
+                <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-2xl">
+                  🌸
+                </div>
+              </div>
+            </div>
+
+            {/* Session Pill */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{isEn ? 'Connected with Host' : 'Mit Host verbunden'}</span>
+            </div>
+
+            {/* Titles */}
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-xl sm:text-2xl font-extrabold tracking-wide uppercase bg-gradient-to-r from-white via-pink-100 to-[#ff80df] bg-clip-text text-transparent">
+                {isEn ? 'Waiting for Host...' : 'Warten auf den Host...'}
+              </h3>
+              <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
+                {isEn
+                  ? 'The host is selecting the artwork. Your shared session will begin in sync.'
+                  : 'Der Host wählt das Kunstwerk aus. Sobald es losgeht, startet euer Erlebnis synchron.'}
+              </p>
+            </div>
+
+            {/* Animated Loading Bar (exact shimmer style from StorySection) */}
+            <div className="w-full flex flex-col gap-2 pt-1">
+              <div className="relative w-full h-2 rounded-full bg-white/10 overflow-hidden shadow-[0_0_15px_rgba(78,226,236,0.3)]">
+                <div className="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_12px_rgba(78,226,236,0.8)]" />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
+                <span>{myName || (isEn ? 'Guest' : 'Gast')}</span>
+                <span className="text-cyan-300">ID: {sessionId}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -21,6 +21,7 @@ export interface ExperienceComponentProps {
   myName: string;
   peerName?: string;
   isJoined?: boolean;
+  isWaitingForHost?: boolean;
   sessionId?: string;
   sendInteraction: (kind: string, data: Record<string, unknown>) => void;
   onCanvasesReady: (flare: HTMLCanvasElement, star: HTMLCanvasElement) => void;
