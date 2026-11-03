@@ -1467,6 +1467,9 @@ export function SakuraCanvas({
   const onPeerOrbActivateRef = useRef<((orbId: string, color?: BlossomColorId, phase?: string) => void) | null>(null);
   const onPeerPlexusDockRef = useRef<((orbId: string, clusterId?: number) => void) | null>(null);
   const onPeerPlexusCreateRef = useRef<((id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[]) => void) | null>(null);
+  const onPeerPlexusOrbMoveRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
+  const onPeerPlexusOrbReleaseRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
+  const onPeerPlexusFinaleTriggerRef = useRef<((timestamp?: number) => void) | null>(null);
 
   const displayUser1Name = isHost ? (myName || 'Host') : (peerName || remoteUser1Name || 'Host');
   const displayUser2Name = isHost ? (peerName || remoteUser2Name || 'Gast') : (myName || 'Gast');
@@ -1550,6 +1553,7 @@ export function SakuraCanvas({
   const [blutenCounted, setBlutenCounted] = useState(false);
   const [plexusCounted, setPlexusCounted] = useState(false);
   const [plexusAttachedCount, setPlexusAttachedCount] = useState(0);
+  const [plexusOccupiedOrbsCount, setPlexusOccupiedOrbsCount] = useState(0);
   const [isPlexusFinale, setIsPlexusFinale] = useState(false);
 
   // Collaborative Creation Readiness & Lightbox State
@@ -1585,7 +1589,7 @@ export function SakuraCanvas({
         if (stored === 'de' || stored === 'en') {
           setLang(stored);
         }
-      } catch {}
+      } catch { }
     };
     syncLang();
     window.addEventListener('storage', syncLang);
@@ -1596,6 +1600,8 @@ export function SakuraCanvas({
     };
   }, []);
   const isEn = lang === 'en';
+  const isEnRef = useRef(isEn);
+  useEffect(() => { isEnRef.current = isEn; }, [isEn]);
 
   // Step-by-Step Artwork Phase Lifecycle State
   const [currentPhase, setCurrentPhase] = useState<'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | 'VORTEX' | 'DONE'>('BRANCH');
@@ -1641,7 +1647,7 @@ export function SakuraCanvas({
   const isCreationModeRef = useRef(isCreationMode);
   useEffect(() => { isCreationModeRef.current = isCreationMode; }, [isCreationMode]);
 
-  const showToast = useCallback((_msg: string) => {}, []);
+  const showToast = useCallback((_msg: string) => { }, []);
 
   // Wake HUD Controls upon any user interaction
   const wakeHUDControls = useCallback(() => {
@@ -1684,7 +1690,7 @@ export function SakuraCanvas({
         msRequestFullscreen?: () => void;
       };
       if (docEl.requestFullscreen) {
-        await docEl.requestFullscreen().catch(() => {});
+        await docEl.requestFullscreen().catch(() => { });
       } else if (docEl.webkitRequestFullscreen) {
         docEl.webkitRequestFullscreen();
       }
@@ -1696,7 +1702,7 @@ export function SakuraCanvas({
       } | null;
       if (screenAny?.orientation?.lock) {
         await screenAny.orientation.lock('landscape').catch(() => {
-          return screenAny?.orientation?.lock?.('landscape-primary')?.catch(() => {});
+          return screenAny?.orientation?.lock?.('landscape-primary')?.catch(() => { });
         });
       }
     } catch {
@@ -1722,9 +1728,9 @@ export function SakuraCanvas({
       const isPortrait = !isLandscape;
       setIsPortraitMode(isPortrait);
 
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isIPhone = /iPhone|iPod/.test(navigator.userAgent) || 
+      const isIPhone = /iPhone|iPod/.test(navigator.userAgent) ||
         (isIOS && Math.min(window.innerWidth, window.innerHeight) < 768);
       const isAndroid = /Android/i.test(navigator.userAgent);
       const isAndroidPhone = isAndroid && Math.min(window.innerWidth, window.innerHeight) < 768;
@@ -1874,11 +1880,11 @@ export function SakuraCanvas({
     showToast(!isAudioMuted ? 'Audio stummgeschaltet' : 'Audio aktiviert');
   }, [isAudioMuted, showToast]);
 
-  const restartTriggerRef = useRef<() => void>(() => {});
+  const restartTriggerRef = useRef<() => void>(() => { });
 
   const handleRestart = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try { mediaRecorderRef.current.stop(); } catch {}
+      try { mediaRecorderRef.current.stop(); } catch { }
     }
     isSouvenirRecordingRef.current = false;
     setIsCreationMode(false);
@@ -1886,6 +1892,7 @@ export function SakuraCanvas({
     colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
     setSelectedColor('pink');
     setPlexusAttachedCount(0);
+    setPlexusOccupiedOrbsCount(0);
     setIsPlexusFinale(false);
     restartTriggerRef.current();
     showToast('Kunstwerk zurückgesetzt — Beginn von vorn!');
@@ -1916,6 +1923,7 @@ export function SakuraCanvas({
     colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
     setSelectedColor('pink');
     setPlexusAttachedCount(0);
+    setPlexusOccupiedOrbsCount(0);
     setIsPlexusFinale(false);
     restartTriggerRef.current();
 
@@ -2014,7 +2022,7 @@ export function SakuraCanvas({
   const handleExit = useCallback(() => {
     try {
       if (typeof document !== 'undefined' && document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
       const screenAny = (typeof screen !== 'undefined' ? screen : null) as unknown as {
         orientation?: {
@@ -2022,9 +2030,9 @@ export function SakuraCanvas({
         };
       } | null;
       if (screenAny?.orientation?.unlock) {
-        try { screenAny.orientation.unlock(); } catch {}
+        try { screenAny.orientation.unlock(); } catch { }
       }
-    } catch {}
+    } catch { }
     setIsIOSLandscapeBlocked(false);
     setIsAndroidPortraitPrompt(false);
     if (onExitRef.current) {
@@ -2965,13 +2973,20 @@ export function SakuraCanvas({
       b: number;
     }
 
-    // Planetary orbital configurations (Uniform focal depth so all orbs have identical visual size)
-    const PLANETARY_ORBIT_CONFIGS = [
-      { radiusX: 115.0, radiusY: 72.0, baseZ: 0.0, speed: 0.38, zPhase: 0.0, zAmp: 0.0 },  // Pink (Innermost)
-      { radiusX: 162.0, radiusY: 98.0, baseZ: 0.0, speed: 0.30, zPhase: 1.2, zAmp: 0.0 },  // Rot
-      { radiusX: 210.0, radiusY: 128.0, baseZ: 0.0, speed: 0.23, zPhase: 2.5, zAmp: 0.0 }, // Blau
-      { radiusX: 255.0, radiusY: 155.0, baseZ: 0.0, speed: 0.18, zPhase: 3.8, zAmp: 0.0 }, // Grün
-      { radiusX: 300.0, radiusY: 178.0, baseZ: 0.0, speed: 0.14, zPhase: 5.0, zAmp: 0.0 }  // Gold (Outermost)
+    // 4 Draggable Plexus Orbs in 4 quadrants with harmonic floating
+    const PLEXUS_4_ORB_CONFIGS: {
+      id: BlossomColorId;
+      homeX: number;
+      homeY: number;
+      orbitRx: number;
+      orbitRy: number;
+      speed: number;
+      phase: number;
+    }[] = [
+      { id: 'pink', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
+      { id: 'blue', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
+      { id: 'yellow', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
+      { id: 'green', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 },
     ];
 
     class FloatingPlexusOrbInstance {
@@ -2979,14 +2994,17 @@ export function SakuraCanvas({
       id: BlossomColorId;
       name: string;
       orbIndex: number;
-      radiusX: number;
-      radiusY: number;
-      baseZ: number;
-      orbitSpeed: number;
-      zPhase: number;
-      zAmp: number;
+      homeX: number;
+      homeY: number;
+      orbitRx: number;
+      orbitRy: number;
+      speed: number;
+      phase: number;
+      isDragged = false;
+      isRemoteDragged = false;
+      dragTargetX = 0;
+      dragTargetY = 0;
       orbitAngle: number;
-      initialOrbitAngle: number;
       x: number;
       y: number;
       z: number;
@@ -3014,32 +3032,32 @@ export function SakuraCanvas({
       preFinaleOrbitAngle = 0;
       hasCapturedPreFinale = false;
 
-      constructor(config: typeof BLOSSOM_PALETTES[BlossomColorId], orbIndex = 0) {
-        this.config = config;
-        this.id = config.id;
-        this.name = config.name;
+      constructor(cfg: typeof PLEXUS_4_ORB_CONFIGS[number], orbIndex = 0) {
+        this.config = BLOSSOM_PALETTES[cfg.id];
+        this.id = cfg.id;
+        this.name = this.config.name;
         this.orbIndex = orbIndex;
 
-        const orbitCfg = PLANETARY_ORBIT_CONFIGS[this.orbIndex % PLANETARY_ORBIT_CONFIGS.length];
-        this.radiusX = orbitCfg.radiusX;
-        this.radiusY = orbitCfg.radiusY;
-        this.baseZ = orbitCfg.baseZ;
-        this.orbitSpeed = orbitCfg.speed;
-        this.zPhase = orbitCfg.zPhase;
-        this.zAmp = orbitCfg.zAmp;
+        this.homeX = cfg.homeX;
+        this.homeY = cfg.homeY;
+        this.orbitRx = cfg.orbitRx;
+        this.orbitRy = cfg.orbitRy;
+        this.speed = cfg.speed;
+        this.phase = cfg.phase;
 
-        this.initialOrbitAngle = (this.orbIndex / 5.0) * Math.PI * 2 + this.orbIndex * 0.55;
-        this.orbitAngle = this.initialOrbitAngle;
-        this.x = Math.cos(this.orbitAngle) * this.radiusX;
-        this.y = Math.sin(this.orbitAngle) * this.radiusY;
-        this.z = Math.sin(this.orbitAngle * 1.5 + this.zPhase) * this.zAmp + this.baseZ;
+        this.orbitAngle = this.phase;
+        this.x = this.homeX + Math.cos(this.orbitAngle) * this.orbitRx;
+        this.y = this.homeY + Math.sin(this.orbitAngle) * this.orbitRy;
+        this.z = Math.sin(this.orbitAngle * 1.5 + this.phase) * 12.0;
+        this.dragTargetX = this.x;
+        this.dragTargetY = this.y;
 
         this.preFinaleOrbitAngle = this.orbitAngle;
         this.hasCapturedPreFinale = false;
 
         const ORB_RADIUS = 24.0;
         const geom = new THREE.SphereGeometry(ORB_RADIUS, 48, 48);
-        const preset = FRACTAL_ORB_PRESETS[config.id] || FRACTAL_ORB_PRESETS.pink;
+        const preset = FRACTAL_ORB_PRESETS[cfg.id] || FRACTAL_ORB_PRESETS.pink;
         this.preset = preset;
 
         this.material = new THREE.ShaderMaterial({
@@ -3089,7 +3107,7 @@ export function SakuraCanvas({
         this.mesh.add(this.atmosphereMesh);
 
         // Shining Starburst Sprite Flare
-        const starTex = generateStarCrossTexture(config.uiColor || preset.primary);
+        const starTex = generateStarCrossTexture(this.config.uiColor || preset.primary);
         const spriteMat = new THREE.SpriteMaterial({
           map: starTex,
           color: 0xffffff,
@@ -3207,7 +3225,7 @@ export function SakuraCanvas({
           `,
           uniforms: {
             uProgress: { value: 1.0 },
-            uColor: { value: new THREE.Color(config.vortexTint) }
+            uColor: { value: new THREE.Color(this.config.vortexTint) }
           },
           transparent: true,
           blending: THREE.AdditiveBlending,
@@ -3256,7 +3274,7 @@ export function SakuraCanvas({
           }
 
           const orbitRadius = 180.0;
-          const angle = time * 1.14 + (this.orbIndex * ((Math.PI * 2) / 5));
+          const angle = time * 1.14 + (this.orbIndex * ((Math.PI * 2) / 4));
           const targetOrbitX = Math.cos(angle) * orbitRadius;
           const targetOrbitY = Math.sin(angle) * orbitRadius * 0.75;
           const targetOrbitZ = Math.sin(angle * 2.0) * 35.0;
@@ -3328,7 +3346,7 @@ export function SakuraCanvas({
                   const w = BASE_RIBBON_WIDTH * Math.pow(Math.max(0.0, 1.0 - normS), 0.92);
 
                   const vIdx = s * 6;
-                  rPositions[vIdx]     = curP.x + nx * w;
+                  rPositions[vIdx] = curP.x + nx * w;
                   rPositions[vIdx + 1] = curP.y + ny * w;
                   rPositions[vIdx + 2] = curP.z + nz * w;
 
@@ -3351,20 +3369,30 @@ export function SakuraCanvas({
             this.hasCapturedPreFinale = false;
           }
 
-            // Restore visibility and opacity for all orbs (clean fade-in without pop-in)
-            this.material.uniforms.uAlpha.value = 0.95 * modeFadeAlpha;
-            this.atmosphereMaterial.uniforms.uAlpha.value = this.preset.atmosphereGlow * modeFadeAlpha;
-            this.mesh.visible = (activeModeRef.current === 'plexus' && modeFadeAlpha > 0.001);
+          // Restore visibility and opacity for all orbs (clean fade-in without pop-in)
+          this.material.uniforms.uAlpha.value = 0.95 * modeFadeAlpha;
+          this.atmosphereMaterial.uniforms.uAlpha.value = this.preset.atmosphereGlow * modeFadeAlpha;
+          this.mesh.visible = (activeModeRef.current === 'plexus' && modeFadeAlpha > 0.001);
 
-            // Planetary Orbiting computed deterministically from time (exact sync)
-            this.orbitAngle = this.initialOrbitAngle + this.orbitSpeed * time;
-            const targetX = Math.cos(this.orbitAngle) * this.radiusX;
-            const targetY = Math.sin(this.orbitAngle) * this.radiusY;
-            const targetZ = Math.sin(this.orbitAngle * 1.5 + this.zPhase) * this.zAmp + this.baseZ;
+          if (this.isDragged) {
+            this.x = this.dragTargetX;
+            this.y = this.dragTargetY;
+            this.z = 0.0;
+          } else if (this.isRemoteDragged) {
+            this.x = THREE.MathUtils.lerp(this.x, this.dragTargetX, 0.35);
+            this.y = THREE.MathUtils.lerp(this.y, this.dragTargetY, 0.35);
+            this.z = 0.0;
+          } else {
+            // Gentle harmonic orbit around quadrant home
+            this.orbitAngle = this.phase + this.speed * time;
+            const targetX = this.homeX + Math.cos(this.orbitAngle) * this.orbitRx;
+            const targetY = this.homeY + Math.sin(this.orbitAngle) * this.orbitRy;
+            const targetZ = Math.sin(this.orbitAngle * 1.5 + this.phase) * 12.0;
 
-            this.x = targetX;
-            this.y = targetY;
-            this.z = targetZ;
+            this.x = THREE.MathUtils.lerp(this.x, targetX, 0.05);
+            this.y = THREE.MathUtils.lerp(this.y, targetY, 0.05);
+            this.z = THREE.MathUtils.lerp(this.z, targetZ, 0.05);
+          }
         }
 
         // Squash-and-Stretch & Spring Wobble (1.0s)
@@ -3473,14 +3501,18 @@ export function SakuraCanvas({
     }
 
     const floatingPlexusOrbs: FloatingPlexusOrbInstance[] = [];
-    (Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).forEach((cid, idx) => {
-      const orb = new FloatingPlexusOrbInstance(BLOSSOM_PALETTES[cid], idx);
+    PLEXUS_4_ORB_CONFIGS.forEach((cfg, idx) => {
+      const orb = new FloatingPlexusOrbInstance(cfg, idx);
       floatingPlexusOrbs.push(orb);
     });
 
     const activePlexusClusters: PlexusCluster[] = [];
     let draggedPlexusCluster: PlexusCluster | null = null;
+    let draggedOrb: FloatingPlexusOrbInstance | null = null;
+    let hasActivelyDraggedOrb = false;
+    const orbDragOffset = new THREE.Vector2();
     const dragOffset = new THREE.Vector2();
+    const lastOrbMoveBroadcastRef = { current: 0 };
     let isMouseDown = false;
     let plexusHoldTime = 0.0;
     let plexusOriginX = 0;
@@ -3751,37 +3783,169 @@ export function SakuraCanvas({
         dockedOrb.triggerDockWobble();
         totalAttachedPlexusCount++;
         setPlexusAttachedCount(totalAttachedPlexusCount);
+        const occupiedCount = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0).length;
+        setPlexusOccupiedOrbsCount(occupiedCount);
+      }
+    };
 
-        if (totalAttachedPlexusCount >= 6 && !isPlexusFinaleActive && !isPlexusCompleted) {
-          isPlexusFinaleActive = true;
-          setIsPlexusFinale(true);
-          plexusFinaleStartTime = totalAnimTime;
-          isPlexusRippleActive = true;
-          plexusRippleTimer = 0.0;
-          if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
-          if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+    onPeerPlexusOrbMoveRef.current = (orbId: string, x: number, y: number) => {
+      const targetOrb = floatingPlexusOrbs.find(o => o.id === orbId);
+      if (targetOrb) {
+        targetOrb.isRemoteDragged = true;
+        targetOrb.dragTargetX = x;
+        targetOrb.dragTargetY = y;
+        checkPlexusFinaleTrigger(false);
+      }
+    };
 
-          const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
-          const activeOrbsList = activeDockedOrbs.length > 0 ? activeDockedOrbs : floatingPlexusOrbs;
-          const weightedPalettes: { r: number; g: number; b: number }[][] = [];
-          const weightedPositions: { x: number; y: number; z: number }[] = [];
-          activeOrbsList.forEach(orb => {
-            const count = Math.max(1, orb.attachedPlexusCount);
-            const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
-            for (let w = 0; w < count; w++) {
-              weightedPalettes.push(pal);
-              weightedPositions.push({ x: orb.x, y: orb.y, z: orb.z });
+    onPeerPlexusOrbReleaseRef.current = (orbId: string, x: number, y: number) => {
+      const targetOrb = floatingPlexusOrbs.find(o => o.id === orbId);
+      if (targetOrb) {
+        targetOrb.isRemoteDragged = false;
+        targetOrb.dragTargetX = x;
+        targetOrb.dragTargetY = y;
+        checkPlexusFinaleTrigger(false);
+      }
+    };
+
+    const triggerPlexusFinale = (shouldBroadcast = true) => {
+      if (isPlexusFinaleActive || isPlexusCompleted) return;
+      isPlexusFinaleActive = true;
+      setIsPlexusFinale(true);
+      plexusFinaleStartTime = totalAnimTime;
+      isPlexusRippleActive = true;
+      plexusRippleTimer = 0.0;
+      if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
+      if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
+
+      const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
+      const activeOrbsList = activeDockedOrbs.length > 0 ? activeDockedOrbs : floatingPlexusOrbs;
+      const weightedPalettes: { r: number; g: number; b: number }[][] = [];
+      const weightedPositions: { x: number; y: number; z: number }[] = [];
+      activeOrbsList.forEach(orb => {
+        const count = Math.max(1, orb.attachedPlexusCount);
+        const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
+        for (let w = 0; w < count; w++) {
+          weightedPalettes.push(pal);
+          weightedPositions.push({ x: orb.x, y: orb.y, z: orb.z });
+        }
+      });
+      initFinaleParticles(weightedPalettes, weightedPositions);
+
+      showToastRef.current?.(
+        isEnRef.current
+          ? '🌟 10s Finale: Star Network unleashed!'
+          : '🌟 10s Finale: Stern-Netzwerk aktiviert!'
+      );
+
+      if (isCreationModeRef.current) {
+        startSouvenirRecordingRef.current?.(10);
+      }
+
+      if (shouldBroadcast) {
+        sendInteractionRef.current?.('PLEXUS_FINALE_TRIGGER', {
+          timestamp: performance.now()
+        });
+        channelRef.current?.postMessage({
+          type: 'PLEXUS_FINALE_TRIGGER',
+          timestamp: performance.now()
+        });
+      }
+    };
+
+    onPeerPlexusFinaleTriggerRef.current = () => {
+      triggerPlexusFinale(false);
+    };
+
+    const checkPlexusFinaleTrigger = (shouldBroadcast = true): boolean => {
+      if (isPlexusFinaleActive || isPlexusCompleted) return false;
+
+      const occupiedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount >= 1);
+      const k = occupiedOrbs.length;
+
+      // Need at least 2 occupied orbs in the artwork to trigger finale
+      if (k < 2) return false;
+
+      // Rule B: When all 4 orbs are occupied (k === 4), pushing ANY 2 orbs together triggers finale
+      if (k === 4) {
+        for (let i = 0; i < floatingPlexusOrbs.length; i++) {
+          for (let j = i + 1; j < floatingPlexusOrbs.length; j++) {
+            const orbA = floatingPlexusOrbs[i];
+            const orbB = floatingPlexusOrbs[j];
+            const dist = Math.hypot(orbA.x - orbB.x, orbA.y - orbB.y);
+            if (dist <= 78.0) {
+              orbA.triggerDockWobble();
+              orbB.triggerDockWobble();
+              triggerPlexusFinale(shouldBroadcast);
+              return true;
             }
-          });
-          initFinaleParticles(weightedPalettes, weightedPositions);
-
-          showToast('🌟 10s Finale: Stern-Netzwerk aktiviert!');
-
-          if (isCreationModeRef.current) {
-            startSouvenirRecordingRef.current?.(10);
           }
         }
+        return false;
       }
+
+      // Rule A: Partial occupancy (2 <= k < 4), ALL occupied orbs must be pushed together!
+      if (k === 2) {
+        const orbA = occupiedOrbs[0];
+        const orbB = occupiedOrbs[1];
+        const dist = Math.hypot(orbA.x - orbB.x, orbA.y - orbB.y);
+        if (dist <= 78.0) {
+          orbA.triggerDockWobble();
+          orbB.triggerDockWobble();
+          triggerPlexusFinale(shouldBroadcast);
+          return true;
+        }
+        return false;
+      }
+
+      if (k === 3) {
+        const [orbA, orbB, orbC] = occupiedOrbs;
+        const dAB = Math.hypot(orbA.x - orbB.x, orbA.y - orbB.y);
+        const dBC = Math.hypot(orbB.x - orbC.x, orbB.y - orbC.y);
+        const dCA = Math.hypot(orbC.x - orbA.x, orbC.y - orbA.y);
+
+        const cx = (orbA.x + orbB.x + orbC.x) / 3.0;
+        const cy = (orbA.y + orbB.y + orbC.y) / 3.0;
+        const distCentroidA = Math.hypot(orbA.x - cx, orbA.y - cy);
+        const distCentroidB = Math.hypot(orbB.x - cx, orbB.y - cy);
+        const distCentroidC = Math.hypot(orbC.x - cx, orbC.y - cy);
+
+        const maxCentroidDist = Math.max(distCentroidA, distCentroidB, distCentroidC);
+        const maxPairwiseDist = Math.max(dAB, dBC, dCA);
+
+        if (maxPairwiseDist <= 118.0 || maxCentroidDist <= 72.0) {
+          orbA.triggerDockWobble();
+          orbB.triggerDockWobble();
+          orbC.triggerDockWobble();
+          triggerPlexusFinale(shouldBroadcast);
+          return true;
+        }
+
+        // Magnetic snap helper for 3-orb gathering:
+        if (dAB <= 78.0 && (orbA.isDragged || orbB.isDragged)) {
+          const leader = orbA.isDragged ? orbA : orbB;
+          const follower = orbA.isDragged ? orbB : orbA;
+          const angle = Math.atan2(follower.y - leader.y, follower.x - leader.x);
+          follower.x = leader.x + Math.cos(angle) * 65.0;
+          follower.y = leader.y + Math.sin(angle) * 65.0;
+        } else if (dBC <= 78.0 && (orbB.isDragged || orbC.isDragged)) {
+          const leader = orbB.isDragged ? orbB : orbC;
+          const follower = orbB.isDragged ? orbC : orbB;
+          const angle = Math.atan2(follower.y - leader.y, follower.x - leader.x);
+          follower.x = leader.x + Math.cos(angle) * 65.0;
+          follower.y = leader.y + Math.sin(angle) * 65.0;
+        } else if (dCA <= 78.0 && (orbC.isDragged || orbA.isDragged)) {
+          const leader = orbC.isDragged ? orbC : orbA;
+          const follower = orbC.isDragged ? orbA : orbC;
+          const angle = Math.atan2(follower.y - leader.y, follower.x - leader.x);
+          follower.x = leader.x + Math.cos(angle) * 65.0;
+          follower.y = leader.y + Math.sin(angle) * 65.0;
+        }
+
+        return false;
+      }
+
+      return false;
     };
 
     // Scratch instances for zero-allocation pointer & camera math (quality_and_performance.md)
@@ -3985,16 +4149,50 @@ export function SakuraCanvas({
         }
       }
 
-      if (isMouseDown && draggedPlexusCluster && activeModeRef.current === 'plexus') {
-        draggedPlexusCluster.centerX = mouseWorld.x + dragOffset.x;
-        draggedPlexusCluster.centerY = mouseWorld.y + dragOffset.y;
+      if (isMouseDown && activeModeRef.current === 'plexus') {
+        if (draggedOrb) {
+          hasActivelyDraggedOrb = true;
+          const targetX = mouseWorld.x + orbDragOffset.x;
+          const targetY = mouseWorld.y + orbDragOffset.y;
+          draggedOrb.dragTargetX = targetX;
+          draggedOrb.dragTargetY = targetY;
+          draggedOrb.x = targetX;
+          draggedOrb.y = targetY;
 
-        for (let i = 0; i < floatingPlexusOrbs.length; i++) {
-          const orb = floatingPlexusOrbs[i];
-          const dx = orb.x - draggedPlexusCluster.centerX;
-          const dy = orb.y - draggedPlexusCluster.centerY;
-          if (Math.sqrt(dx * dx + dy * dy) < 80.0) {
-            orb.triggerHoverWobble();
+          for (let i = 0; i < floatingPlexusOrbs.length; i++) {
+            const other = floatingPlexusOrbs[i];
+            if (other === draggedOrb) continue;
+            const dist = Math.hypot(other.x - draggedOrb.x, other.y - draggedOrb.y);
+            if (dist < 110.0) {
+              other.triggerHoverWobble();
+            }
+          }
+
+          const nowMs = performance.now();
+          if (nowMs - lastOrbMoveBroadcastRef.current > 30) {
+            lastOrbMoveBroadcastRef.current = nowMs;
+            const orbMoveMsg = {
+              orbId: draggedOrb.id,
+              x: targetX,
+              y: targetY,
+              senderIndex: activeIdx
+            };
+            sendInteractionRef.current?.('PLEXUS_ORB_MOVE', orbMoveMsg);
+            channelRef.current?.postMessage({ type: 'PLEXUS_ORB_MOVE', ...orbMoveMsg });
+          }
+
+          checkPlexusFinaleTrigger(true);
+        } else if (draggedPlexusCluster) {
+          draggedPlexusCluster.centerX = mouseWorld.x + dragOffset.x;
+          draggedPlexusCluster.centerY = mouseWorld.y + dragOffset.y;
+
+          for (let i = 0; i < floatingPlexusOrbs.length; i++) {
+            const orb = floatingPlexusOrbs[i];
+            const dx = orb.x - draggedPlexusCluster.centerX;
+            const dy = orb.y - draggedPlexusCluster.centerY;
+            if (Math.hypot(dx, dy) < 80.0) {
+              orb.triggerHoverWobble();
+            }
           }
         }
       }
@@ -4041,13 +4239,36 @@ export function SakuraCanvas({
       if (activeModeRef.current === 'bluten' && !isTargetButton) {
         hasHitOrbThisGesture = checkAndTriggerOrbHit(clientX, clientY);
       } else if (activeModeRef.current === 'plexus') {
+        draggedOrb = null;
         draggedPlexusCluster = null;
 
+        // 1. Check if clicking on an Orb (hit radius ~52 world units)
+        let closestOrb: FloatingPlexusOrbInstance | null = null;
+        let minOrbDist = 52.0;
+        for (let i = 0; i < floatingPlexusOrbs.length; i++) {
+          const orb = floatingPlexusOrbs[i];
+          const dist = Math.hypot(orb.x - mouseWorld.x, orb.y - mouseWorld.y);
+          if (dist < minOrbDist) {
+            minOrbDist = dist;
+            closestOrb = orb;
+          }
+        }
+
+        if (closestOrb) {
+          draggedOrb = closestOrb;
+          draggedOrb.isDragged = true;
+          hasActivelyDraggedOrb = false;
+          orbDragOffset.set(closestOrb.x - mouseWorld.x, closestOrb.y - mouseWorld.y);
+          closestOrb.triggerHoverWobble();
+          return;
+        }
+
+        // 2. Check if clicking on a free plexus cluster
         for (let i = 0; i < activePlexusClusters.length; i++) {
           const cluster = activePlexusClusters[i];
           const dx = cluster.centerX - mouseWorld.x;
           const dy = cluster.centerY - mouseWorld.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          const dist = Math.hypot(dx, dy);
 
           if (dist <= 75.0) {
             draggedPlexusCluster = cluster;
@@ -4056,6 +4277,7 @@ export function SakuraCanvas({
           }
         }
 
+        // 3. If neither, start hold-down creation
         if (!draggedPlexusCluster) {
           plexusHoldTime = 0.0;
           activeHoldNodes = generateRandomPlexusHoldNodes();
@@ -4093,7 +4315,19 @@ export function SakuraCanvas({
         hasHitOrbThisGesture = false;
       }
       if (isMouseDown && activeModeRef.current === 'plexus') {
-        if (draggedPlexusCluster) {
+        if (draggedOrb) {
+          draggedOrb.isDragged = false;
+          const orbRelMsg = {
+            orbId: draggedOrb.id,
+            x: draggedOrb.x,
+            y: draggedOrb.y,
+            senderIndex: activeIdx
+          };
+          sendInteractionRef.current?.('PLEXUS_ORB_RELEASE', orbRelMsg);
+          channelRef.current?.postMessage({ type: 'PLEXUS_ORB_RELEASE', ...orbRelMsg });
+          draggedOrb = null;
+          hasActivelyDraggedOrb = false;
+        } else if (draggedPlexusCluster) {
           let dockedOrb: FloatingPlexusOrbInstance | null = null;
           let minDist = 120.0;
 
@@ -4101,7 +4335,7 @@ export function SakuraCanvas({
             const orb = floatingPlexusOrbs[i];
             const dx = orb.x - draggedPlexusCluster.centerX;
             const dy = orb.y - draggedPlexusCluster.centerY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dist = Math.hypot(dx, dy);
             if (dist < minDist) {
               minDist = dist;
               dockedOrb = orb;
@@ -4114,6 +4348,8 @@ export function SakuraCanvas({
             dockedOrb.triggerDockWobble();
             totalAttachedPlexusCount++;
             setPlexusAttachedCount(totalAttachedPlexusCount);
+            const occupiedCount = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0).length;
+            setPlexusOccupiedOrbsCount(occupiedCount);
 
             const clusterIdx = activePlexusClusters.indexOf(draggedPlexusCluster);
             const clusterId = draggedPlexusCluster.id;
@@ -4124,39 +4360,11 @@ export function SakuraCanvas({
             sendInteractionRef.current?.('PLEXUS_ORB_DOCK', dockMsg);
             channelRef.current?.postMessage({ type: 'PLEXUS_ORB_DOCK', ...dockMsg });
 
-            showToast(`🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${totalAttachedPlexusCount}/6 Gesamt)`);
-
-            if (totalAttachedPlexusCount >= 6 && !isPlexusFinaleActive && !isPlexusCompleted) {
-              isPlexusFinaleActive = true;
-              setIsPlexusFinale(true);
-              plexusFinaleStartTime = totalAnimTime;
-              isPlexusRippleActive = true;
-              plexusRippleTimer = 0.0;
-              if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
-              if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
-
-              // Initialize network particles exclusively from docked orbs
-              const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
-              const activeOrbsList = activeDockedOrbs.length > 0 ? activeDockedOrbs : floatingPlexusOrbs;
-              const weightedPalettes: { r: number; g: number; b: number }[][] = [];
-              const weightedPositions: { x: number; y: number; z: number }[] = [];
-              activeOrbsList.forEach(orb => {
-                const count = Math.max(1, orb.attachedPlexusCount);
-                const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
-                for (let w = 0; w < count; w++) {
-                  weightedPalettes.push(pal);
-                  weightedPositions.push({ x: orb.x, y: orb.y, z: orb.z });
-                }
-              });
-              initFinaleParticles(weightedPalettes, weightedPositions);
-
-              showToast('🌟 10s Finale: Stern-Netzwerk aktiviert!');
-
-              // In Souvenir Mode: Start MP4 video recording directly at the beginning of the final animation!
-              if (isCreationModeRef.current) {
-                startSouvenirRecordingRef.current?.(10);
-              }
-            }
+            showToastRef.current?.(
+              isEnRef.current
+                ? `🔮 Plexus docked to ${dockedOrb.name} orb! (${occupiedCount}/4 occupied)`
+                : `🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${occupiedCount}/4 belegt)`
+            );
           }
         } else {
           if (plexusHoldTime >= 1.5) {
@@ -4175,6 +4383,7 @@ export function SakuraCanvas({
       }
       isMouseDown = false;
       draggedPlexusCluster = null;
+      draggedOrb = null;
     };
 
     window.addEventListener('mousemove', handlePointerMove);
@@ -4219,11 +4428,23 @@ export function SakuraCanvas({
       finaleParticles.length = 0;
       isPlexusRippleActive = false;
       plexusRippleTimer = 0.0;
+      draggedOrb = null;
+      draggedPlexusCluster = null;
+      hasActivelyDraggedOrb = false;
       setPlexusAttachedCount(0);
+      setPlexusOccupiedOrbsCount(0);
       setIsPlexusFinale(false);
       floatingPlexusOrbs.forEach(orb => {
         orb.attachedPlexusCount = 0;
         orb.attachedNodes = [];
+        orb.isDragged = false;
+        orb.isRemoteDragged = false;
+        orb.orbitAngle = orb.phase;
+        orb.x = orb.homeX + Math.cos(orb.orbitAngle) * orb.orbitRx;
+        orb.y = orb.homeY + Math.sin(orb.orbitAngle) * orb.orbitRy;
+        orb.z = 0;
+        orb.dragTargetX = orb.x;
+        orb.dragTargetY = orb.y;
       });
 
       if (activeModeRef.current === 'bluten') {
@@ -4666,6 +4887,10 @@ export function SakuraCanvas({
         floatingPlexusOrbs.forEach(orb => {
           orb.update(delta, totalAnimTime, isPlexusFinaleActive, finaleAge, cameraRef.current, modeFadeAlpha);
         });
+
+        if (activeModeRef.current === 'plexus' && !isPlexusFinaleActive && !isPlexusCompleted) {
+          checkPlexusFinaleTrigger(true);
+        }
 
         if (isPlexusFinaleActive) {
           plexusFinaleMesh.visible = false;
@@ -5239,6 +5464,12 @@ export function SakuraCanvas({
           );
         } else if (msg.kind === 'PLEXUS_ORB_DOCK' && typeof msg.orbId === 'string') {
           onPeerPlexusDockRef.current?.(msg.orbId as string, msg.clusterId as number);
+        } else if (msg.kind === 'PLEXUS_ORB_MOVE' && typeof msg.orbId === 'string' && typeof msg.x === 'number' && typeof msg.y === 'number') {
+          onPeerPlexusOrbMoveRef.current?.(msg.orbId as string, msg.x as number, msg.y as number);
+        } else if (msg.kind === 'PLEXUS_ORB_RELEASE' && typeof msg.orbId === 'string') {
+          onPeerPlexusOrbReleaseRef.current?.(msg.orbId as string, msg.x as number, msg.y as number);
+        } else if (msg.kind === 'PLEXUS_FINALE_TRIGGER') {
+          onPeerPlexusFinaleTriggerRef.current?.(msg.timestamp as number);
         } else if (msg.kind === 'PLEXUS_CLUSTER_CREATE' && typeof msg.x === 'number') {
           onPeerPlexusCreateRef.current?.(
             msg.id as number,
@@ -5309,47 +5540,63 @@ export function SakuraCanvas({
     ? `${isEn ? 'Round' : 'Runde'} ${currentRound}/${maxRoundsPerPhase}`
     : activeMode === 'bluten' && currentPhase === 'AWAIT_VORTEX' && hasRemotePeer
       ? `${isEn ? 'Finale' : 'Finale'} (${vortexCircleCount}/2)`
-      : null;
+      : activeMode === 'plexus'
+        ? (isPlexusFinale
+          ? (isEn ? 'Finale' : 'Finale')
+          : `${isEn ? 'Orbs' : 'Orbs'} ${plexusOccupiedOrbsCount}/4`)
+        : null;
 
   const instructionBody = isTrunkGrowing
     ? (isEn
-        ? 'Click a node to grow another branch on the tree.'
-        : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
+      ? 'Click a node to grow another branch on the tree.'
+      : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
     : activeMode === 'bluten'
       ? currentPhase === 'BRANCH'
         ? (isEn
-            ? 'Click a node to grow another branch on the tree.'
-            : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
+          ? 'Click a node to grow another branch on the tree.'
+          : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
         : currentPhase === 'BLOSSOM'
           ? (isEn
-              ? 'Select your desired color and click nodes to paint Sakura blossoms.'
-              : 'Wähle deine Wunschfarbe und klicke auf die Knoten, um Sakurablüten zu malen.')
+            ? 'Select your desired color and click nodes to paint Sakura blossoms.'
+            : 'Wähle deine Wunschfarbe und klicke auf die Knoten, um Sakurablüten zu malen.')
           : currentPhase === 'AWAIT_VORTEX'
             ? hasRemotePeer
               ? vortexCircleCount === 1
                 ? (isEn
-                    ? 'Half of the vortex active! Once the second player also makes a circular motion, the full 10s vortex begins.'
-                    : 'Hälfte des Vortex aktiv! Sobald die 2. Person ebenfalls eine Kreisbewegung ausführt, startet der volle 10s-Vortex.')
+                  ? 'Half of the vortex active! Once the second player also makes a circular motion, the full 10s vortex begins.'
+                  : 'Hälfte des Vortex aktiv! Sobald die 2. Person ebenfalls eine Kreisbewegung ausführt, startet der volle 10s-Vortex.')
                 : (isEn
-                    ? 'Each make a circular motion on screen to unleash the shared 10-second blossom vortex!'
-                    : 'Führt jeweils eine Kreisbewegung auf dem Bildschirm aus, um den gemeinsamen 10-sekündigen Blüten-Vortex zu entfesseln!')
+                  ? 'Each make a circular motion on screen to unleash the shared 10-second blossom vortex!'
+                  : 'Führt jeweils eine Kreisbewegung auf dem Bildschirm aus, um den gemeinsamen 10-sekündigen Blüten-Vortex zu entfesseln!')
               : (isEn
-                  ? 'Make a circular motion on screen to unleash the 10-second blossom vortex!'
-                  : 'Führe eine Kreisbewegung auf dem Bildschirm aus, um den 10-sekündigen Blüten-Vortex auszulösen!')
+                ? 'Make a circular motion on screen to unleash the 10-second blossom vortex!'
+                : 'Führe eine Kreisbewegung auf dem Bildschirm aus, um den 10-sekündigen Blüten-Vortex auszulösen!')
             : currentPhase === 'VORTEX'
               ? (isEn
-                  ? 'The 10-second blossom vortex is unleashed!'
-                  : 'Der 10-sekündige Blüten-Vortex ist entfesselt!')
+                ? 'The 10-second blossom vortex is unleashed!'
+                : 'Der 10-sekündige Blüten-Vortex ist entfesselt!')
               : (isEn
-                  ? 'The blossom artwork is completed!'
-                  : 'Das Blütenkunstwerk ist vollendet!')
+                ? 'The blossom artwork is completed!'
+                : 'Das Blütenkunstwerk ist vollendet!')
       : isPlexusFinale
         ? (isEn
-            ? '6 plexuses connected! The artwork is completed.'
-            : '6 Plexus angedockt! Das Kunstwerk ist vollendet.')
-        : (isEn
-            ? 'Hold down to create a plexus. Drag 6 different plexuses onto the cores to complete the artwork.'
-            : 'Halte deine Maus gedrückt, um einen Plexus zu erschaffen. Ziehe 6 verschiedene Plexus mit der Maus auf die Kerne, um das Kunstwerk zu vollenden.');
+          ? 'Star Network unleashed! The plexus artwork is completed.'
+          : 'Stern-Netzwerk entfesselt! Das Plexus-Kunstwerk ist vollendet.')
+        : plexusOccupiedOrbsCount === 4
+          ? (isEn
+            ? 'All 4 orbs loaded! Push any 2 orbs together to trigger the finale.'
+            : 'Alle 4 Orbs belegt! Schiebe beliebige 2 Orbs zusammen, um das Finale auszulösen.')
+          : plexusOccupiedOrbsCount >= 2
+            ? (isEn
+              ? `${plexusOccupiedOrbsCount} orbs loaded! Push all ${plexusOccupiedOrbsCount} occupied orbs together to trigger the finale.`
+              : `${plexusOccupiedOrbsCount} Orbs belegt! Schiebe alle ${plexusOccupiedOrbsCount} belegten Orbs zusammen, um das Finale auszulösen.`)
+            : plexusOccupiedOrbsCount === 1
+              ? (isEn
+                ? '1 orb loaded. Attach plexus to at least one more orb!'
+                : '1 Orb belegt. Belege noch mindestens einen weiteren Orb mit Plexus!')
+              : (isEn
+                ? 'Hold down to create a plexus and drag it onto an orb.'
+                : 'Halte gedrückt, um einen Plexus zu erschaffen, und ziehe ihn auf einen Orb.');
 
   return (
     <div ref={containerRef} className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016] select-none z-0">
@@ -5357,11 +5604,10 @@ export function SakuraCanvas({
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <canvas
           ref={canvasRef}
-          className={`pointer-events-auto block ${
-            isRunning
-              ? 'cursor-none portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full'
-              : 'cursor-pointer w-full h-full'
-          }`}
+          className={`pointer-events-auto block ${isRunning
+            ? 'cursor-none portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full'
+            : 'cursor-pointer w-full h-full'
+            }`}
         />
       </div>
 
@@ -5370,664 +5616,659 @@ export function SakuraCanvas({
       {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
       {isRunning && (
         <>
-      {/* 2-Second Top-Center Gesture Instruction Badge */}
-      {circlePromptVisible && (
-        <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
-          <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
-            <span className="text-xl animate-spin" style={{ animationDuration: '2.5s' }}>🔄</span>
-            <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
-              {isEn ? 'Make a circular motion!' : 'Kreisbewegung ausführen!'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape, compact on smartphones) */}
-      {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && !isPortraitMode && (
-        <div className="absolute right-3 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1.5 sm:gap-2 lg:gap-3.5 p-2 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
-          <div className="hidden lg:block text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
-            {isEn ? 'Palette' : 'Farbpalette'}
-          </div>
-          <div className="hidden lg:block w-6 h-px bg-white/20 my-0.5" />
-          <div className="flex flex-col gap-2 sm:gap-2.5 lg:gap-3">
-            {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
-              const pal = BLOSSOM_PALETTES[colorKey];
-              const isSelected = selectedColor === colorKey;
-              return (
-                <button
-                  key={colorKey}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleColorSelect(colorKey);
-                  }}
-                  title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
-                  className={`relative group w-6 h-6 sm:w-7 sm:h-7 lg:w-10 lg:h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
-                    isSelected
-                      ? 'scale-115 ring-2 ring-white shadow-[0_0_18px_' + pal.uiColor + ']'
-                      : 'opacity-75 hover:opacity-100 hover:scale-110'
-                  }`}
-                  style={{ backgroundColor: pal.uiColor }}
-                >
-                  {isSelected && (
-                    <span className="w-1.5 h-1.5 lg:w-2.5 lg:h-2.5 rounded-full bg-white shadow-[0_0_8px_white] pointer-events-none" />
-                  )}
-                  {/* Tooltip on hover */}
-                  <span className="hidden lg:block absolute right-full mr-3 px-2.5 py-1 bg-[#180f24]/95 text-white text-[10px] font-semibold tracking-wider uppercase rounded-lg border border-white/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
-                    {isEn ? pal.nameEn : pal.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Modern HUD Layer: Portrait Stacked on Smartphones vs 4-Corner Glassmorphic in Landscape */}
-      {isPortraitMode ? (
-        /* PORTRAIT STACKED HUD (iPhone & Portrait Smartphones) */
-        <div className={`absolute inset-0 px-4 py-3 pt-[max(12px,var(--sat))] pb-[max(14px,var(--sab))] flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
-          {/* TOP SECTION: Cleanly stacked above the 16:9 canvas */}
-          <div className="flex flex-col items-center gap-2.5 w-full">
-            {/* Control Buttons Centered Row (Subtle Icon-Only Buttons matching Close button style) */}
-            <div className="pointer-events-auto flex items-center justify-center gap-2.5 w-full">
-              <button
-                type="button"
-                onClick={toggleAudio}
-                aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
-                title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
-              >
-                {isAudioMuted ? (
-                  <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l4-4m0 4l-4-4" />
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
-                  </svg>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={togglePause}
-                aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
-                title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
-              >
-                {isPaused ? (
-                  <svg className="w-3.5 h-3.5 text-white translate-x-0.5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
-                  </svg>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleRestart}
-                aria-label={isEn ? 'Restart' : 'Neu starten'}
-                title={isEn ? 'Restart' : 'Neu starten'}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
-              >
-                <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleExit}
-                aria-label={isEn ? 'Exit' : 'Beenden'}
-                title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-md backdrop-blur-md transition-all active:scale-95"
-              >
-                <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Dynamic Instruction Box Centered */}
-            <div className="pointer-events-auto flex flex-col items-center gap-1 p-2.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-xl shadow-[0_6px_20px_rgba(0,0,0,0.4)] w-full max-w-[380px] text-center">
-              {(roundInfo || isPaused) && (
-                <div className="flex items-center justify-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-ping" />
-                  <span className="text-[10px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
-                    {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
-                  </span>
-                </div>
-              )}
-              <p className="text-[11px] leading-tight text-white/90 font-normal">
-                {instructionBody}
-              </p>
-            </div>
-          </div>
-
-          {/* MIDDLE SECTION: Horizontal Color Palette centered right below the 16:9 canvas (compact on smartphones) */}
-          {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && (
-            <div className="pointer-events-auto flex items-center justify-center gap-2.5 sm:gap-3 py-1.5 px-3 sm:py-2 sm:px-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.6)] mx-auto my-0.5 z-50 animate-in fade-in duration-300">
-              {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
-                const pal = BLOSSOM_PALETTES[colorKey];
-                const isSelected = selectedColor === colorKey;
-                return (
-                  <button
-                    key={colorKey}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleColorSelect(colorKey);
-                    }}
-                    title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
-                    className={`relative w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${
-                      isSelected
-                        ? 'scale-115 ring-2 ring-white shadow-[0_0_12px_' + pal.uiColor + ']'
-                        : 'opacity-70 hover:opacity-100 hover:scale-110'
-                    }`}
-                    style={{ backgroundColor: pal.uiColor }}
-                  >
-                    {isSelected && (
-                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-white shadow-[0_0_6px_white] pointer-events-none" />
-                    )}
-                  </button>
-                );
-              })}
+          {/* 2-Second Top-Center Gesture Instruction Badge */}
+          {circlePromptVisible && (
+            <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
+                <span className="text-xl animate-spin" style={{ animationDuration: '2.5s' }}>🔄</span>
+                <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+                  {isEn ? 'Make a circular motion!' : 'Kreisbewegung ausführen!'}
+                </span>
+              </div>
             </div>
           )}
 
-          {/* BOTTOM SECTION: Mode Selector, Souvenir Button, Brand Title stacked below 16:9 canvas */}
-          <div className="flex flex-col items-center gap-2.5 w-full">
-            {/* Mode Selector */}
-            <div className="pointer-events-auto flex items-center justify-center">
-              {isCreationMode ? (
-                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_15px_rgba(255,42,157,0.4)]">
-                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
-                  <span className="text-[10px] font-bold tracking-[2px] uppercase text-white">
-                    Souvenir Mode
-                  </span>
-                </div>
-              ) : (
-                <div className="flex gap-1.5 p-1 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-lg">
+          {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape, compact on smartphones) */}
+          {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && !isPortraitMode && (
+            <div className="absolute right-3 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1.5 sm:gap-2 lg:gap-3.5 p-2 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
+              <div className="hidden lg:block text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
+                {isEn ? 'Palette' : 'Farbpalette'}
+              </div>
+              <div className="hidden lg:block w-6 h-px bg-white/20 my-0.5" />
+              <div className="flex flex-col gap-2 sm:gap-2.5 lg:gap-3">
+                {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
+                  const pal = BLOSSOM_PALETTES[colorKey];
+                  const isSelected = selectedColor === colorKey;
+                  return (
+                    <button
+                      key={colorKey}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleColorSelect(colorKey);
+                      }}
+                      title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
+                      className={`relative group w-6 h-6 sm:w-7 sm:h-7 lg:w-10 lg:h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${isSelected
+                        ? 'scale-115 ring-2 ring-white shadow-[0_0_18px_' + pal.uiColor + ']'
+                        : 'opacity-75 hover:opacity-100 hover:scale-110'
+                        }`}
+                      style={{ backgroundColor: pal.uiColor }}
+                    >
+                      {isSelected && (
+                        <span className="w-1.5 h-1.5 lg:w-2.5 lg:h-2.5 rounded-full bg-white shadow-[0_0_8px_white] pointer-events-none" />
+                      )}
+                      {/* Tooltip on hover */}
+                      <span className="hidden lg:block absolute right-full mr-3 px-2.5 py-1 bg-[#180f24]/95 text-white text-[10px] font-semibold tracking-wider uppercase rounded-lg border border-white/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+                        {isEn ? pal.nameEn : pal.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Modern HUD Layer: Portrait Stacked on Smartphones vs 4-Corner Glassmorphic in Landscape */}
+          {isPortraitMode ? (
+            /* PORTRAIT STACKED HUD (iPhone & Portrait Smartphones) */
+            <div className={`absolute inset-0 px-4 py-3 pt-[max(12px,var(--sat))] pb-[max(14px,var(--sab))] flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
+              {/* TOP SECTION: Cleanly stacked above the 16:9 canvas */}
+              <div className="flex flex-col items-center gap-2.5 w-full">
+                {/* Control Buttons Centered Row (Subtle Icon-Only Buttons matching Close button style) */}
+                <div className="pointer-events-auto flex items-center justify-center gap-2.5 w-full">
                   <button
-                    onClick={() => handleSwitchMode('bluten')}
-                    className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${
-                      activeMode === 'bluten'
-                        ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_12px_rgba(255,42,157,0.5)]'
-                        : 'text-[#ffc8eb]/60 hover:text-white'
-                    }`}
+                    type="button"
+                    onClick={toggleAudio}
+                    aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
+                    title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
                   >
-                    {isEn ? 'Blossoms' : 'Blüten'}
+                    {isAudioMuted ? (
+                      <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l4-4m0 4l-4-4" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
+                      </svg>
+                    )}
                   </button>
                   <button
-                    onClick={() => handleSwitchMode('plexus')}
-                    className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${
-                      activeMode === 'plexus'
-                        ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
-                        : 'text-[#ffc8eb]/60 hover:text-white'
-                    }`}
+                    type="button"
+                    onClick={togglePause}
+                    aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
+                    title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
                   >
-                    Plexus
+                    {isPaused ? (
+                      <svg className="w-3.5 h-3.5 text-white translate-x-0.5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+                      </svg>
+                    )}
                   </button>
-                </div>
-              )}
-            </div>
-
-            {/* Souvenir Action Button & Badges */}
-            <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-full max-w-[280px]">
-              {(hostCreationReady || guestCreationReady) && (
-                <div className="flex items-center gap-3">
-                  <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Host
-                  </div>
-                  <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> {isEn ? 'Guest' : 'Gast'}
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={toggleCreationReady}
-                className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
-                title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
-              >
-                <span>🎨</span>
-                <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
-              </button>
-            </div>
-
-            {/* Brand Title */}
-            <div className="text-center select-none pt-0.5">
-              <h1 className="text-lg font-bold tracking-[3px] uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] drop-shadow-[0_0_12px_rgba(255,42,157,0.7)] leading-none">
-                Sakuraverse
-              </h1>
-              <p className="text-[9px] font-medium tracking-[2px] uppercase text-[#ffc8eb]/70 mt-0.5">
-                A Collaborative Artwork
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* LANDSCAPE 4-CORNER GLASSMORPHIC HUD (Desktop & Mobile Landscape) */
-        <div className={`absolute inset-0 p-8 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
-
-          {/* TOP BAR: Instruction Box (Left) & Control Buttons (Right) */}
-          <div className="flex justify-between items-start w-full">
-            {/* Top Left: Dynamic Instruction Box */}
-            <div className="pointer-events-auto flex flex-col gap-1.5 p-4 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] max-w-[440px]">
-              {(roundInfo || isPaused) && (
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
-                  <span className="text-[11px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
-                    {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
-                  </span>
-                </div>
-              )}
-              <p className="text-xs leading-relaxed text-white/90 font-normal">
-                {instructionBody}
-              </p>
-            </div>
-
-            {/* Top Right: Sound, Pause, Restart & EXIT Control Buttons (Subtle Icon-Only Buttons matching Close button style) */}
-            <div className="pointer-events-auto flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={toggleAudio}
-                aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
-                title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
-              >
-                {isAudioMuted ? (
-                  <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l4-4m0 4l-4-4" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
-                  </svg>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={togglePause}
-                aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
-                title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
-              >
-                {isPaused ? (
-                  <svg className="w-4 h-4 text-white translate-x-0.5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4 text-white pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
-                  </svg>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRestart}
-                aria-label={isEn ? 'Restart' : 'Neu starten'}
-                title={isEn ? 'Restart' : 'Neu starten'}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleExit}
-                aria-label={isEn ? 'Exit' : 'Beenden'}
-                title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* BOTTOM BAR: Brand Title (Left), Mode Selector (Center), Action Button (Right) */}
-          <div className="flex justify-between items-end w-full">
-            {/* Bottom Left: Brand Title */}
-            <div className="flex flex-col gap-1 select-none">
-              <h1 className="text-2xl font-bold tracking-[4px] uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] drop-shadow-[0_0_20px_rgba(255,42,157,0.7)]">
-                Sakuraverse
-              </h1>
-              <p className="text-[11px] font-medium tracking-[2.5px] uppercase text-[#ffc8eb]/75">
-                A Collaborative Artwork
-              </p>
-            </div>
-
-            {/* Bottom Center: Mode Selector / Creation Mode Badge */}
-            <div className="pointer-events-auto flex flex-col gap-1.5 items-center">
-              {isCreationMode ? (
-                <div className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_20px_rgba(255,42,157,0.4)]">
-                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
-                  <span className="text-xs font-bold tracking-[2.5px] uppercase text-white">
-                    Souvenir Mode
-                  </span>
-                </div>
-              ) : (
-                <div className="flex gap-2 p-1.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-xl">
                   <button
-                    onClick={() => handleSwitchMode('bluten')}
-                    className={`px-4.5 py-2 rounded-full text-xs font-semibold tracking-[1.5px] uppercase transition-all ${activeMode === 'bluten'
-                      ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_15px_rgba(255,42,157,0.5)]'
-                      : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
-                      }`}
+                    type="button"
+                    onClick={handleRestart}
+                    aria-label={isEn ? 'Restart' : 'Neu starten'}
+                    title={isEn ? 'Restart' : 'Neu starten'}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-md backdrop-blur-md transition-all active:scale-95"
                   >
-                    {isEn ? 'Blossoms' : 'Blüten'}
+                    <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                   </button>
-
                   <button
-                    onClick={() => handleSwitchMode('plexus')}
-                    className={`px-4.5 py-2 rounded-full text-xs font-semibold tracking-[1.5px] uppercase transition-all ${activeMode === 'plexus'
-                      ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_15px_rgba(0,240,255,0.5)]'
-                      : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
-                      }`}
+                    type="button"
+                    onClick={handleExit}
+                    aria-label={isEn ? 'Exit' : 'Beenden'}
+                    title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-md backdrop-blur-md transition-all active:scale-95"
                   >
-                    Plexus
+                    <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
-              )}
-            </div>
 
-            {/* Bottom Right: Creation Button & Readiness Indicators */}
-            <div className="pointer-events-auto flex flex-col items-center gap-2">
-              {/* Ready Status Badges with Green Checkmarks */}
-              <div className="flex items-center gap-4 min-h-[44px]">
-                <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${hostCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">Host</span>
-                </div>
-                <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${guestCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                  <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">{isEn ? 'Guest' : 'Gast'}</span>
+                {/* Dynamic Instruction Box Centered */}
+                <div className="pointer-events-auto flex flex-col items-center gap-1 p-2.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-xl shadow-[0_6px_20px_rgba(0,0,0,0.4)] w-full max-w-[380px] text-center">
+                  {(roundInfo || isPaused) && (
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-ping" />
+                      <span className="text-[10px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
+                        {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-[11px] leading-tight text-white/90 font-normal">
+                    {instructionBody}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              {/* MIDDLE SECTION: Horizontal Color Palette centered right below the 16:9 canvas (compact on smartphones) */}
+              {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && (
+                <div className="pointer-events-auto flex items-center justify-center gap-2.5 sm:gap-3 py-1.5 px-3 sm:py-2 sm:px-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.6)] mx-auto my-0.5 z-50 animate-in fade-in duration-300">
+                  {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
+                    const pal = BLOSSOM_PALETTES[colorKey];
+                    const isSelected = selectedColor === colorKey;
+                    return (
+                      <button
+                        key={colorKey}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleColorSelect(colorKey);
+                        }}
+                        title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
+                        className={`relative w-6 h-6 sm:w-8 sm:h-8 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${isSelected
+                          ? 'scale-115 ring-2 ring-white shadow-[0_0_12px_' + pal.uiColor + ']'
+                          : 'opacity-70 hover:opacity-100 hover:scale-110'
+                          }`}
+                        style={{ backgroundColor: pal.uiColor }}
+                      >
+                        {isSelected && (
+                          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-white shadow-[0_0_6px_white] pointer-events-none" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* BOTTOM SECTION: Mode Selector, Souvenir Button, Brand Title stacked below 16:9 canvas */}
+              <div className="flex flex-col items-center gap-2.5 w-full">
+                {/* Mode Selector */}
+                <div className="pointer-events-auto flex items-center justify-center">
+                  {isCreationMode ? (
+                    <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_15px_rgba(255,42,157,0.4)]">
+                      <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
+                      <span className="text-[10px] font-bold tracking-[2px] uppercase text-white">
+                        Souvenir Mode
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5 p-1 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-lg">
+                      <button
+                        onClick={() => handleSwitchMode('bluten')}
+                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${activeMode === 'bluten'
+                          ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_12px_rgba(255,42,157,0.5)]'
+                          : 'text-[#ffc8eb]/60 hover:text-white'
+                          }`}
+                      >
+                        {isEn ? 'Blossoms' : 'Blüten'}
+                      </button>
+                      <button
+                        onClick={() => handleSwitchMode('plexus')}
+                        className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${activeMode === 'plexus'
+                          ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
+                          : 'text-[#ffc8eb]/60 hover:text-white'
+                          }`}
+                      >
+                        Plexus
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Souvenir Action Button & Badges */}
+                <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-full max-w-[280px]">
+                  {(hostCreationReady || guestCreationReady) && (
+                    <div className="flex items-center gap-3">
+                      <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                        <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Host
+                      </div>
+                      <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                        <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> {isEn ? 'Guest' : 'Gast'}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={toggleCreationReady}
+                    className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
+                    title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
+                  >
+                    <span>🎨</span>
+                    <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
+                  </button>
+                </div>
+
+                {/* Brand Title */}
+                <div className="text-center select-none pt-0.5">
+                  <h1 className="text-lg font-bold tracking-[3px] uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] drop-shadow-[0_0_12px_rgba(255,42,157,0.7)] leading-none">
+                    Sakuraverse
+                  </h1>
+                  <p className="text-[9px] font-medium tracking-[2px] uppercase text-[#ffc8eb]/70 mt-0.5">
+                    A Collaborative Artwork
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* LANDSCAPE 4-CORNER GLASSMORPHIC HUD (Desktop & Mobile Landscape) */
+            <div className={`absolute inset-0 p-8 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
+
+              {/* TOP BAR: Instruction Box (Left) & Control Buttons (Right) */}
+              <div className="flex justify-between items-start w-full">
+                {/* Top Left: Dynamic Instruction Box */}
+                <div className="pointer-events-auto flex flex-col gap-1.5 p-4 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] max-w-[440px]">
+                  {(roundInfo || isPaused) && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
+                      <span className="text-[11px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
+                        {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-xs leading-relaxed text-white/90 font-normal">
+                    {instructionBody}
+                  </p>
+                </div>
+
+                {/* Top Right: Sound, Pause, Restart & EXIT Control Buttons (Subtle Icon-Only Buttons matching Close button style) */}
+                <div className="pointer-events-auto flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={toggleAudio}
+                    aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
+                    title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                  >
+                    {isAudioMuted ? (
+                      <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l4-4m0 4l-4-4" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={togglePause}
+                    aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
+                    title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                  >
+                    {isPaused ? (
+                      <svg className="w-4 h-4 text-white translate-x-0.5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-white pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleRestart}
+                    aria-label={isEn ? 'Restart' : 'Neu starten'}
+                    title={isEn ? 'Restart' : 'Neu starten'}
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                  >
+                    <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExit}
+                    aria-label={isEn ? 'Exit' : 'Beenden'}
+                    title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                  >
+                    <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* BOTTOM BAR: Brand Title (Left), Mode Selector (Center), Action Button (Right) */}
+              <div className="flex justify-between items-end w-full">
+                {/* Bottom Left: Brand Title */}
+                <div className="flex flex-col gap-1 select-none">
+                  <h1 className="text-2xl font-bold tracking-[4px] uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] drop-shadow-[0_0_20px_rgba(255,42,157,0.7)]">
+                    Sakuraverse
+                  </h1>
+                  <p className="text-[11px] font-medium tracking-[2.5px] uppercase text-[#ffc8eb]/75">
+                    A Collaborative Artwork
+                  </p>
+                </div>
+
+                {/* Bottom Center: Mode Selector / Creation Mode Badge */}
+                <div className="pointer-events-auto flex flex-col gap-1.5 items-center">
+                  {isCreationMode ? (
+                    <div className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_20px_rgba(255,42,157,0.4)]">
+                      <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
+                      <span className="text-xs font-bold tracking-[2.5px] uppercase text-white">
+                        Souvenir Mode
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 p-1.5 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-xl">
+                      <button
+                        onClick={() => handleSwitchMode('bluten')}
+                        className={`px-4.5 py-2 rounded-full text-xs font-semibold tracking-[1.5px] uppercase transition-all ${activeMode === 'bluten'
+                          ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_15px_rgba(255,42,157,0.5)]'
+                          : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
+                          }`}
+                      >
+                        {isEn ? 'Blossoms' : 'Blüten'}
+                      </button>
+
+                      <button
+                        onClick={() => handleSwitchMode('plexus')}
+                        className={`px-4.5 py-2 rounded-full text-xs font-semibold tracking-[1.5px] uppercase transition-all ${activeMode === 'plexus'
+                          ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_15px_rgba(0,240,255,0.5)]'
+                          : 'text-[#ffc8eb]/60 hover:text-white hover:bg-[#ff69b4]/20'
+                          }`}
+                      >
+                        Plexus
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom Right: Creation Button & Readiness Indicators */}
+                <div className="pointer-events-auto flex flex-col items-center gap-2">
+                  {/* Ready Status Badges with Green Checkmarks */}
+                  <div className="flex items-center gap-4 min-h-[44px]">
+                    <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${hostCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
+                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
+                      <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">Host</span>
+                    </div>
+                    <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${guestCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
+                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
+                      <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">{isEn ? 'Guest' : 'Gast'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={toggleCreationReady}
+                      className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center gap-2.5 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
+                      title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
+                    >
+                      <span>🎨</span>
+                      <span className="relative z-10">
+                        {isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* Lightbox: Artwork Selection Modal */}
+          {isLightboxOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in">
+              <div className="relative w-full max-w-3xl bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/45 rounded-3xl p-10 text-center shadow-[0_30px_80px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.3)]">
                 <button
-                  onClick={toggleCreationReady}
-                  className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center gap-2.5 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
-                  title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
+                  onClick={() => {
+                    setIsLightboxOpen(false);
+                    setHostCreationReady(false);
+                    setGuestCreationReady(false);
+                  }}
+                  className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all"
                 >
-                  <span>🎨</span>
-                  <span className="relative z-10">
-                    {isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}
-                  </span>
+                  ✕
+                </button>
+
+                <h2 className="text-3xl font-extrabold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,42,157,0.6)] mb-8">
+                  {isEn ? 'Choose your artwork' : 'Wähle dein Kunstwerk'}
+                </h2>
+
+                <div className="grid grid-cols-2 gap-8">
+                  {/* Sumi-e Card */}
+                  <button
+                    onClick={() => selectArtworkChoice('bluten')}
+                    className="group relative rounded-2xl overflow-hidden border-2 border-[#ff69b4]/30 hover:border-[#ff2a9d] bg-[#120c1c]/60 flex flex-col items-center transition-all hover:-translate-y-2 hover:scale-[1.025] hover:shadow-[0_20px_50px_rgba(255,42,157,0.5),0_0_35px_rgba(78,226,236,0.35)] cursor-pointer"
+                  >
+                    <div className="relative w-full aspect-square overflow-hidden bg-[#0d0614]">
+                      <img src="/sumie_preview.jpg" alt="Sumi-e Blütenkunstwerk" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-[#120818]/40 to-[#0e0414]/95 pointer-events-none" />
+                      <div className="absolute bottom-5 inset-x-0 text-center text-2xl font-extrabold tracking-widest text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                        Sumi-e
+                      </div>
+                    </div>
+                    <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
+                      {isEn ? '🌸 Blossoms & Branches' : '🌸 Blüten & Äste'}
+                    </div>
+                  </button>
+
+                  {/* Plexus Card */}
+                  <button
+                    onClick={() => selectArtworkChoice('plexus')}
+                    className="group relative rounded-2xl overflow-hidden border-2 border-[#ff69b4]/30 hover:border-[#ff2a9d] bg-[#120c1c]/60 flex flex-col items-center transition-all hover:-translate-y-2 hover:scale-[1.025] hover:shadow-[0_20px_50px_rgba(255,42,157,0.5),0_0_35px_rgba(78,226,236,0.35)] cursor-pointer"
+                  >
+                    <div className="relative w-full aspect-square overflow-hidden bg-[#0d0614]">
+                      <img src="/plexus_preview.jpg" alt="Plexus Konstellation" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-[#120818]/40 to-[#0e0414]/95 pointer-events-none" />
+                      <div className="absolute bottom-5 inset-x-0 text-center text-2xl font-extrabold tracking-widest text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                        Plexus
+                      </div>
+                    </div>
+                    <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
+                      {isEn ? '✨ Orb & Constellation' : '✨ Orb & Konstellation'}
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Lightbox 2: 16:9 Souvenir Video Preview & NFT Modal */}
+          {isSouvenirVideoOpen && (
+            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-[#06020c]/90 backdrop-blur-2xl animate-fade-in pointer-events-auto">
+              <div className="relative w-full max-w-2xl bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/50 rounded-3xl p-6 md:p-8 text-center shadow-[0_30px_80px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
+                <button
+                  onClick={() => setIsSouvenirVideoOpen(false)}
+                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#ff2a9d] bg-[#ff2a9d]/15 px-3 py-1 rounded-full border border-[#ff2a9d]/30">
+                    14s VIDEO SOUVENIR
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-wider text-white">
+                    {isEn ? 'Your artwork is ready!' : 'Dein Kunstwerk ist fertig!'}
+                  </h2>
+                  <p className="text-xs text-white/70">
+                    {isEn ? 'Unique one-of-a-kind piece from your creation session' : 'Einzigartiges Unikat deiner Schöpfungs-Session'}
+                  </p>
+                </div>
+
+                {/* 16:9 Video Player */}
+                <div className="w-full max-w-[560px] aspect-video bg-black/80 rounded-2xl overflow-hidden border border-white/20 shadow-2xl flex items-center justify-center">
+                  {souvenirVideoUrl ? (
+                    <video
+                      src={souvenirVideoUrl}
+                      controls
+                      autoPlay
+                      loop
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-xs font-mono text-white/50 animate-pulse">
+                      {isEn ? 'Preparing video...' : 'Video wird vorbereitet...'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Direct NFT Save Button */}
+                <button
+                  type="button"
+                  onClick={handleSaveNFT}
+                  className={`w-full max-w-[320px] py-3.5 px-6 rounded-full font-extrabold text-sm tracking-wider uppercase transition-all duration-300 shadow-xl cursor-pointer flex items-center justify-center gap-2 ${isNftSaved
+                    ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-emerald-500/40 border border-emerald-300'
+                    : 'bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white hover:scale-103 hover:shadow-[0_0_25px_rgba(255,42,157,0.6)] border border-white/30'
+                    }`}
+                >
+                  <span>{isNftSaved ? (isEn ? '✅ Video saved!' : '✅ Video gesichert!') : (isEn ? '✨ Save as NFT' : '✨ Als NFT sichern')}</span>
                 </button>
               </div>
             </div>
+          )}
 
-          </div>
-        </div>
-      )}
+          {/* Waiting for Host Shimmer Modal Overlay (Guest View before Host starts session) */}
+          {isWaitingForHost && isRunning && (
+            <div className="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
+              <div className="relative w-full max-w-md bg-[rgba(18,10,28,0.92)] border border-pink-500/40 rounded-3xl p-8 sm:p-10 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
+                {/* Ambient Background Glow */}
+                <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-36 h-36 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Lightbox: Artwork Selection Modal */}
-      {isLightboxOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in">
-          <div className="relative w-full max-w-3xl bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/45 rounded-3xl p-10 text-center shadow-[0_30px_80px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.3)]">
-            <button
-              onClick={() => {
-                setIsLightboxOpen(false);
-                setHostCreationReady(false);
-                setGuestCreationReady(false);
-              }}
-              className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all"
-            >
-              ✕
-            </button>
-
-            <h2 className="text-3xl font-extrabold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,42,157,0.6)] mb-8">
-              {isEn ? 'Choose your artwork' : 'Wähle dein Kunstwerk'}
-            </h2>
-
-            <div className="grid grid-cols-2 gap-8">
-              {/* Sumi-e Card */}
-              <button
-                onClick={() => selectArtworkChoice('bluten')}
-                className="group relative rounded-2xl overflow-hidden border-2 border-[#ff69b4]/30 hover:border-[#ff2a9d] bg-[#120c1c]/60 flex flex-col items-center transition-all hover:-translate-y-2 hover:scale-[1.025] hover:shadow-[0_20px_50px_rgba(255,42,157,0.5),0_0_35px_rgba(78,226,236,0.35)] cursor-pointer"
-              >
-                <div className="relative w-full aspect-square overflow-hidden bg-[#0d0614]">
-                  <img src="/sumie_preview.jpg" alt="Sumi-e Blütenkunstwerk" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-[#120818]/40 to-[#0e0414]/95 pointer-events-none" />
-                  <div className="absolute bottom-5 inset-x-0 text-center text-2xl font-extrabold tracking-widest text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                    Sumi-e
+                {/* Glowing Icon */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <span className="absolute inset-0 rounded-full border border-pink-500/40 animate-ping" style={{ animationDuration: '2.5s' }} />
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_20px_rgba(255,42,157,0.5)]">
+                    <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-2xl">
+                      🌸
+                    </div>
                   </div>
                 </div>
-                <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
-                  {isEn ? '🌸 Blossoms & Branches' : '🌸 Blüten & Äste'}
-                </div>
-              </button>
 
-              {/* Plexus Card */}
-              <button
-                onClick={() => selectArtworkChoice('plexus')}
-                className="group relative rounded-2xl overflow-hidden border-2 border-[#ff69b4]/30 hover:border-[#ff2a9d] bg-[#120c1c]/60 flex flex-col items-center transition-all hover:-translate-y-2 hover:scale-[1.025] hover:shadow-[0_20px_50px_rgba(255,42,157,0.5),0_0_35px_rgba(78,226,236,0.35)] cursor-pointer"
-              >
-                <div className="relative w-full aspect-square overflow-hidden bg-[#0d0614]">
-                  <img src="/plexus_preview.jpg" alt="Plexus Konstellation" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-[#120818]/40 to-[#0e0414]/95 pointer-events-none" />
-                  <div className="absolute bottom-5 inset-x-0 text-center text-2xl font-extrabold tracking-widest text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                    Plexus
+                {/* Session Pill */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{isEn ? 'Connected with Host' : 'Mit Host verbunden'}</span>
+                </div>
+
+                {/* Titles */}
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-xl sm:text-2xl font-extrabold tracking-wide uppercase bg-gradient-to-r from-white via-pink-100 to-[#ff80df] bg-clip-text text-transparent">
+                    {isEn ? 'Waiting for Host...' : 'Warten auf den Host...'}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
+                    {isEn
+                      ? 'The host is selecting the artwork. Your shared session will begin in sync.'
+                      : 'Der Host wählt das Kunstwerk aus. Sobald es losgeht, startet euer Erlebnis synchron.'}
+                  </p>
+                </div>
+
+                {/* Animated Loading Bar (exact shimmer style from StorySection) */}
+                <div className="w-full flex flex-col gap-2 pt-1">
+                  <div className="relative w-full h-2 rounded-full bg-white/10 overflow-hidden shadow-[0_0_15px_rgba(78,226,236,0.3)]">
+                    <div className="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_12px_rgba(78,226,236,0.8)]" />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
+                    <span>{myName || (isEn ? 'Guest' : 'Gast')}</span>
+                    <span className="text-cyan-300">ID: {sessionId}</span>
                   </div>
                 </div>
-                <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
-                  {isEn ? '✨ Orb & Constellation' : '✨ Orb & Konstellation'}
+              </div>
+            </div>
+          )}
+
+          {/* Android Landscape Switch Prompt Overlay */}
+          {isAndroidPortraitPrompt && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#06020c]/94 backdrop-blur-3xl animate-fade-in pointer-events-auto">
+              <div className="relative w-full max-w-sm bg-gradient-to-br from-[#201030]/95 to-[#0d0516]/98 border border-[#ff69b4]/45 rounded-3xl p-7 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.3)] flex flex-col items-center gap-4">
+                <div className="relative w-18 h-18 flex items-center justify-center">
+                  <div
+                    className="w-8 h-14 border-2 border-[#ff2a9d] rounded-lg relative bg-[#ff2a9d]/10 shadow-[0_0_20px_rgba(255,42,157,0.55)] flex items-start justify-center pt-1"
+                    style={{ animation: 'phoneRotateAnim 2.4s ease-in-out infinite' }}
+                  >
+                    <div className="w-2.5 h-0.5 bg-white/70 rounded-full" />
+                  </div>
+                  <div
+                    className="absolute top-1/2 left-1/2 text-2xl text-[#4ee2ec] font-bold pointer-events-none drop-shadow-[0_0_12px_rgba(78,226,236,0.85)]"
+                    style={{ animation: 'arrowPulse 2.4s ease-in-out infinite' }}
+                  >
+                    ↻
+                  </div>
                 </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Lightbox 2: 16:9 Souvenir Video Preview & NFT Modal */}
-      {isSouvenirVideoOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-[#06020c]/90 backdrop-blur-2xl animate-fade-in pointer-events-auto">
-          <div className="relative w-full max-w-2xl bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/50 rounded-3xl p-6 md:p-8 text-center shadow-[0_30px_80px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
-            <button
-              onClick={() => setIsSouvenirVideoOpen(false)}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all cursor-pointer"
-            >
-              ✕
-            </button>
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#ff2a9d] bg-[#ff2a9d]/15 px-3 py-1 rounded-full border border-[#ff2a9d]/30">
-                14s VIDEO SOUVENIR
+                <h3 className="text-xl font-bold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent">
+                  {isEn ? 'Landscape Mode' : 'Querformat'}
+                </h3>
+
+                <p className="text-xs leading-relaxed text-[#ffdcf5]/85">
+                  {isEn
+                    ? 'Host started the session! Tap the screen or rotate your smartphone into landscape mode for the artwork.'
+                    : 'Host hat die Session gestartet! Tippe auf den Bildschirm oder drehe dein Smartphone ins Querformat für das Kunstwerk.'}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={requestLandscapeOrientation}
+                  className="w-full py-3 px-6 bg-gradient-to-r from-[#ff2a9d] to-[#a855f7] border border-white/40 rounded-full text-white text-xs font-bold tracking-widest uppercase shadow-[0_8px_25px_rgba(255,42,157,0.55)] hover:scale-102 active:scale-98 transition-all cursor-pointer"
+                >
+                  <span>{isEn ? '🔄 Start Landscape' : '🔄 Querformat starten'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAndroidPortraitPrompt(false)}
+                  className="text-[11px] text-[#ffc8eb]/70 hover:text-white underline underline-offset-4 tracking-wider cursor-pointer mt-1"
+                >
+                  {isEn ? 'Continue in portrait view' : 'Im Hochformat fortfahren'}
+                </button>
               </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-wider text-white">
-                {isEn ? 'Your artwork is ready!' : 'Dein Kunstwerk ist fertig!'}
-              </h2>
-              <p className="text-xs text-white/70">
-                {isEn ? 'Unique one-of-a-kind piece from your creation session' : 'Einzigartiges Unikat deiner Schöpfungs-Session'}
-              </p>
             </div>
+          )}
 
-            {/* 16:9 Video Player */}
-            <div className="w-full max-w-[560px] aspect-video bg-black/80 rounded-2xl overflow-hidden border border-white/20 shadow-2xl flex items-center justify-center">
-              {souvenirVideoUrl ? (
-                <video
-                  src={souvenirVideoUrl}
-                  controls
-                  autoPlay
-                  loop
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-xs font-mono text-white/50 animate-pulse">
-                  {isEn ? 'Preparing video...' : 'Video wird vorbereitet...'}
+          {/* iOS Landscape Block Modal (Blocks rotation to landscape on iPhones) */}
+          {isIOSLandscapeBlocked && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#06020c]/94 backdrop-blur-3xl animate-fade-in pointer-events-auto">
+              <div className="relative w-full max-w-md bg-gradient-to-br from-[#201030]/95 to-[#0d0516]/98 border border-[#ff69b4]/45 rounded-3xl p-8 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.3)] flex flex-col items-center gap-4">
+                <div className="relative w-18 h-18 flex items-center justify-center">
+                  <div
+                    className="w-14 h-8 border-2 border-[#ff2a9d] rounded-lg relative bg-[#ff2a9d]/10 shadow-[0_0_22px_rgba(255,42,157,0.55)] flex items-center pl-1"
+                    style={{ animation: 'iosRotatePhoneBack 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
+                  >
+                    <div className="w-0.5 h-2.5 bg-white/70 rounded-full" />
+                  </div>
+                  <div
+                    className="absolute top-1/2 left-1/2 text-2xl text-[#4ee2ec] font-bold pointer-events-none drop-shadow-[0_0_16px_rgba(78,226,236,0.85)]"
+                    style={{ animation: 'arrowPulse 2.4s ease-in-out infinite' }}
+                  >
+                    ↻
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Direct NFT Save Button */}
-            <button
-              type="button"
-              onClick={handleSaveNFT}
-              className={`w-full max-w-[320px] py-3.5 px-6 rounded-full font-extrabold text-sm tracking-wider uppercase transition-all duration-300 shadow-xl cursor-pointer flex items-center justify-center gap-2 ${
-                isNftSaved
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-emerald-500/40 border border-emerald-300'
-                  : 'bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white hover:scale-103 hover:shadow-[0_0_25px_rgba(255,42,157,0.6)] border border-white/30'
-              }`}
-            >
-              <span>{isNftSaved ? (isEn ? '✅ Video saved!' : '✅ Video gesichert!') : (isEn ? '✨ Save as NFT' : '✨ Als NFT sichern')}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Waiting for Host Shimmer Modal Overlay (Guest View before Host starts session) */}
-      {isWaitingForHost && isRunning && (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
-          <div className="relative w-full max-w-md bg-[rgba(18,10,28,0.92)] border border-pink-500/40 rounded-3xl p-8 sm:p-10 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
-            {/* Ambient Background Glow */}
-            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-36 h-36 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
-
-            {/* Glowing Icon */}
-            <div className="relative w-16 h-16 flex items-center justify-center">
-              <span className="absolute inset-0 rounded-full border border-pink-500/40 animate-ping" style={{ animationDuration: '2.5s' }} />
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_20px_rgba(255,42,157,0.5)]">
-                <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-2xl">
-                  🌸
+                <div className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#4ee2ec] bg-[#4ee2ec]/15 px-3 py-1 rounded-full border border-[#4ee2ec]/40">
+                  {isEn ? 'PORTRAIT MODE' : 'HOCHFORMAT-MODUS'}
+                </div>
+                <h3 className="text-xl font-bold tracking-wider text-white">
+                  {isEn ? 'Please hold device upright' : 'Bitte Gerät aufrecht halten'}
+                </h3>
+                <p className="text-xs leading-relaxed text-[#ffdcf5]/85">
+                  {isEn
+                    ? 'On iPhone, this artwork is optimized for vertical portrait view. Please rotate your smartphone upright to continue.'
+                    : 'Auf dem iPhone ist dieses Kunstwerk für die vertikale Ansicht im Hochformat optimiert. Bitte drehe dein Smartphone wieder aufrecht, um fortzufahren.'}
+                </p>
+                <div className="flex items-center gap-2 text-[11px] text-[#ffc8eb]/70 tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
+                  <span>{isEn ? 'Waiting for rotation to portrait mode...' : 'Warte auf Drehung ins Hochformat...'}</span>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Session Pill */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{isEn ? 'Connected with Host' : 'Mit Host verbunden'}</span>
-            </div>
-
-            {/* Titles */}
-            <div className="flex flex-col gap-1.5">
-              <h3 className="text-xl sm:text-2xl font-extrabold tracking-wide uppercase bg-gradient-to-r from-white via-pink-100 to-[#ff80df] bg-clip-text text-transparent">
-                {isEn ? 'Waiting for Host...' : 'Warten auf den Host...'}
-              </h3>
-              <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
-                {isEn
-                  ? 'The host is selecting the artwork. Your shared session will begin in sync.'
-                  : 'Der Host wählt das Kunstwerk aus. Sobald es losgeht, startet euer Erlebnis synchron.'}
-              </p>
-            </div>
-
-            {/* Animated Loading Bar (exact shimmer style from StorySection) */}
-            <div className="w-full flex flex-col gap-2 pt-1">
-              <div className="relative w-full h-2 rounded-full bg-white/10 overflow-hidden shadow-[0_0_15px_rgba(78,226,236,0.3)]">
-                <div className="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_12px_rgba(78,226,236,0.8)]" />
-              </div>
-              <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
-                <span>{myName || (isEn ? 'Guest' : 'Gast')}</span>
-                <span className="text-cyan-300">ID: {sessionId}</span>
+          {/* Mobile Double-Back Notice Toast */}
+          {backNoticeVisible && (
+            <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#160a22]/90 backdrop-blur-xl border border-white/20 text-white text-xs font-semibold tracking-wide shadow-2xl">
+                <span>↩️</span>
+                <span>{isEn ? 'Swipe "Back" again to exit session' : 'Nochmal „Zurück“ wischen, um die Session zu beenden'}</span>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Android Landscape Switch Prompt Overlay */}
-      {isAndroidPortraitPrompt && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#06020c]/94 backdrop-blur-3xl animate-fade-in pointer-events-auto">
-          <div className="relative w-full max-w-sm bg-gradient-to-br from-[#201030]/95 to-[#0d0516]/98 border border-[#ff69b4]/45 rounded-3xl p-7 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.3)] flex flex-col items-center gap-4">
-            <div className="relative w-18 h-18 flex items-center justify-center">
-              <div 
-                className="w-8 h-14 border-2 border-[#ff2a9d] rounded-lg relative bg-[#ff2a9d]/10 shadow-[0_0_20px_rgba(255,42,157,0.55)] flex items-start justify-center pt-1"
-                style={{ animation: 'phoneRotateAnim 2.4s ease-in-out infinite' }}
-              >
-                <div className="w-2.5 h-0.5 bg-white/70 rounded-full" />
-              </div>
-              <div 
-                className="absolute top-1/2 left-1/2 text-2xl text-[#4ee2ec] font-bold pointer-events-none drop-shadow-[0_0_12px_rgba(78,226,236,0.85)]"
-                style={{ animation: 'arrowPulse 2.4s ease-in-out infinite' }}
-              >
-                ↻
-              </div>
-            </div>
-
-            <h3 className="text-xl font-bold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent">
-              {isEn ? 'Landscape Mode' : 'Querformat'}
-            </h3>
-
-            <p className="text-xs leading-relaxed text-[#ffdcf5]/85">
-              {isEn
-                ? 'Host started the session! Tap the screen or rotate your smartphone into landscape mode for the artwork.'
-                : 'Host hat die Session gestartet! Tippe auf den Bildschirm oder drehe dein Smartphone ins Querformat für das Kunstwerk.'}
-            </p>
-
-            <button
-              type="button"
-              onClick={requestLandscapeOrientation}
-              className="w-full py-3 px-6 bg-gradient-to-r from-[#ff2a9d] to-[#a855f7] border border-white/40 rounded-full text-white text-xs font-bold tracking-widest uppercase shadow-[0_8px_25px_rgba(255,42,157,0.55)] hover:scale-102 active:scale-98 transition-all cursor-pointer"
-            >
-              <span>{isEn ? '🔄 Start Landscape' : '🔄 Querformat starten'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsAndroidPortraitPrompt(false)}
-              className="text-[11px] text-[#ffc8eb]/70 hover:text-white underline underline-offset-4 tracking-wider cursor-pointer mt-1"
-            >
-              {isEn ? 'Continue in portrait view' : 'Im Hochformat fortfahren'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* iOS Landscape Block Modal (Blocks rotation to landscape on iPhones) */}
-      {isIOSLandscapeBlocked && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#06020c]/94 backdrop-blur-3xl animate-fade-in pointer-events-auto">
-          <div className="relative w-full max-w-md bg-gradient-to-br from-[#201030]/95 to-[#0d0516]/98 border border-[#ff69b4]/45 rounded-3xl p-8 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.3)] flex flex-col items-center gap-4">
-            <div className="relative w-18 h-18 flex items-center justify-center">
-              <div
-                className="w-14 h-8 border-2 border-[#ff2a9d] rounded-lg relative bg-[#ff2a9d]/10 shadow-[0_0_22px_rgba(255,42,157,0.55)] flex items-center pl-1"
-                style={{ animation: 'iosRotatePhoneBack 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
-              >
-                <div className="w-0.5 h-2.5 bg-white/70 rounded-full" />
-              </div>
-              <div
-                className="absolute top-1/2 left-1/2 text-2xl text-[#4ee2ec] font-bold pointer-events-none drop-shadow-[0_0_16px_rgba(78,226,236,0.85)]"
-                style={{ animation: 'arrowPulse 2.4s ease-in-out infinite' }}
-              >
-                ↻
-              </div>
-            </div>
-            <div className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#4ee2ec] bg-[#4ee2ec]/15 px-3 py-1 rounded-full border border-[#4ee2ec]/40">
-              {isEn ? 'PORTRAIT MODE' : 'HOCHFORMAT-MODUS'}
-            </div>
-            <h3 className="text-xl font-bold tracking-wider text-white">
-              {isEn ? 'Please hold device upright' : 'Bitte Gerät aufrecht halten'}
-            </h3>
-            <p className="text-xs leading-relaxed text-[#ffdcf5]/85">
-              {isEn
-                ? 'On iPhone, this artwork is optimized for vertical portrait view. Please rotate your smartphone upright to continue.'
-                : 'Auf dem iPhone ist dieses Kunstwerk für die vertikale Ansicht im Hochformat optimiert. Bitte drehe dein Smartphone wieder aufrecht, um fortzufahren.'}
-            </p>
-            <div className="flex items-center gap-2 text-[11px] text-[#ffc8eb]/70 tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
-              <span>{isEn ? 'Waiting for rotation to portrait mode...' : 'Warte auf Drehung ins Hochformat...'}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Double-Back Notice Toast */}
-      {backNoticeVisible && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#160a22]/90 backdrop-blur-xl border border-white/20 text-white text-xs font-semibold tracking-wide shadow-2xl">
-            <span>↩️</span>
-            <span>{isEn ? 'Swipe "Back" again to exit session' : 'Nochmal „Zurück“ wischen, um die Session zu beenden'}</span>
-          </div>
-        </div>
-      )}
+          )}
         </>
       )}
 
