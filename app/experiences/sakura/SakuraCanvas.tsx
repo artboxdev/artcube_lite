@@ -361,6 +361,37 @@ export const PALETTE_RGB_CACHE: Record<BlossomColorId, { r: number; g: number; b
   yellow: BLOSSOM_PALETTES.yellow.shades.map(s => { const c = new THREE.Color(s); return { r: c.r, g: c.g, b: c.b }; }),
 };
 
+export const SATURATED_PLEXUS_PALETTES: Record<
+  BlossomColorId,
+  { r: number; g: number; b: number }[]
+> = {
+  pink: [
+    { r: 1.0, g: 0.05, b: 0.52 },
+    { r: 0.95, g: 0.0, b: 0.45 },
+    { r: 1.0, g: 0.12, b: 0.62 },
+  ],
+  red: [
+    { r: 1.0, g: 0.04, b: 0.14 },
+    { r: 0.96, g: 0.12, b: 0.02 },
+    { r: 1.0, g: 0.0, b: 0.22 },
+  ],
+  blue: [
+    { r: 0.0, g: 0.62, b: 1.0 },
+    { r: 0.0, g: 0.42, b: 1.0 },
+    { r: 0.05, g: 0.75, b: 1.0 },
+  ],
+  green: [
+    { r: 0.0, g: 0.88, b: 0.38 },
+    { r: 0.0, g: 0.76, b: 0.28 },
+    { r: 0.06, g: 0.95, b: 0.45 },
+  ],
+  yellow: [
+    { r: 1.0, g: 0.72, b: 0.0 },
+    { r: 1.0, g: 0.6, b: 0.0 },
+    { r: 1.0, g: 0.82, b: 0.02 },
+  ],
+};
+
 export const BG_COLOR_PALETTES = {
   default: {
     c1: new THREE.Vector3(0.05, 0.00, 0.02),
@@ -1555,6 +1586,9 @@ export function SakuraCanvas({
   const [plexusAttachedCount, setPlexusAttachedCount] = useState(0);
   const [plexusOccupiedOrbsCount, setPlexusOccupiedOrbsCount] = useState(0);
   const [isPlexusFinale, setIsPlexusFinale] = useState(false);
+  const [plexusCenterPromptVisible, setPlexusCenterPromptVisible] = useState(false);
+  const setPlexusCenterPromptVisibleRef = useRef(setPlexusCenterPromptVisible);
+  useEffect(() => { setPlexusCenterPromptVisibleRef.current = setPlexusCenterPromptVisible; }, [setPlexusCenterPromptVisible]);
 
   // Collaborative Creation Readiness & Lightbox State
   const [hostCreationReady, setHostCreationReady] = useState(false);
@@ -2923,6 +2957,47 @@ export function SakuraCanvas({
     plexusFinaleMesh.visible = false;
     plexusSceneGroup.add(plexusFinaleMesh);
 
+    // Subtle Magenta Center Circle Drop Zone Mesh for Finale Trigger
+    const centerZoneGroup = new THREE.Group();
+    centerZoneGroup.visible = false;
+    plexusSceneGroup.add(centerZoneGroup);
+
+    const centerRingGeo = new THREE.RingGeometry(82, 88, 64);
+    const centerRingMat = new THREE.MeshBasicMaterial({
+      color: 0xff2a9d,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const centerRingMesh = new THREE.Mesh(centerRingGeo, centerRingMat);
+    centerZoneGroup.add(centerRingMesh);
+
+    const centerDiscGeo = new THREE.CircleGeometry(82, 64);
+    const centerDiscMat = new THREE.MeshBasicMaterial({
+      color: 0xff2a9d,
+      transparent: true,
+      opacity: 0.08,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const centerDiscMesh = new THREE.Mesh(centerDiscGeo, centerDiscMat);
+    centerZoneGroup.add(centerDiscMesh);
+
+    const centerAccentGeo = new THREE.RingGeometry(94, 96, 64);
+    const centerAccentMat = new THREE.MeshBasicMaterial({
+      color: 0xff69b4,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const centerAccentMesh = new THREE.Mesh(centerAccentGeo, centerAccentMat);
+    centerZoneGroup.add(centerAccentMesh);
+
     // Pre-allocated flat buffers for high-performance zero-GC Plexus updates
     const worldNodeX = new Float32Array(MAX_TOTAL_NODES);
     const worldNodeY = new Float32Array(MAX_TOTAL_NODES);
@@ -2932,6 +3007,8 @@ export function SakuraCanvas({
     const worldNodeB = new Float32Array(MAX_TOTAL_NODES);
     const worldNodeSize = new Float32Array(MAX_TOTAL_NODES);
     const worldNodeDistCenter = new Float32Array(MAX_TOTAL_NODES);
+    const worldNodeActivated = new Uint8Array(MAX_TOTAL_NODES);
+    const worldNodeGroup = new Int16Array(MAX_TOTAL_NODES);
     const nodeConnCounts = new Uint8Array(MAX_TOTAL_NODES);
     let prevActiveTrailCount = 0;
 
@@ -3031,6 +3108,11 @@ export function SakuraCanvas({
 
       preFinaleOrbitAngle = 0;
       hasCapturedPreFinale = false;
+      finaleVx = 0;
+      finaleVy = 0;
+      finaleNetworkCount = 0;
+      inImpulse = false;
+      impulseCooldown = 0.0;
 
       constructor(cfg: typeof PLEXUS_4_ORB_CONFIGS[number], orbIndex = 0) {
         this.config = BLOSSOM_PALETTES[cfg.id];
@@ -3271,41 +3353,72 @@ export function SakuraCanvas({
           if (!this.hasCapturedPreFinale) {
             this.preFinaleOrbitAngle = this.orbitAngle;
             this.hasCapturedPreFinale = true;
+            // Initial organic velocity pointing toward center
+            const angleToCenter = Math.atan2(-this.y, -this.x);
+            this.finaleVx = Math.cos(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0;
+            this.finaleVy = Math.sin(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0;
           }
 
-          const orbitRadius = 180.0;
-          const angle = time * 1.14 + (this.orbIndex * ((Math.PI * 2) / 4));
-          const targetOrbitX = Math.cos(angle) * orbitRadius;
-          const targetOrbitY = Math.sin(angle) * orbitRadius * 0.75;
-          const targetOrbitZ = Math.sin(angle * 2.0) * 35.0;
+          const BOUND_X = 105.0;
+          const BOUND_Y = 70.0;
 
-          this.x = THREE.MathUtils.lerp(this.x, targetOrbitX, 0.08);
-          this.y = THREE.MathUtils.lerp(this.y, targetOrbitY, 0.08);
-          this.z = THREE.MathUtils.lerp(this.z, targetOrbitZ, 0.08);
+          if (this.inImpulse) {
+            // Position during active 2s impulse is coupled around impulse midpoint
+          } else {
+            this.impulseCooldown = Math.max(0.0, this.impulseCooldown - delta);
+
+            // Smooth physical wandering on random/organic paths in small center area
+            this.x += this.finaleVx * delta;
+            this.y += this.finaleVy * delta;
+            this.z = Math.sin(time * 2.0 + this.phase) * 8.0;
+
+            // Soft organic bounce off center boundaries
+            if (this.x > BOUND_X) { this.finaleVx = -Math.abs(this.finaleVx); this.x = BOUND_X; }
+            else if (this.x < -BOUND_X) { this.finaleVx = Math.abs(this.finaleVx); this.x = -BOUND_X; }
+            if (this.y > BOUND_Y) { this.finaleVy = -Math.abs(this.finaleVy); this.y = BOUND_Y; }
+            else if (this.y < -BOUND_Y) { this.finaleVy = Math.abs(this.finaleVy); this.y = -BOUND_Y; }
+
+            // Continuous organic curl acceleration
+            this.finaleVx += Math.sin(time * 1.8 + this.phase) * 22.0 * delta;
+            this.finaleVy += Math.cos(time * 1.5 + this.phase * 1.3) * 22.0 * delta;
+
+            // Damping & speed clamping
+            this.finaleVx *= (1.0 - delta * 0.45);
+            this.finaleVy *= (1.0 - delta * 0.45);
+
+            const curSpeed = Math.hypot(this.finaleVx, this.finaleVy);
+            if (curSpeed > 65.0) {
+              this.finaleVx = (this.finaleVx / curSpeed) * 65.0;
+              this.finaleVy = (this.finaleVy / curSpeed) * 65.0;
+            } else if (curSpeed < 18.0) {
+              const ang = Math.random() * Math.PI * 2;
+              this.finaleVx += Math.cos(ang) * 20.0;
+              this.finaleVy += Math.sin(ang) * 20.0;
+            }
+          }
 
           this.material.uniforms.uAlpha.value = THREE.MathUtils.lerp(this.material.uniforms.uAlpha.value, 1.0 * modeFadeAlpha, 0.1);
           this.atmosphereMaterial.uniforms.uAlpha.value = 1.0 * modeFadeAlpha;
-          this.atmosphereMaterial.uniforms.uGlow.value = 3.2; // Extra radiant atmosphere in finale
+          this.atmosphereMaterial.uniforms.uGlow.value = this.inImpulse ? 3.5 : 2.4;
           this.mesh.visible = (activeModeRef.current === 'plexus');
 
           // Starburst & Ribbon Trail in Finale
           const finaleAlpha = 1.0 * modeFadeAlpha;
-          const effectiveShine = 48.0;
+          const effectiveShine = this.inImpulse ? 56.0 : 42.0;
           this.starSprite.scale.set(effectiveShine, effectiveShine, 1.0);
           this.starSprite.visible = (activeModeRef.current === 'plexus');
           this.starSprite.material.opacity = modeFadeAlpha;
 
           this.trailHistory.unshift({ x: this.x, y: this.y, z: this.z });
-          if (this.trailHistory.length > this.trailLength) this.trailHistory.pop();
+          if (this.trailHistory.length > 40) this.trailHistory.pop();
 
           if (this.trailRibbonMesh && this.trailRibbonGeo) {
-            const effectiveTailFactor = 1.0;
             const hasTrail = (activeModeRef.current === 'plexus') && this.trailHistory.length >= 3;
             this.trailRibbonMesh.visible = hasTrail;
             this.trailRibbonMat.uniforms.uAlpha.value = finaleAlpha;
 
             if (hasTrail) {
-              const activeCount = Math.max(6, Math.floor(effectiveTailFactor * this.trailHistory.length));
+              const activeCount = Math.max(6, this.trailHistory.length);
               const activePts = [];
               for (let h = 0; h < activeCount; h++) {
                 const pt = this.trailHistory[h];
@@ -3317,7 +3430,7 @@ export function SakuraCanvas({
                 const samples = spline.getSpacedPoints(this.ribbonSamples - 1);
                 const rPositions = this.trailRibbonGeo.attributes.position.array as Float32Array;
                 const camPos = camera ? camera.position : { x: 0, y: 0, z: 540 };
-                const BASE_RIBBON_WIDTH = 28.0 * Math.min(1.0, effectiveTailFactor * 1.5);
+                const BASE_RIBBON_WIDTH = (this.inImpulse ? 32.0 : 22.0);
 
                 for (let s = 0; s < this.ribbonSamples; s++) {
                   const curP = samples[s];
@@ -3526,7 +3639,7 @@ export function SakuraCanvas({
     let plexusRippleTimer = 0.0;
     const PLEXUS_TRANSITION_DURATION = 4.0;
     const PLEXUS_GRAND_FINALE_DURATION = 10.0;
-    const PLEXUS_FINALE_DURATION = 14.0;
+    const PLEXUS_FINALE_DURATION = 10.0;
 
     interface FinaleMeshOpts {
       particleAmount: number;
@@ -3627,7 +3740,7 @@ export function SakuraCanvas({
         this.rotSpeed = (Math.random() - 0.5) * 2.0;
       }
 
-      update(delta: number, transitionProgress = 1.0, finaleAge = 0.0, totalTime = 0.0) {
+      update(delta: number, transitionProgress = 1.0, finaleAge = 0.0, totalTime = 0.0, centerX = 0.0, centerY = 0.0) {
         const dt60 = Math.min(2.0, delta * 60.0);
         this.border();
         this.x += this.vector.x * dt60;
@@ -3669,8 +3782,8 @@ export function SakuraCanvas({
         const ry = baseY * cosX - rz1 * sinX;
         const rz = baseY * sinX + rz1 * cosX;
 
-        this.renderX = rx;
-        this.renderY = ry;
+        this.renderX = centerX + rx;
+        this.renderY = centerY + ry;
         this.renderZ = rz;
       }
 
@@ -3703,6 +3816,19 @@ export function SakuraCanvas({
         }
       }
     }
+
+    interface ActiveFinaleImpulse {
+      orbA: FloatingPlexusOrbInstance;
+      orbB: FloatingPlexusOrbInstance;
+      age: number;
+      remaining: number;
+      duration: number;
+      midX: number;
+      midY: number;
+      particles: FinaleMeshParticle[];
+      roundIdx: number;
+    }
+    const activeImpulses: ActiveFinaleImpulse[] = [];
 
     let finaleParticles: FinaleMeshParticle[] = [];
     const initFinaleParticles = (activeOrbPalettes?: { r: number; g: number; b: number }[][], activeOrbPositions?: { x: number; y: number; z: number }[]) => {
@@ -3785,6 +3911,9 @@ export function SakuraCanvas({
         setPlexusAttachedCount(totalAttachedPlexusCount);
         const occupiedCount = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0).length;
         setPlexusOccupiedOrbsCount(occupiedCount);
+        if (totalAttachedPlexusCount >= 6) {
+          setPlexusCenterPromptVisibleRef.current?.(true);
+        }
       }
     };
 
@@ -3812,25 +3941,20 @@ export function SakuraCanvas({
       if (isPlexusFinaleActive || isPlexusCompleted) return;
       isPlexusFinaleActive = true;
       setIsPlexusFinale(true);
+      setPlexusCenterPromptVisibleRef.current?.(false);
       plexusFinaleStartTime = totalAnimTime;
       isPlexusRippleActive = true;
       plexusRippleTimer = 0.0;
       if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 1.0;
       if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
 
-      const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
-      const activeOrbsList = activeDockedOrbs.length > 0 ? activeDockedOrbs : floatingPlexusOrbs;
-      const weightedPalettes: { r: number; g: number; b: number }[][] = [];
-      const weightedPositions: { x: number; y: number; z: number }[] = [];
-      activeOrbsList.forEach(orb => {
-        const count = Math.max(1, orb.attachedPlexusCount);
-        const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
-        for (let w = 0; w < count; w++) {
-          weightedPalettes.push(pal);
-          weightedPositions.push({ x: orb.x, y: orb.y, z: orb.z });
-        }
+      activeImpulses.length = 0;
+      floatingPlexusOrbs.forEach(orb => {
+        orb.finaleNetworkCount = 0;
+        orb.inImpulse = false;
+        orb.impulseCooldown = 0.0;
+        orb.hasCapturedPreFinale = false;
       });
-      initFinaleParticles(weightedPalettes, weightedPositions);
 
       showToastRef.current?.(
         isEnRef.current
@@ -3859,90 +3983,19 @@ export function SakuraCanvas({
 
     const checkPlexusFinaleTrigger = (shouldBroadcast = true): boolean => {
       if (isPlexusFinaleActive || isPlexusCompleted) return false;
+      if (totalAttachedPlexusCount < 6) return false;
 
       const occupiedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount >= 1);
-      const k = occupiedOrbs.length;
+      if (occupiedOrbs.length === 0) return false;
 
-      // Need at least 2 occupied orbs in the artwork to trigger finale
-      if (k < 2) return false;
+      // Drop zone radius 88.0 in world coordinates at screen center (0, 0)
+      const CENTER_RADIUS = 88.0;
+      const allInside = occupiedOrbs.every(orb => Math.hypot(orb.x, orb.y) <= CENTER_RADIUS);
 
-      // Rule B: When all 4 orbs are occupied (k === 4), pushing ANY 2 orbs together triggers finale
-      if (k === 4) {
-        for (let i = 0; i < floatingPlexusOrbs.length; i++) {
-          for (let j = i + 1; j < floatingPlexusOrbs.length; j++) {
-            const orbA = floatingPlexusOrbs[i];
-            const orbB = floatingPlexusOrbs[j];
-            const dist = Math.hypot(orbA.x - orbB.x, orbA.y - orbB.y);
-            if (dist <= 78.0) {
-              orbA.triggerDockWobble();
-              orbB.triggerDockWobble();
-              triggerPlexusFinale(shouldBroadcast);
-              return true;
-            }
-          }
-        }
-        return false;
-      }
-
-      // Rule A: Partial occupancy (2 <= k < 4), ALL occupied orbs must be pushed together!
-      if (k === 2) {
-        const orbA = occupiedOrbs[0];
-        const orbB = occupiedOrbs[1];
-        const dist = Math.hypot(orbA.x - orbB.x, orbA.y - orbB.y);
-        if (dist <= 78.0) {
-          orbA.triggerDockWobble();
-          orbB.triggerDockWobble();
-          triggerPlexusFinale(shouldBroadcast);
-          return true;
-        }
-        return false;
-      }
-
-      if (k === 3) {
-        const [orbA, orbB, orbC] = occupiedOrbs;
-        const dAB = Math.hypot(orbA.x - orbB.x, orbA.y - orbB.y);
-        const dBC = Math.hypot(orbB.x - orbC.x, orbB.y - orbC.y);
-        const dCA = Math.hypot(orbC.x - orbA.x, orbC.y - orbA.y);
-
-        const cx = (orbA.x + orbB.x + orbC.x) / 3.0;
-        const cy = (orbA.y + orbB.y + orbC.y) / 3.0;
-        const distCentroidA = Math.hypot(orbA.x - cx, orbA.y - cy);
-        const distCentroidB = Math.hypot(orbB.x - cx, orbB.y - cy);
-        const distCentroidC = Math.hypot(orbC.x - cx, orbC.y - cy);
-
-        const maxCentroidDist = Math.max(distCentroidA, distCentroidB, distCentroidC);
-        const maxPairwiseDist = Math.max(dAB, dBC, dCA);
-
-        if (maxPairwiseDist <= 118.0 || maxCentroidDist <= 72.0) {
-          orbA.triggerDockWobble();
-          orbB.triggerDockWobble();
-          orbC.triggerDockWobble();
-          triggerPlexusFinale(shouldBroadcast);
-          return true;
-        }
-
-        // Magnetic snap helper for 3-orb gathering:
-        if (dAB <= 78.0 && (orbA.isDragged || orbB.isDragged)) {
-          const leader = orbA.isDragged ? orbA : orbB;
-          const follower = orbA.isDragged ? orbB : orbA;
-          const angle = Math.atan2(follower.y - leader.y, follower.x - leader.x);
-          follower.x = leader.x + Math.cos(angle) * 65.0;
-          follower.y = leader.y + Math.sin(angle) * 65.0;
-        } else if (dBC <= 78.0 && (orbB.isDragged || orbC.isDragged)) {
-          const leader = orbB.isDragged ? orbB : orbC;
-          const follower = orbB.isDragged ? orbC : orbB;
-          const angle = Math.atan2(follower.y - leader.y, follower.x - leader.x);
-          follower.x = leader.x + Math.cos(angle) * 65.0;
-          follower.y = leader.y + Math.sin(angle) * 65.0;
-        } else if (dCA <= 78.0 && (orbC.isDragged || orbA.isDragged)) {
-          const leader = orbC.isDragged ? orbC : orbA;
-          const follower = orbC.isDragged ? orbA : orbC;
-          const angle = Math.atan2(follower.y - leader.y, follower.x - leader.x);
-          follower.x = leader.x + Math.cos(angle) * 65.0;
-          follower.y = leader.y + Math.sin(angle) * 65.0;
-        }
-
-        return false;
+      if (allInside) {
+        occupiedOrbs.forEach(orb => orb.triggerDockWobble());
+        triggerPlexusFinale(shouldBroadcast);
+        return true;
       }
 
       return false;
@@ -4327,6 +4380,7 @@ export function SakuraCanvas({
           channelRef.current?.postMessage({ type: 'PLEXUS_ORB_RELEASE', ...orbRelMsg });
           draggedOrb = null;
           hasActivelyDraggedOrb = false;
+          checkPlexusFinaleTrigger(true);
         } else if (draggedPlexusCluster) {
           let dockedOrb: FloatingPlexusOrbInstance | null = null;
           let minDist = 120.0;
@@ -4350,6 +4404,9 @@ export function SakuraCanvas({
             setPlexusAttachedCount(totalAttachedPlexusCount);
             const occupiedCount = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0).length;
             setPlexusOccupiedOrbsCount(occupiedCount);
+            if (totalAttachedPlexusCount >= 6) {
+              setPlexusCenterPromptVisibleRef.current?.(true);
+            }
 
             const clusterIdx = activePlexusClusters.indexOf(draggedPlexusCluster);
             const clusterId = draggedPlexusCluster.id;
@@ -4362,8 +4419,8 @@ export function SakuraCanvas({
 
             showToastRef.current?.(
               isEnRef.current
-                ? `🔮 Plexus docked to ${dockedOrb.name} orb! (${occupiedCount}/4 occupied)`
-                : `🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${occupiedCount}/4 belegt)`
+                ? `🔮 Plexus docked to ${dockedOrb.name} orb! (${totalAttachedPlexusCount}/6 docked)`
+                : `🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${totalAttachedPlexusCount}/6 angedockt)`
             );
           }
         } else {
@@ -4426,6 +4483,7 @@ export function SakuraCanvas({
       isPlexusFinaleActive = false;
       isPlexusCompleted = false;
       finaleParticles.length = 0;
+      activeImpulses.length = 0;
       isPlexusRippleActive = false;
       plexusRippleTimer = 0.0;
       draggedOrb = null;
@@ -4434,11 +4492,18 @@ export function SakuraCanvas({
       setPlexusAttachedCount(0);
       setPlexusOccupiedOrbsCount(0);
       setIsPlexusFinale(false);
+      setPlexusCenterPromptVisibleRef.current?.(false);
       floatingPlexusOrbs.forEach(orb => {
         orb.attachedPlexusCount = 0;
         orb.attachedNodes = [];
         orb.isDragged = false;
         orb.isRemoteDragged = false;
+        orb.finaleNetworkCount = 0;
+        orb.inImpulse = false;
+        orb.impulseCooldown = 0.0;
+        orb.finaleVx = 0;
+        orb.finaleVy = 0;
+        orb.hasCapturedPreFinale = false;
         orb.orbitAngle = orb.phase;
         orb.x = orb.homeX + Math.cos(orb.orbitAngle) * orb.orbitRx;
         orb.y = orb.homeY + Math.sin(orb.orbitAngle) * orb.orbitRy;
@@ -4476,9 +4541,7 @@ export function SakuraCanvas({
         plexusSceneGroup.visible = true;
 
         setIsTrunkGrowing(false);
-        // Pre-spawn 2 fresh drifting clusters for user interaction
-        createDriftingPlexusCluster(-120, 40, 0);
-        createDriftingPlexusCluster(140, -60, 0);
+        // Requirement: Users manually create all 6 plexus clusters by holding down and dock them to orbs of their choice
       }
 
       if (bgUniforms.uBgColor1) bgUniforms.uBgColor1.value.copy(BG_COLOR_PALETTES.default.c1);
@@ -4563,8 +4626,10 @@ export function SakuraCanvas({
         } else if (roundState === 'IDLE' && fullVortexHoldTimer < 0.0 && currentPhaseName === 'BRANCH' && activeOrbs.length === 0) {
           trunkPostDelayTimer += delta;
           if (trunkPostDelayTimer >= TRUNK_POST_DELAY) {
-            spawnOrbRound(1, 'BRANCH');
-            showToastRef.current?.('🌱 Astphase gestartet — Klicke die Knotenpunkte!');
+            if (!hasRemotePeerRef.current || isHostRef.current) {
+              spawnOrbRound(1, 'BRANCH');
+              showToastRef.current?.('🌱 Astphase gestartet — Klicke die Knotenpunkte!');
+            }
           }
         }
 
@@ -4788,26 +4853,32 @@ export function SakuraCanvas({
             });
 
             if (roundTimer >= ROUND_PAUSE_TIME) {
-              if (currentRoundNum < maxRoundsPerPhase) {
-                if (currentPhaseName === 'BRANCH' || currentPhaseName === 'BLOSSOM') {
-                  spawnOrbRound(currentRoundNum + 1, currentPhaseName);
-                }
-              } else {
-                if (currentPhaseName === 'BRANCH') {
-                  spawnOrbRound(1, 'BLOSSOM');
-                  showToastRef.current?.('🌸 Blütenphase gestartet! Wähle deine Wunschfarbe.');
-                } else if (currentPhaseName === 'BLOSSOM') {
-                  roundState = 'IDLE';
-                  startFlyingPetalsIfNeeded();
-                  vortexUser1Ready = false;
-                  vortexUser2Ready = false;
-                  setVortexCircleCount(0);
-                  circleTrailHistory.length = 0;
-                  currentPhaseName = 'AWAIT_VORTEX';
-                  currentPhaseRef.current = 'AWAIT_VORTEX';
-                  setCurrentPhase('AWAIT_VORTEX');
+              if (!hasRemotePeerRef.current || isHostRef.current) {
+                if (currentRoundNum < maxRoundsPerPhase) {
+                  if (currentPhaseName === 'BRANCH' || currentPhaseName === 'BLOSSOM') {
+                    spawnOrbRound(currentRoundNum + 1, currentPhaseName);
+                  }
                 } else {
-                  roundState = 'IDLE';
+                  if (currentPhaseName === 'BRANCH') {
+                    spawnOrbRound(1, 'BLOSSOM');
+                    showToastRef.current?.('🌸 Blütenphase gestartet! Wähle deine Wunschfarbe.');
+                  } else if (currentPhaseName === 'BLOSSOM') {
+                    roundState = 'IDLE';
+                    startFlyingPetalsIfNeeded();
+                    vortexUser1Ready = false;
+                    vortexUser2Ready = false;
+                    setVortexCircleCount(0);
+                    circleTrailHistory.length = 0;
+                    currentPhaseName = 'AWAIT_VORTEX';
+                    currentPhaseRef.current = 'AWAIT_VORTEX';
+                    setCurrentPhase('AWAIT_VORTEX');
+                    if (isHostRef.current) {
+                      sendInteractionRef.current?.('SAKURA_PHASE_CHANGE', { phase: 'AWAIT_VORTEX' });
+                      channelRef.current?.postMessage({ type: 'SAKURA_PHASE_CHANGE', phase: 'AWAIT_VORTEX' });
+                    }
+                  } else {
+                    roundState = 'IDLE';
+                  }
                 }
               }
             }
@@ -4875,7 +4946,11 @@ export function SakuraCanvas({
           if (!isPlexusCompleted) {
             isPlexusCompleted = true;
             markArtworkCompletedRef.current?.('plexus');
-            showToastRef.current?.('✨ Plexus-Netzwerk nach 14s vollendet!');
+            showToastRef.current?.(
+              isEnRef.current
+                ? '✨ Plexus network completed after 10s!'
+                : '✨ Plexus-Netzwerk nach 10s vollendet!'
+            );
           }
         }
 
@@ -4888,6 +4963,21 @@ export function SakuraCanvas({
           orb.update(delta, totalAnimTime, isPlexusFinaleActive, finaleAge, cameraRef.current, modeFadeAlpha);
         });
 
+        // Subtle Magenta Center Circle Drop Zone Update
+        const isCenterDropZoneActive = (activeModeRef.current === 'plexus') &&
+          totalAttachedPlexusCount >= 6 &&
+          !isPlexusFinaleActive &&
+          !isPlexusCompleted;
+
+        centerZoneGroup.visible = isCenterDropZoneActive;
+        if (isCenterDropZoneActive) {
+          const pulse = 0.55 + Math.sin(totalAnimTime * 3.2) * 0.25;
+          centerRingMat.opacity = pulse * modeFadeAlpha;
+          centerDiscMat.opacity = (0.07 + Math.sin(totalAnimTime * 3.2) * 0.03) * modeFadeAlpha;
+          centerAccentMat.opacity = (0.28 + Math.cos(totalAnimTime * 2.5) * 0.15) * modeFadeAlpha;
+          centerAccentMesh.rotation.z = totalAnimTime * 0.15;
+        }
+
         if (activeModeRef.current === 'plexus' && !isPlexusFinaleActive && !isPlexusCompleted) {
           checkPlexusFinaleTrigger(true);
         }
@@ -4897,65 +4987,174 @@ export function SakuraCanvas({
           plexusLinesMesh.visible = true;
           plexusPointsMesh.visible = true;
 
-          const fadeIn = THREE.MathUtils.smoothstep(finaleAge, 0.0, 3.5);
-          const fadeOut = Math.max(0.0, Math.min(1.0, (PLEXUS_FINALE_DURATION - finaleAge) / 1.5));
-          const finaleAlpha = fadeIn * fadeOut;
+          // 3 Scheduled Encounter Rounds across 10 seconds:
+          // Round 0 (t >= 0.2s): Pairs (0, 1) & (2, 3)
+          // Round 1 (t >= 3.4s): Pairs (0, 2) & (1, 3)
+          // Round 2 (t >= 6.6s): Pairs (0, 3) & (1, 2)
+          const FINALE_ROUNDS = [
+            { startSeek: 0.2, pairs: [[0, 1], [2, 3]] },
+            { startSeek: 3.4, pairs: [[0, 2], [1, 3]] },
+            { startSeek: 6.6, pairs: [[0, 3], [1, 2]] }
+          ];
 
-          const activeOrbsList = floatingPlexusOrbs; // All 5 orbs form the cosmic network hubs
+          for (let r = 0; r < FINALE_ROUNDS.length; r++) {
+            const fRound = FINALE_ROUNDS[r];
+            if (finaleAge >= fRound.startSeek && finaleAge < fRound.startSeek + 3.1) {
+              fRound.pairs.forEach(([idxA, idxB]) => {
+                const orbA = floatingPlexusOrbs[idxA];
+                const orbB = floatingPlexusOrbs[idxB];
+                if (!orbA || !orbB) return;
 
-          if (finaleParticles.length === 0) {
-            const weightedPalettes: { r: number; g: number; b: number }[][] = [];
-            const weightedPositions: { x: number; y: number; z: number }[] = [];
-            activeOrbsList.forEach(orb => {
-              const count = Math.max(2, orb.attachedPlexusCount);
-              const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
-              for (let w = 0; w < count; w++) {
-                weightedPalettes.push(pal);
-                weightedPositions.push({ x: orb.x, y: orb.y, z: orb.z });
-              }
-            });
-            initFinaleParticles(weightedPalettes, weightedPositions);
+                const alreadyInImpulse = activeImpulses.some(
+                  imp => (imp.orbA === orbA || imp.orbB === orbA || imp.orbA === orbB || imp.orbB === orbB)
+                );
+                const hasDoneRound = (orbA.finaleNetworkCount > r) && (orbB.finaleNetworkCount > r);
+
+                if (!alreadyInImpulse && !hasDoneRound && orbA.impulseCooldown <= 0 && orbB.impulseCooldown <= 0) {
+                  const dx = orbB.x - orbA.x;
+                  const dy = orbB.y - orbA.y;
+                  const dist = Math.hypot(dx, dy) || 1.0;
+                  const nx = dx / dist;
+                  const ny = dy / dist;
+
+                  if (dist > 65.0) {
+                    // Mutual Proximity Attraction: Orbs pull toward each other
+                    const pull = Math.min(170.0, 380.0 / Math.max(20.0, dist));
+                    orbA.finaleVx += nx * pull * delta * 2.4;
+                    orbA.finaleVy += ny * pull * delta * 2.4;
+                    orbB.finaleVx -= nx * pull * delta * 2.4;
+                    orbB.finaleVy -= ny * pull * delta * 2.4;
+                  } else {
+                    // Contact made! Trigger 2-Second Flickering Network (DualSlider 1:1)
+                    orbA.triggerDockWobble();
+                    orbB.triggerDockWobble();
+                    orbA.trailHistory = [];
+                    orbB.trailHistory = [];
+
+                    const midX = (orbA.x + orbB.x) * 0.5;
+                    const midY = (orbA.y + orbB.y) * 0.5;
+                    const palA = SATURATED_PLEXUS_PALETTES[orbA.id] || PALETTE_RGB_CACHE[orbA.id];
+                    const palB = SATURATED_PLEXUS_PALETTES[orbB.id] || PALETTE_RGB_CACHE[orbB.id];
+                    const particles: FinaleMeshParticle[] = [];
+
+                    for (let p = 0; p < 100; p++) {
+                      const useA = (p % 2 === 0);
+                      const srcOrb = useA ? orbA : orbB;
+                      const pal = useA ? palA : palB;
+                      const originOffset = {
+                        x: srcOrb.x - midX,
+                        y: srcOrb.y - midY,
+                        z: srcOrb.z
+                      };
+                      particles.push(
+                        new FinaleMeshParticle(
+                          FINALE_MESH_OPTS,
+                          165.0,
+                          135.0,
+                          48.0,
+                          pal,
+                          originOffset,
+                          p
+                        )
+                      );
+                    }
+
+                    activeImpulses.push({
+                      orbA,
+                      orbB,
+                      age: 0.0,
+                      remaining: 2.0,
+                      duration: 2.0,
+                      midX,
+                      midY,
+                      particles,
+                      roundIdx: r
+                    });
+                    orbA.inImpulse = true;
+                    orbB.inImpulse = true;
+                    orbA.finaleNetworkCount++;
+                    orbB.finaleNetworkCount++;
+                  }
+                }
+              });
+            }
           }
 
-          // 1. Update dynamic finale particles with 4s smooth transition unfolding
-          const transitionProgress = Math.min(1.0, finaleAge / PLEXUS_TRANSITION_DURATION);
-          for (let p = 0; p < finaleParticles.length; p++) {
-            finaleParticles[p].update(delta, transitionProgress, finaleAge, totalAnimTime);
-          }
-
-          // 2. Collect world nodes
+          // Collect all 3D Nodes for Finale (Impulse Particles + Hub Orbs)
           let worldNodeCount = 0;
 
-          // Add dynamic particles
-          for (let p = 0; p < finaleParticles.length; p++) {
-            if (worldNodeCount >= MAX_TOTAL_NODES) break;
-            const pt = finaleParticles[p];
-            const idx = worldNodeCount++;
-            worldNodeX[idx] = pt.renderX;
-            worldNodeY[idx] = pt.renderY;
-            worldNodeZ[idx] = pt.renderZ;
-            worldNodeR[idx] = pt.color.r;
-            worldNodeG[idx] = pt.color.g;
-            worldNodeB[idx] = pt.color.b;
-            worldNodeSize[idx] = (pt.radius + Math.sin(totalAnimTime * 3.2 + p) * 3.5) * finaleAlpha;
-            worldNodeDistCenter[idx] = Math.sqrt(pt.renderX * pt.renderX + pt.renderY * pt.renderY);
-          }
+          for (let impIdx = activeImpulses.length - 1; impIdx >= 0; impIdx--) {
+            const imp = activeImpulses[impIdx];
+            imp.age += delta;
+            imp.remaining -= delta;
 
-          // Add orbiting floating orbs as active network hubs (ALL 5 celestial orbs!)
-          for (let o = 0; o < activeOrbsList.length; o++) {
-            if (worldNodeCount >= MAX_TOTAL_NODES) break;
-            const orb = activeOrbsList[o];
-            const oIdx = worldNodeCount++;
-            worldNodeX[oIdx] = orb.x;
-            worldNodeY[oIdx] = orb.y;
-            worldNodeZ[oIdx] = orb.z;
-            const pal = PALETTE_RGB_CACHE[orb.id] || PALETTE_RGB_CACHE.pink;
-            const col = pal[0];
-            worldNodeR[oIdx] = col.r;
-            worldNodeG[oIdx] = col.g;
-            worldNodeB[oIdx] = col.b;
-            worldNodeSize[oIdx] = 42.0 * finaleAlpha;
-            worldNodeDistCenter[oIdx] = Math.sqrt(orb.x * orb.x + orb.y * orb.y);
+            const transitionProgress = Math.min(1.0, imp.age / 0.5);
+            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.25, Math.max(0.0, imp.remaining / 0.35))) * modeFadeAlpha;
+
+            // Coupled Orbit around midpoint for the 2 colliding Orbs
+            const orbitRot = imp.age * 2.2;
+            const orbitR = 28.0;
+            imp.orbA.x = imp.midX + Math.cos(orbitRot) * orbitR;
+            imp.orbA.y = imp.midY + Math.sin(orbitRot) * orbitR * 0.85;
+            imp.orbB.x = imp.midX - Math.cos(orbitRot) * orbitR;
+            imp.orbB.y = imp.midY - Math.sin(orbitRot) * orbitR * 0.85;
+
+            // 1. 100 Unfolding Dual-Color FinaleMeshParticles (Filament Threads)
+            for (let p = 0; p < imp.particles.length; p++) {
+              if (worldNodeCount >= MAX_TOTAL_NODES) break;
+              const pt = imp.particles[p];
+              pt.update(delta, transitionProgress, imp.age, totalAnimTime, imp.midX, imp.midY);
+
+              const nIdx = worldNodeCount++;
+              worldNodeX[nIdx] = pt.renderX;
+              worldNodeY[nIdx] = pt.renderY;
+              worldNodeZ[nIdx] = pt.renderZ;
+              worldNodeR[nIdx] = pt.color.r;
+              worldNodeG[nIdx] = pt.color.g;
+              worldNodeB[nIdx] = pt.color.b;
+              worldNodeSize[nIdx] = pt.radius * (0.35 + 0.65 * impAlpha);
+              worldNodeActivated[nIdx] = 1;
+              worldNodeGroup[nIdx] = -(impIdx + 1);
+            }
+
+            // 2. Add the 2 Hub Orbs inside the Network
+            const pairOrbs = [imp.orbA, imp.orbB];
+            for (let k = 0; k < 2; k++) {
+              if (worldNodeCount >= MAX_TOTAL_NODES) break;
+              const hOrb = pairOrbs[k];
+              const hubCol = (SATURATED_PLEXUS_PALETTES[hOrb.id] || PALETTE_RGB_CACHE[hOrb.id])[0];
+              const hubIdx = worldNodeCount++;
+              worldNodeX[hubIdx] = hOrb.x;
+              worldNodeY[hubIdx] = hOrb.y;
+              worldNodeZ[hubIdx] = hOrb.z;
+              worldNodeR[hubIdx] = hubCol.r;
+              worldNodeG[hubIdx] = hubCol.g;
+              worldNodeB[hubIdx] = hubCol.b;
+              worldNodeSize[hubIdx] = 44.0 * impAlpha;
+              worldNodeActivated[hubIdx] = 1;
+              worldNodeGroup[hubIdx] = -(impIdx + 1);
+            }
+
+            // After 2 seconds: Gentle Repulsive Impulse separating the orbs
+            if (imp.remaining <= 0) {
+              const dx = imp.orbB.x - imp.orbA.x;
+              const dy = imp.orbB.y - imp.orbA.y;
+              const d = Math.hypot(dx, dy) || 1.0;
+              const nx = dx / d;
+              const ny = dy / d;
+
+              const sepImpulse = 115.0; // Gentle separation impulse
+              imp.orbA.finaleVx = -nx * sepImpulse;
+              imp.orbA.finaleVy = -ny * sepImpulse;
+              imp.orbB.finaleVx = nx * sepImpulse;
+              imp.orbB.finaleVy = ny * sepImpulse;
+              imp.orbA.inImpulse = false;
+              imp.orbB.inImpulse = false;
+              imp.orbA.impulseCooldown = 0.8;
+              imp.orbB.impulseCooldown = 0.8;
+
+              activeImpulses.splice(impIdx, 1);
+            }
           }
 
           // Populate Node Buffers
@@ -4965,42 +5164,40 @@ export function SakuraCanvas({
             nodePositions[k3 + 1] = worldNodeY[k];
             nodePositions[k3 + 2] = worldNodeZ[k];
 
-            const baseNodeR = Math.max(0.45, worldNodeR[k]);
-            const baseNodeG = Math.max(0.45, worldNodeG[k]);
-            const baseNodeB = Math.max(0.45, worldNodeB[k]);
-
-            nodeColors[k3] = Math.min(1.0, baseNodeR * 1.65 * finaleAlpha);
-            nodeColors[k3 + 1] = Math.min(1.0, baseNodeG * 1.65 * finaleAlpha);
-            nodeColors[k3 + 2] = Math.min(1.0, baseNodeB * 1.65 * finaleAlpha);
-
+            nodeColors[k3] = Math.min(1.0, worldNodeR[k] * 1.6);
+            nodeColors[k3 + 1] = Math.min(1.0, worldNodeG[k] * 1.6);
+            nodeColors[k3 + 2] = Math.min(1.0, worldNodeB[k] * 1.6);
             nodeSizes[k] = worldNodeSize[k];
           }
 
-          // 3. Dynamic Distance-Based Line Connections with Thick Filaments & Random Twinkling Flicker
+          // Populate GPU Line Buffers with DualSlider 1:1 Flickering Network (3 Filaments + 14Hz/25Hz noise)
           let lineVertexIdx = 0;
           let lineColorIdx = 0;
           const maxLineVertices = linePositions.length - 18;
-
-          const linkRadius = FINALE_MESH_OPTS.linkRadius;
-          const linkRadiusSq = linkRadius * linkRadius;
-          const maxLinksPerNode = FINALE_MESH_OPTS.maxLinksPerNode || 4;
           const nodeLinkCounts = new Uint8Array(worldNodeCount);
 
           for (let i = 0; i < worldNodeCount; i++) {
-            if (nodeLinkCounts[i] >= maxLinksPerNode) continue;
+            if (nodeLinkCounts[i] >= 4) continue;
             const x1 = worldNodeX[i], y1 = worldNodeY[i], z1 = worldNodeZ[i];
+            const grpA = worldNodeGroup[i];
+            const ar = worldNodeR[i], ag = worldNodeG[i], ab = worldNodeB[i];
+
             for (let j = i + 1; j < worldNodeCount; j++) {
               if (lineVertexIdx >= maxLineVertices) break;
-              if (nodeLinkCounts[i] >= maxLinksPerNode) break;
-              if (nodeLinkCounts[j] >= maxLinksPerNode) continue;
+              if (nodeLinkCounts[i] >= 4) break;
+              if (worldNodeGroup[j] !== grpA) continue; // Only link nodes within the same active impulse
+              if (nodeLinkCounts[j] >= 4) continue;
+
               const x2 = worldNodeX[j], y2 = worldNodeY[j], z2 = worldNodeZ[j];
               const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+              const cutoff = 88.0;
               const distSq = dx * dx + dy * dy + dz * dz;
 
-              if (distSq < linkRadiusSq) {
+              if (distSq < cutoff * cutoff) {
                 const distance = Math.sqrt(distSq);
-                const opacity = (1.0 - distance / linkRadius) * finaleAlpha;
+                const opacity = 1.0 - distance / cutoff;
                 if (opacity > 0.01) {
+                  // DualSlider 1:1 Flickering Noise
                   const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
                   const flickerA = Math.sin(totalAnimTime * 14.0 + lineSeed);
                   const flickerB = Math.cos(totalAnimTime * 25.0 + lineSeed * 1.7);
@@ -5008,25 +5205,17 @@ export function SakuraCanvas({
 
                   let flickerMul = 1.0;
                   if (flickerNoise < -0.32) {
-                    flickerMul = Math.max(0.0, (flickerNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35);
+                    flickerMul = (flickerNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35;
                   } else if (flickerNoise > 0.68) {
                     flickerMul = 1.65;
                   }
-
                   if (flickerMul <= 0.02) continue;
 
                   nodeLinkCounts[i]++;
                   nodeLinkCounts[j]++;
 
-                  const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.85 * flickerMul);
-                  const coreWhite = 0.50 * lineAlpha; // Luminous core that cuts through dark backgrounds
-
-                  const r1 = Math.min(1.0, worldNodeR[i] * lineAlpha * 1.6 + coreWhite);
-                  const g1 = Math.min(1.0, worldNodeG[i] * lineAlpha * 1.6 + coreWhite);
-                  const b1 = Math.min(1.0, worldNodeB[i] * lineAlpha * 1.6 + coreWhite);
-                  const r2 = Math.min(1.0, worldNodeR[j] * lineAlpha * 1.6 + coreWhite);
-                  const g2 = Math.min(1.0, worldNodeG[j] * lineAlpha * 1.6 + coreWhite);
-                  const b2 = Math.min(1.0, worldNodeB[j] * lineAlpha * 1.6 + coreWhite);
+                  const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.25 * flickerMul);
+                  const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
 
                   const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
                   const perpX = (-dy / pLen) * 0.85;
@@ -5040,9 +5229,9 @@ export function SakuraCanvas({
                   linePositions[lineVertexIdx++] = y2;
                   linePositions[lineVertexIdx++] = z2;
 
-                  lineColors[lineColorIdx++] = r1;
-                  lineColors[lineColorIdx++] = g1;
-                  lineColors[lineColorIdx++] = b1;
+                  lineColors[lineColorIdx++] = ar;
+                  lineColors[lineColorIdx++] = ag;
+                  lineColors[lineColorIdx++] = ab;
                   lineColors[lineColorIdx++] = r2;
                   lineColors[lineColorIdx++] = g2;
                   lineColors[lineColorIdx++] = b2;
@@ -5056,13 +5245,12 @@ export function SakuraCanvas({
                     linePositions[lineVertexIdx++] = y2 + perpY;
                     linePositions[lineVertexIdx++] = z2;
 
-                    const perpGlow = 0.32 * lineAlpha;
-                    lineColors[lineColorIdx++] = Math.min(1.0, r1 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, g1 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, b1 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, r2 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, g2 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, b2 * 0.95 + perpGlow);
+                    lineColors[lineColorIdx++] = ar * 0.95;
+                    lineColors[lineColorIdx++] = ag * 0.95;
+                    lineColors[lineColorIdx++] = ab * 0.95;
+                    lineColors[lineColorIdx++] = r2 * 0.95;
+                    lineColors[lineColorIdx++] = g2 * 0.95;
+                    lineColors[lineColorIdx++] = b2 * 0.95;
                   }
 
                   // 3. Negative Perpendicular Filament
@@ -5074,13 +5262,12 @@ export function SakuraCanvas({
                     linePositions[lineVertexIdx++] = y2 - perpY;
                     linePositions[lineVertexIdx++] = z2;
 
-                    const perpGlow = 0.32 * lineAlpha;
-                    lineColors[lineColorIdx++] = Math.min(1.0, r1 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, g1 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, b1 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, r2 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, g2 * 0.95 + perpGlow);
-                    lineColors[lineColorIdx++] = Math.min(1.0, b2 * 0.95 + perpGlow);
+                    lineColors[lineColorIdx++] = ar * 0.95;
+                    lineColors[lineColorIdx++] = ag * 0.95;
+                    lineColors[lineColorIdx++] = ab * 0.95;
+                    lineColors[lineColorIdx++] = r2 * 0.95;
+                    lineColors[lineColorIdx++] = g2 * 0.95;
+                    lineColors[lineColorIdx++] = b2 * 0.95;
                   }
                 }
               }
@@ -5440,9 +5627,36 @@ export function SakuraCanvas({
         } else if (msg.kind === 'USER_NAME') {
           if (myIndex === 1 && msg.senderIndex === 2 && msg.user2Name) {
             setRemoteUser2Name(msg.user2Name as string);
+            // Host sends current active round state to guest upon connect
+            if (activeModeRef.current === 'bluten' && activeOrbs.length > 0) {
+              const orbDefs = activeOrbs.map(o => ({
+                id: o.id,
+                branchIndex: o.branchIndex,
+                t: o.orbT,
+                seed: o.seed,
+                angleDeg: (o.angleRad * 180) / Math.PI,
+                length: o.targetChildLength,
+                type: o.type
+              }));
+              sendInteractionRef.current?.('SAKURA_SPAWN_ROUND', {
+                roundNum: currentRoundRef.current,
+                phase: currentPhaseRef.current,
+                orbs: orbDefs
+              });
+            }
           } else if (myIndex === 2 && msg.senderIndex === 1 && msg.user1Name) {
             setRemoteUser1Name(msg.user1Name as string);
           }
+        } else if (msg.kind === 'SAKURA_PHASE_CHANGE' && msg.phase === 'AWAIT_VORTEX') {
+          roundState = 'IDLE';
+          startFlyingPetalsIfNeeded();
+          vortexUser1Ready = false;
+          vortexUser2Ready = false;
+          setVortexCircleCount(0);
+          circleTrailHistory.length = 0;
+          currentPhaseName = 'AWAIT_VORTEX';
+          currentPhaseRef.current = 'AWAIT_VORTEX';
+          setCurrentPhase('AWAIT_VORTEX');
         } else if (msg.kind === 'MODE_SWITCH' && msg.mode) {
           handleSwitchMode(msg.mode as 'bluten' | 'plexus');
         } else if (msg.kind === 'COLOR_SELECT' && msg.color) {
@@ -5543,7 +5757,9 @@ export function SakuraCanvas({
       : activeMode === 'plexus'
         ? (isPlexusFinale
           ? (isEn ? 'Finale' : 'Finale')
-          : `${isEn ? 'Orbs' : 'Orbs'} ${plexusOccupiedOrbsCount}/4`)
+          : plexusAttachedCount >= 6
+            ? (isEn ? 'Center Circle' : 'Kreis aktiv')
+            : `Plexus ${plexusAttachedCount}/6`)
         : null;
 
   const instructionBody = isTrunkGrowing
@@ -5580,23 +5796,15 @@ export function SakuraCanvas({
                 : 'Das Blütenkunstwerk ist vollendet!')
       : isPlexusFinale
         ? (isEn
-          ? 'Star Network unleashed! The plexus artwork is completed.'
-          : 'Stern-Netzwerk entfesselt! Das Plexus-Kunstwerk ist vollendet.')
-        : plexusOccupiedOrbsCount === 4
+          ? 'Star Network unleashed! (10s Finale)'
+          : 'Stern-Netzwerk entfesselt! (10s Finale)')
+        : plexusAttachedCount >= 6
           ? (isEn
-            ? 'All 4 orbs loaded! Push any 2 orbs together to trigger the finale.'
-            : 'Alle 4 Orbs belegt! Schiebe beliebige 2 Orbs zusammen, um das Finale auszulösen.')
-          : plexusOccupiedOrbsCount >= 2
-            ? (isEn
-              ? `${plexusOccupiedOrbsCount} orbs loaded! Push all ${plexusOccupiedOrbsCount} occupied orbs together to trigger the finale.`
-              : `${plexusOccupiedOrbsCount} Orbs belegt! Schiebe alle ${plexusOccupiedOrbsCount} belegten Orbs zusammen, um das Finale auszulösen.`)
-            : plexusOccupiedOrbsCount === 1
-              ? (isEn
-                ? '1 orb loaded. Attach plexus to at least one more orb!'
-                : '1 Orb belegt. Belege noch mindestens einen weiteren Orb mit Plexus!')
-              : (isEn
-                ? 'Hold down to create a plexus and drag it onto an orb.'
-                : 'Halte gedrückt, um einen Plexus zu erschaffen, und ziehe ihn auf einen Orb.');
+            ? '6 Plexus docked! Drag all docked orbs into the center circle to trigger the finale.'
+            : '6 Plexus angedockt! Ziehe alle belegten Orbs in den markierten Kreis in der Bildmitte.')
+          : (isEn
+            ? `Hold down to create a plexus and drag it onto an orb of your choice. (${plexusAttachedCount}/6)`
+            : `Halte gedrückt, um einen Plexus zu erschaffen, und docke ihn an einen Orb deiner Wahl an. (${plexusAttachedCount}/6)`);
 
   return (
     <div ref={containerRef} className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016] select-none z-0">
@@ -5623,6 +5831,20 @@ export function SakuraCanvas({
                 <span className="text-xl animate-spin" style={{ animationDuration: '2.5s' }}>🔄</span>
                 <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   {isEn ? 'Make a circular motion!' : 'Kreisbewegung ausführen!'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Top-Center Gesture Instruction Badge for Plexus Center Drop Zone */}
+          {plexusCenterPromptVisible && activeMode === 'plexus' && !isPlexusFinale && (
+            <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
+                <span className="text-xl animate-pulse">🎯</span>
+                <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+                  {isEn
+                    ? 'Drag all docked orbs into the center circle!'
+                    : 'Alle belegten Orbs in den markierten Kreis in der Bildmitte ziehen!'}
                 </span>
               </div>
             </div>
