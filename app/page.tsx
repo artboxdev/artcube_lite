@@ -116,8 +116,16 @@ function ArtCubeApp() {
   const handleExit = useCallback(() => {
     setIsStarted(false);
     setIsWaitingForHost(false);
+    setIsJoined(false);
     setElapsed(0);
     elapsedRef.current = 0;
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('sid') || url.searchParams.has('room') || url.searchParams.has('exp') || url.searchParams.has('experience')) {
+        url.search = '';
+        window.history.replaceState({}, '', url.pathname);
+      }
+    }
   }, []);
 
   const handleRendererReady = useCallback((api: ExperienceRendererAPI) => {

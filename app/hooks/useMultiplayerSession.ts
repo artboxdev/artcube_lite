@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 export interface MultiplayerMessage {
   id?: string;
-  type: 'GUEST_JOIN' | 'HOST_ACK' | 'START_SESSION' | 'ARTWORK_INTERACTION' | 'STATUS';
+  type: 'GUEST_JOIN' | 'HOST_ACK' | 'START_SESSION' | 'ARTWORK_INTERACTION' | 'STATUS' | 'PEER_LEAVE';
   name?: string;
   sessionId?: string;
   artwork?: 'bluten' | 'plexus';
@@ -101,13 +101,31 @@ export function useMultiplayerSession({
       return;
     }
 
-    // Deduplication check across WebRTC and BroadcastChannel
-    const dedupeKey = msg.id || `${msg.type}_${msg.timestamp || 0}_${JSON.stringify(msg.payload || '')}`;
-    if (handledMessagesRef.current.has(dedupeKey)) return;
-    handledMessagesRef.current.add(dedupeKey);
-    setTimeout(() => {
-      handledMessagesRef.current.delete(dedupeKey);
-    }, 5000);
+    // Deduplication check across WebRTC and BroadcastChannel for discrete control messages
+    const payloadKind = (msg.payload && typeof msg.payload === 'object' && 'kind' in msg.payload)
+      ? (msg.payload as { kind?: string }).kind
+      : undefined;
+    const isStreamMsg = msg.type === 'ARTWORK_INTERACTION' && (
+      payloadKind === 'CURSOR_MOVE' ||
+      payloadKind === 'PLEXUS_ORB_MOVE' ||
+      payloadKind === 'PLEXUS_CLUSTER_MOVE' ||
+      msg.kind === 'CURSOR_MOVE' ||
+      msg.kind === 'PLEXUS_ORB_MOVE' ||
+      msg.kind === 'PLEXUS_CLUSTER_MOVE'
+    );
+
+    if (!isStreamMsg) {
+      const dedupeKey = msg.id || `${msg.type}_${msg.timestamp || 0}_${JSON.stringify(msg.payload || '')}`;
+      if (handledMessagesRef.current.has(dedupeKey)) return;
+      handledMessagesRef.current.add(dedupeKey);
+      if (handledMessagesRef.current.size > 200) {
+        handledMessagesRef.current.clear();
+      } else {
+        setTimeout(() => {
+          handledMessagesRef.current.delete(dedupeKey);
+        }, 4000);
+      }
+    }
 
     if (msg.type === 'GUEST_JOIN') {
       setIsConnected(true);
@@ -130,6 +148,9 @@ export function useMultiplayerSession({
       callbacksRef.current.onStartSession?.(msg.artwork || 'bluten', msg.mode || 'test');
     } else if (msg.type === 'ARTWORK_INTERACTION') {
       callbacksRef.current.onPeerMessage?.(msg.payload ?? msg);
+    } else if (msg.type === 'PEER_LEAVE') {
+      setIsConnected(false);
+      callbacksRef.current.onPeerMessage?.({ kind: 'PEER_LEAVE', senderIndex: msg.senderIndex });
     }
   }, [safeSessionId]);
 
@@ -238,18 +259,41 @@ export function useMultiplayerSession({
       conn.on('close', () => {
         if (!isMounted) return;
         setIsConnected(false);
+        callbacksRef.current.onPeerMessage?.({ kind: 'PEER_LEAVE' });
       });
 
       conn.on('error', () => {
         if (!isMounted) return;
         setIsConnected(false);
+        callbacksRef.current.onPeerMessage?.({ kind: 'PEER_LEAVE' });
       });
     };
+
+    const handleBeforeUnload = () => {
+      try {
+        const mySenderIndex = isHostRef.current ? 1 : 2;
+        const leaveMsg: MultiplayerMessage = {
+          id: 'leave_' + Math.random().toString(36).substring(2, 9),
+          type: 'PEER_LEAVE',
+          senderIndex: mySenderIndex,
+          sessionId: safeSessionId,
+          timestamp: Date.now()
+        };
+        if (connRef.current && connRef.current.open) {
+          connRef.current.send(leaveMsg);
+        }
+        if (channelRef.current) {
+          channelRef.current.postMessage(leaveMsg);
+        }
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     initPeer();
 
     return () => {
       isMounted = false;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       try {
         connRef.current?.close();
         peerRef.current?.destroy();

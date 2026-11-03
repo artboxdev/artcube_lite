@@ -1497,7 +1497,7 @@ export function SakuraCanvas({
   const spawnOrbRoundRef = useRef<((roundNum: number, phase: 'BRANCH' | 'BLOSSOM', remoteOrbs?: any[], shouldBroadcast?: boolean) => void) | null>(null);
   const onPeerOrbActivateRef = useRef<((orbId: string, color?: BlossomColorId, phase?: string) => void) | null>(null);
   const onPeerPlexusDockRef = useRef<((orbId: string, clusterId?: number) => void) | null>(null);
-  const onPeerPlexusCreateRef = useRef<((id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[]) => void) | null>(null);
+  const onPeerPlexusCreateRef = useRef<((id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[], driftX?: number, driftY?: number, driftZ?: number) => void) | null>(null);
   const onPeerPlexusOrbMoveRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
   const onPeerPlexusOrbReleaseRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
   const onPeerPlexusFinaleTriggerRef = useRef<((timestamp?: number) => void) | null>(null);
@@ -1613,6 +1613,9 @@ export function SakuraCanvas({
 
   // Mobile Double-Back Notice State
   const [backNoticeVisible, setBackNoticeVisible] = useState(false);
+
+  // Lightbox: Exit Session Confirmation Modal State
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
   // Dynamic Language Synchronization (de / en)
   const [lang, setLang] = useState<'de' | 'en'>('de');
@@ -3060,11 +3063,11 @@ export function SakuraCanvas({
       speed: number;
       phase: number;
     }[] = [
-      { id: 'pink', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
-      { id: 'blue', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
-      { id: 'yellow', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
-      { id: 'green', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 },
-    ];
+        { id: 'pink', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
+        { id: 'blue', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
+        { id: 'yellow', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
+        { id: 'green', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 },
+      ];
 
     class FloatingPlexusOrbInstance {
       config: typeof BLOSSOM_PALETTES[BlossomColorId];
@@ -3079,6 +3082,9 @@ export function SakuraCanvas({
       phase: number;
       isDragged = false;
       isRemoteDragged = false;
+      hasBeenPlaced = false;
+      restX = 0;
+      restY = 0;
       dragTargetX = 0;
       dragTargetY = 0;
       orbitAngle: number;
@@ -3133,6 +3139,8 @@ export function SakuraCanvas({
         this.z = Math.sin(this.orbitAngle * 1.5 + this.phase) * 12.0;
         this.dragTargetX = this.x;
         this.dragTargetY = this.y;
+        this.restX = this.x;
+        this.restY = this.y;
 
         this.preFinaleOrbitAngle = this.orbitAngle;
         this.hasCapturedPreFinale = false;
@@ -3491,10 +3499,22 @@ export function SakuraCanvas({
             this.x = this.dragTargetX;
             this.y = this.dragTargetY;
             this.z = 0.0;
+            this.hasBeenPlaced = true;
+            this.restX = this.x;
+            this.restY = this.y;
           } else if (this.isRemoteDragged) {
             this.x = THREE.MathUtils.lerp(this.x, this.dragTargetX, 0.35);
             this.y = THREE.MathUtils.lerp(this.y, this.dragTargetY, 0.35);
             this.z = 0.0;
+            this.hasBeenPlaced = true;
+            this.restX = this.dragTargetX;
+            this.restY = this.dragTargetY;
+          } else if (this.hasBeenPlaced) {
+            // Orb stays stably at its placed resting position with subtle organic breathing hover
+            const hoverWobble = Math.sin(time * 1.5 + this.phase) * 2.2;
+            this.x = THREE.MathUtils.lerp(this.x, this.restX, 0.1);
+            this.y = THREE.MathUtils.lerp(this.y, this.restY + hoverWobble, 0.1);
+            this.z = Math.sin(time * 1.8 + this.phase) * 4.0;
           } else {
             // Gentle harmonic orbit around quadrant home
             this.orbitAngle = this.phase + this.speed * time;
@@ -3505,6 +3525,8 @@ export function SakuraCanvas({
             this.x = THREE.MathUtils.lerp(this.x, targetX, 0.05);
             this.y = THREE.MathUtils.lerp(this.y, targetY, 0.05);
             this.z = THREE.MathUtils.lerp(this.z, targetZ, 0.05);
+            this.restX = this.x;
+            this.restY = this.y;
           }
         }
 
@@ -3868,7 +3890,10 @@ export function SakuraCanvas({
       y: number,
       z: number,
       customNodes?: PlexusNodeDef[],
-      customId?: number
+      customId?: number,
+      driftX?: number,
+      driftY?: number,
+      driftZ?: number
     ) => {
       const nodes = customNodes || generateRandomPlexusHoldNodes();
       const clusterId = customId || (activePlexusClusters.length + 1);
@@ -3880,9 +3905,9 @@ export function SakuraCanvas({
         centerX: x,
         centerY: y,
         centerZ: z,
-        driftX: (12.0 + Math.random() * 18.0) * dirX,
-        driftY: (10.0 + Math.random() * 16.0) * dirY,
-        driftZ: (8.0 + Math.random() * 14.0) * dirX,
+        driftX: driftX !== undefined ? driftX : ((12.0 + Math.random() * 18.0) * dirX),
+        driftY: driftY !== undefined ? driftY : ((10.0 + Math.random() * 16.0) * dirY),
+        driftZ: driftZ !== undefined ? driftZ : ((8.0 + Math.random() * 14.0) * dirX),
         nodes: nodes,
         r: 1.0,
         g: 0.18,
@@ -3892,8 +3917,8 @@ export function SakuraCanvas({
       return cluster;
     };
 
-    onPeerPlexusCreateRef.current = (id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[]) => {
-      createDriftingPlexusCluster(x, y, z, nodes, id);
+    onPeerPlexusCreateRef.current = (id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[], driftX?: number, driftY?: number, driftZ?: number) => {
+      createDriftingPlexusCluster(x, y, z, nodes, id, driftX, driftY, driftZ);
     };
 
     onPeerPlexusDockRef.current = (orbId: string, clusterId?: number) => {
@@ -3931,8 +3956,13 @@ export function SakuraCanvas({
       const targetOrb = floatingPlexusOrbs.find(o => o.id === orbId);
       if (targetOrb) {
         targetOrb.isRemoteDragged = false;
+        targetOrb.hasBeenPlaced = true;
         targetOrb.dragTargetX = x;
         targetOrb.dragTargetY = y;
+        targetOrb.restX = x;
+        targetOrb.restY = y;
+        targetOrb.x = x;
+        targetOrb.y = y;
         checkPlexusFinaleTrigger(false);
       }
     };
@@ -4097,6 +4127,10 @@ export function SakuraCanvas({
       return false;
     };
 
+    let lastCursorSendTime = 0;
+    let lastClusterMoveTime = 0;
+    let lastRemoteCursorMoveTime = performance.now();
+
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       if (e.cancelable && e.target instanceof HTMLElement && (e.target.tagName === 'CANVAS' || e.target.closest('canvas'))) {
         e.preventDefault();
@@ -4117,11 +4151,15 @@ export function SakuraCanvas({
         activeCursor.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
       }
 
-      sendInteractionRef.current?.('CURSOR_MOVE', {
-        senderIndex: activeIdx,
-        normX: clientX / window.innerWidth,
-        normY: 1.0 - (clientY / window.innerHeight)
-      });
+      const nowMs = performance.now();
+      if (nowMs - lastCursorSendTime > 28) {
+        lastCursorSendTime = nowMs;
+        sendInteractionRef.current?.('CURSOR_MOVE', {
+          senderIndex: activeIdx,
+          normX: clientX / window.innerWidth,
+          normY: 1.0 - (clientY / window.innerHeight)
+        });
+      }
 
       // Sumi-e Circle Gesture Detection (2D PCA Covariance + Centroid Angular Sweep from DualSlider)
       if (
@@ -4247,6 +4285,19 @@ export function SakuraCanvas({
               orb.triggerHoverWobble();
             }
           }
+
+          const nowMs = performance.now();
+          if (nowMs - lastClusterMoveTime > 30) {
+            lastClusterMoveTime = nowMs;
+            const cMsg = {
+              clusterId: draggedPlexusCluster.id,
+              x: draggedPlexusCluster.centerX,
+              y: draggedPlexusCluster.centerY,
+              senderIndex: activeIdx
+            };
+            sendInteractionRef.current?.('PLEXUS_CLUSTER_MOVE', cMsg);
+            channelRef.current?.postMessage({ type: 'PLEXUS_CLUSTER_MOVE', ...cMsg });
+          }
         }
       }
     };
@@ -4370,6 +4421,9 @@ export function SakuraCanvas({
       if (isMouseDown && activeModeRef.current === 'plexus') {
         if (draggedOrb) {
           draggedOrb.isDragged = false;
+          draggedOrb.hasBeenPlaced = true;
+          draggedOrb.restX = draggedOrb.x;
+          draggedOrb.restY = draggedOrb.y;
           const orbRelMsg = {
             orbId: draggedOrb.id,
             x: draggedOrb.x,
@@ -4431,6 +4485,9 @@ export function SakuraCanvas({
               x: plexusOriginX,
               y: plexusOriginY,
               z: 0.0,
+              driftX: newCluster.driftX,
+              driftY: newCluster.driftY,
+              driftZ: newCluster.driftZ,
               nodes: activeHoldNodes
             };
             sendInteractionRef.current?.('PLEXUS_CLUSTER_CREATE', createMsg);
@@ -4498,6 +4555,7 @@ export function SakuraCanvas({
         orb.attachedNodes = [];
         orb.isDragged = false;
         orb.isRemoteDragged = false;
+        orb.hasBeenPlaced = false;
         orb.finaleNetworkCount = 0;
         orb.inImpulse = false;
         orb.impulseCooldown = 0.0;
@@ -4510,6 +4568,8 @@ export function SakuraCanvas({
         orb.z = 0;
         orb.dragTargetX = orb.x;
         orb.dragTargetY = orb.y;
+        orb.restX = orb.x;
+        orb.restY = orb.y;
       });
 
       if (activeModeRef.current === 'bluten') {
@@ -4573,6 +4633,17 @@ export function SakuraCanvas({
       if (cameraRef.current) {
         cameraRef.current.position.copy(baseCamPosRef.current);
         cameraRef.current.lookAt(baseLookAtRef.current);
+      }
+
+      // Remote Cursor Inactivity Watchdog (auto-fade if inactive > 3.0s)
+      if (remoteCursorRef.current.active && (performance.now() - lastRemoteCursorMoveTime > 3000)) {
+        remoteCursorRef.current.active = false;
+        const remoteIdx = isHostRef.current ? 2 : 1;
+        const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
+        if (cursorElem) {
+          cursorElem.classList.remove('active');
+          cursorElem.style.transform = 'translate3d(-9999px, -9999px, 0)';
+        }
       }
 
       if (bgUniforms.uRippleActive && bgUniforms.uRippleActive.value > 0.5) {
@@ -5277,6 +5348,24 @@ export function SakuraCanvas({
           lineGeo.setDrawRange(0, lineVertexIdx / 3);
           nodeGeo.setDrawRange(0, worldNodeCount);
 
+          // Clear remaining node buffers (1:1 from sakura-v3.html lines 2541-2563)
+          for (let k = worldNodeCount; k < MAX_TOTAL_NODES; k++) {
+            const k3 = k * 3;
+            nodePositions[k3] = 0;
+            nodePositions[k3 + 1] = 0;
+            nodePositions[k3 + 2] = 0;
+            nodeColors[k3] = 0;
+            nodeColors[k3 + 1] = 0;
+            nodeColors[k3 + 2] = 0;
+            nodeSizes[k] = 0;
+          }
+
+          // Clear remaining line buffers (1:1 from sakura-v3.html lines 2626-2629)
+          for (let k = lineVertexIdx; k < linePositions.length; k++) {
+            linePositions[k] = 0;
+            lineColors[k] = 0;
+          }
+
           linePosAttr.needsUpdate = true;
           lineColAttr.needsUpdate = true;
           nodePosAttr.needsUpdate = true;
@@ -5459,6 +5548,24 @@ export function SakuraCanvas({
           lineGeo.setDrawRange(0, lineVertexIdx / 3);
           nodeGeo.setDrawRange(0, worldNodeCount);
 
+          // Clear remaining node buffers (1:1 from sakura-v3.html lines 2541-2563)
+          for (let k = worldNodeCount; k < MAX_TOTAL_NODES; k++) {
+            const k3 = k * 3;
+            nodePositions[k3] = 0;
+            nodePositions[k3 + 1] = 0;
+            nodePositions[k3 + 2] = 0;
+            nodeColors[k3] = 0;
+            nodeColors[k3 + 1] = 0;
+            nodeColors[k3 + 2] = 0;
+            nodeSizes[k] = 0;
+          }
+
+          // Clear remaining line buffers (1:1 from sakura-v3.html lines 2626-2629)
+          for (let k = lineVertexIdx; k < linePositions.length; k++) {
+            linePositions[k] = 0;
+            lineColors[k] = 0;
+          }
+
           linePosAttr.needsUpdate = true;
           lineColAttr.needsUpdate = true;
           nodePosAttr.needsUpdate = true;
@@ -5613,6 +5720,7 @@ export function SakuraCanvas({
 
         if (msg.kind === 'CURSOR_MOVE') {
           if (typeof msg.normX === 'number' && typeof msg.normY === 'number') {
+            lastRemoteCursorMoveTime = performance.now();
             const cX = (msg.normX as number) * window.innerWidth;
             const cY = (1.0 - (msg.normY as number)) * window.innerHeight;
             remoteCursorRef.current = { x: cX, y: cY, active: true };
@@ -5622,6 +5730,15 @@ export function SakuraCanvas({
               cursorElem.style.transform = `translate3d(${cX}px, ${cY}px, 0)`;
             }
           }
+        } else if (msg.kind === 'PEER_LEAVE') {
+          const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
+          if (cursorElem) {
+            cursorElem.classList.remove('active');
+            cursorElem.style.transform = 'translate3d(-9999px, -9999px, 0)';
+          }
+          remoteCursorRef.current = { x: -9999, y: -9999, active: false };
+          setHasRemotePeer(false);
+          hasRemotePeerRef.current = false;
         } else if (msg.kind === 'GESTURE' && typeof msg.gestureType === 'string') {
           triggerCursorGesture(remoteIdx, msg.gestureType as any);
         } else if (msg.kind === 'USER_NAME') {
@@ -5690,8 +5807,17 @@ export function SakuraCanvas({
             msg.x as number,
             msg.y as number,
             msg.z as number,
-            msg.nodes as any
+            msg.nodes as any,
+            msg.driftX as number | undefined,
+            msg.driftY as number | undefined,
+            msg.driftZ as number | undefined
           );
+        } else if (msg.kind === 'PLEXUS_CLUSTER_MOVE' && typeof msg.clusterId === 'number') {
+          const targetCluster = activePlexusClusters.find(c => c.id === msg.clusterId);
+          if (targetCluster && targetCluster !== draggedPlexusCluster) {
+            targetCluster.centerX = msg.x as number;
+            targetCluster.centerY = msg.y as number;
+          }
         } else if (msg.kind === 'SUMIE_VORTEX_CIRCLE') {
           triggerCircleFromUserRef.current?.(remoteIdx, false);
         } else if (msg.kind === 'RESTART_ARTWORK') {
@@ -5946,10 +6072,10 @@ export function SakuraCanvas({
                   </button>
                   <button
                     type="button"
-                    onClick={handleExit}
+                    onClick={() => setIsExitConfirmOpen(true)}
                     aria-label={isEn ? 'Exit' : 'Beenden'}
                     title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
-                    className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-md backdrop-blur-md transition-all active:scale-95"
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
                   >
                     <svg className="w-3.5 h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -6145,10 +6271,10 @@ export function SakuraCanvas({
 
                   <button
                     type="button"
-                    onClick={handleExit}
+                    onClick={() => setIsExitConfirmOpen(true)}
                     aria-label={isEn ? 'Exit' : 'Beenden'}
                     title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
                   >
                     <svg className="w-4 h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -6393,6 +6519,63 @@ export function SakuraCanvas({
                     <span>{myName || (isEn ? 'Guest' : 'Gast')}</span>
                     <span className="text-cyan-300">ID: {sessionId}</span>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Lightbox: Exit Confirmation Modal */}
+          {isExitConfirmOpen && (
+            <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in pointer-events-auto">
+              <div className="relative w-full max-w-md bg-gradient-to-br from-[#1c0f2b]/95 to-[#0b0514]/98 border border-[#ff69b4]/45 rounded-3xl p-8 text-center shadow-[0_30px_80px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.3)] flex flex-col items-center gap-6">
+                <button
+                  type="button"
+                  onClick={() => setIsExitConfirmOpen(false)}
+                  className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-[#ff2a9d]/30 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+
+                <div className="w-16 h-16 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-xl sm:text-2xl font-bold tracking-wide text-white">
+                    {isEn ? 'Would you like to leave the artwork?' : 'Möchtest du das Kunstwerk verlassen?'}
+                  </h3>
+                  <p className="text-sm text-white/75 leading-relaxed font-light">
+                    {isEn
+                      ? 'After this, the session will be closed.'
+                      : 'Danach wird diese Session geschlossen.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4 w-full pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsExitConfirmOpen(false)}
+                    className="flex-1 py-3 px-5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all active:scale-95 cursor-pointer"
+                  >
+                    {isEn ? 'No' : 'Nein'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExitConfirmOpen(false);
+                      try {
+                        sendInteractionRef.current?.('PEER_LEAVE', { senderIndex: isHostRef.current ? 1 : 2 });
+                        channelRef.current?.postMessage({ type: 'PEER_LEAVE', senderIndex: isHostRef.current ? 1 : 2 });
+                      } catch {}
+                      handleExit();
+                    }}
+                    className="flex-1 py-3 px-5 rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-sm shadow-[0_0_25px_rgba(244,63,94,0.5)] transition-all active:scale-95 cursor-pointer"
+                  >
+                    {isEn ? 'Yes' : 'Ja'}
+                  </button>
                 </div>
               </div>
             </div>
