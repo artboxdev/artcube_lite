@@ -3708,8 +3708,8 @@ export function SakuraCanvas({
 
     const FINALE_MESH_OPTS: FinaleMeshOpts = {
       particleAmount: 100,
-      defaultSpeed: 0.75,
-      variantSpeed: 0.75,
+      defaultSpeed: 0.38, // 50% verlangsamt für sanften, schwebenden Buildup
+      variantSpeed: 0.38, // 50% verlangsamt
       defaultRadius: 18.0,
       variantRadius: 9.0,
       linkRadius: 88.0,
@@ -3733,7 +3733,7 @@ export function SakuraCanvas({
       strandPhase = 0;
       strandAmp = 42.0;
       curlPhase = 0;
-      curlSpeed = 2.4;
+      curlSpeed = 1.2; // 50% verlangsamt
       speed = 1;
       directionAngle = 0;
       pitchAngle = 0;
@@ -3755,11 +3755,11 @@ export function SakuraCanvas({
         this.originY = originPos ? (originPos.y + (Math.random() - 0.5) * 14.0) : (Math.random() - 0.5) * 30;
         this.originZ = originPos ? (originPos.z + (Math.random() - 0.5) * 10.0) : 0;
 
-        // Long organic wavy filament thread streaming properties
+        // Long organic wavy filament thread streaming properties (50% verlangsamte Wellenbewegung)
         this.strandPhase = (particleIndex % 20) / 20.0;
         this.strandAmp = 42.0 + (particleIndex % 6) * 7.0;
         this.curlPhase = (particleIndex * 1.45) % (Math.PI * 2);
-        this.curlSpeed = 2.4 + (particleIndex % 3) * 0.65;
+        this.curlSpeed = 1.2 + (particleIndex % 3) * 0.32;
 
         this.reset(opts, palette);
       }
@@ -3820,9 +3820,9 @@ export function SakuraCanvas({
         const baseY = THREE.MathUtils.lerp(this.originY, this.y, easeProg) + waveY;
         const baseZ = THREE.MathUtils.lerp(this.originZ, this.z, easeProg) + waveZ;
 
-        // 2. Moderate whole-network 3D rotation around its own central Y-axis (and subtle vertical tilt)
-        const netRotY = finaleAge * 0.24;
-        const netTiltX = Math.sin(finaleAge * 0.32) * 0.08;
+        // 2. Moderate whole-network 3D rotation around its own central Y-axis (and subtle vertical tilt) - 50% verlangsamt
+        const netRotY = finaleAge * 0.12;
+        const netTiltX = Math.sin(finaleAge * 0.16) * 0.08;
 
         const cosY = Math.cos(netRotY);
         const sinY = Math.sin(netRotY);
@@ -5096,9 +5096,9 @@ export function SakuraCanvas({
           // Nur Orbs mit tatsächlich angedockten Plexus (attachedPlexusCount > 0) werden einbezogen!
           const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
           const FINALE_WINDOWS = [
-            { startSeek: 0.1, triggerAt: 1.0, endAt: 2.0 },
-            { startSeek: 3.8, triggerAt: 5.0, endAt: 6.0 },
-            { startSeek: 7.8, triggerAt: 9.0, endAt: 10.0 }
+            { startSeek: 0.1, triggerAt: 1.0, endAt: 2.3 },
+            { startSeek: 3.6, triggerAt: 4.9, endAt: 6.2 },
+            { startSeek: 7.4, triggerAt: 8.7, endAt: 10.0 }
           ];
 
           for (let r = 0; r < FINALE_WINDOWS.length; r++) {
@@ -5210,16 +5210,17 @@ export function SakuraCanvas({
             imp.age += delta;
             imp.remaining -= delta;
 
-            const transitionProgress = Math.min(1.0, imp.age / 0.30);
-            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.22, Math.max(0.0, imp.remaining / 0.22))) * modeFadeAlpha;
+            // Buildup des Netzwerks zeitlich erweitert (0.65s) und visuell um 50% verlangsamt
+            const transitionProgress = Math.min(1.0, imp.age / 0.65);
+            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.40, Math.max(0.0, imp.remaining / 0.30))) * modeFadeAlpha;
 
-            // Flüssige spiralförmige Transition vom Eintrittspunkt in die gekoppelte Umlaufbahn
-            const entryProg = Math.min(1.0, imp.age / 0.30);
+            // Flüssige spiralförmige Transition vom Eintrittspunkt in die gekoppelte Umlaufbahn (50% verlangsamt)
+            const entryProg = Math.min(1.0, imp.age / 0.60);
             const smoothEase = entryProg * entryProg * (3.0 - 2.0 * entryProg);
             const targetOrbitR = 26.0;
             const curDistA = THREE.MathUtils.lerp(imp.initialDistA, targetOrbitR, smoothEase);
             const curDistB = THREE.MathUtils.lerp(imp.initialDistB, targetOrbitR, smoothEase);
-            const orbitAngle = imp.initialAngle + imp.age * 3.4;
+            const orbitAngle = imp.initialAngle + imp.age * 1.7; // 50% verlangsamt (vorher 3.4)
 
             imp.orbA.x = imp.midX + Math.cos(orbitAngle) * curDistA;
             imp.orbA.y = imp.midY + Math.sin(orbitAngle) * curDistA * 0.85;
@@ -5328,10 +5329,10 @@ export function SakuraCanvas({
                 const distance = Math.sqrt(distSq);
                 const opacity = 1.0 - distance / cutoff;
                 if (opacity > 0.01) {
-                  // DualSlider 1:1 Flickering Noise
+                  // DualSlider 1:1 Flickering Noise (50% visuell verlangsamt für ruhigeren, harmonischeren Buildup)
                   const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
-                  const flickerA = Math.sin(totalAnimTime * 14.0 + lineSeed);
-                  const flickerB = Math.cos(totalAnimTime * 25.0 + lineSeed * 1.7);
+                  const flickerA = Math.sin(totalAnimTime * 7.0 + lineSeed);
+                  const flickerB = Math.cos(totalAnimTime * 12.5 + lineSeed * 1.7);
                   const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
 
                   let flickerMul = 1.0;
