@@ -1781,21 +1781,9 @@ export function SakuraCanvas({
       const isAndroid = /Android/i.test(navigator.userAgent);
       const isAndroidPhone = isAndroid && Math.min(window.innerWidth, window.innerHeight) < 768;
 
-      // 1. iOS iPhone: Intended mode is Portrait during active session.
-      // Block rotation to landscape ONLY during active artwork session!
-      if (isRunning && isIPhone && isLandscape) {
-        setIsIOSLandscapeBlocked(true);
-      } else {
-        setIsIOSLandscapeBlocked(false);
-      }
-
-      // 2. Android: Intended mode is Landscape during active session.
-      // Prompt to rotate to landscape if in portrait during active session (unless waiting for host)!
-      if (isRunning && !isWaitingForHost && isAndroidPhone && isPortrait) {
-        setIsAndroidPortraitPrompt(true);
-      } else {
-        setIsAndroidPortraitPrompt(false);
-      }
+      // Mit dem CSS-Landscape-Ansatz ist Querformat auf allen Smartphones nativ unterstützt
+      setIsIOSLandscapeBlocked(false);
+      setIsAndroidPortraitPrompt(false);
     };
 
     checkOrientation();
@@ -1896,8 +1884,10 @@ export function SakuraCanvas({
     modeTransitionTimerRef.current = 0.0;
     if (typeof window !== 'undefined') {
       const isPortrait = window.innerHeight > window.innerWidth;
-      const w = window.innerWidth;
-      const h = (isRunningRef.current && isPortrait) ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
+      const isIPhoneOrMobile = isMobile || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const shouldRotate = isRunningRef.current && isPortrait && isIPhoneOrMobile;
+      const w = shouldRotate ? window.innerHeight : window.innerWidth;
+      const h = shouldRotate ? window.innerWidth : window.innerHeight;
       updateCameraDistance(w, h, newMode);
     }
     sendInteractionRef.current?.('MODE_SWITCH', { mode: newMode });
@@ -2081,11 +2071,17 @@ export function SakuraCanvas({
     } catch { }
     setIsIOSLandscapeBlocked(false);
     setIsAndroidPortraitPrompt(false);
+    isRunningRef.current = false;
     if (onExitRef.current) {
       onExitRef.current();
     } else {
       window.location.reload();
     }
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('resize'));
+      }
+    }, 50);
   }, []);
 
   // Main Three.js Scene Setup & Native WebGL Engine
@@ -2093,8 +2089,10 @@ export function SakuraCanvas({
     if (!canvasRef.current || !containerRef.current) return;
 
     const isPortrait = window.innerHeight > window.innerWidth;
-    const width = window.innerWidth;
-    const height = (isRunningRef.current && isPortrait) ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
+    const isIPhoneOrMobile = isMobile || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const shouldRotate = isRunningRef.current && isPortrait && isIPhoneOrMobile;
+    const width = shouldRotate ? window.innerHeight : window.innerWidth;
+    const height = shouldRotate ? window.innerWidth : window.innerHeight;
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -4070,12 +4068,53 @@ export function SakuraCanvas({
     const targetParallax = new THREE.Vector2(0, 0);
     const currentParallax = new THREE.Vector2(0, 0);
 
+    // Coordinate helper: maps screen-space touch/pointer inputs into the local canvas coordinate space,
+    // handling both normal view and the CSS 90-degree virtual landscape rotation on mobile portrait
+    const getCanvasCoords = (clientX: number, clientY: number) => {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const isIPhoneOrMobile = isMobile || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const shouldRotate = isRunningRef.current && isPortrait && isIPhoneOrMobile;
+
+      if (!shouldRotate) {
+        const rect = canvasRef.current?.getBoundingClientRect() || { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+        const w = rect.width || window.innerWidth;
+        const h = rect.height || window.innerHeight;
+        const relX = clientX - rect.left;
+        const relY = clientY - rect.top;
+        return {
+          x: relX,
+          y: relY,
+          width: w,
+          height: h,
+          normX: Math.max(0.0, Math.min(1.0, relX / w)),
+          normY: Math.max(0.0, Math.min(1.0, 1.0 - (relY / h)))
+        };
+      }
+
+      // In 90deg clockwise virtual landscape:
+      // container width = window.innerHeight, container height = window.innerWidth
+      // Screen X = window.innerWidth - container Y => container Y = window.innerWidth - Screen X
+      // Screen Y = container X => container X = Screen Y
+      const cW = window.innerHeight;
+      const cH = window.innerWidth;
+      const cX = clientY;
+      const cY = window.innerWidth - clientX;
+      return {
+        x: cX,
+        y: cY,
+        width: cW,
+        height: cH,
+        normX: Math.max(0.0, Math.min(1.0, cX / cW)),
+        normY: Math.max(0.0, Math.min(1.0, 1.0 - (cY / cH)))
+      };
+    };
+
     // Interactive Pointer Handlers
     const updatePointerWorld = (clientX: number, clientY: number) => {
-      if (canvasRef.current && cameraRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        mouseScreen.x = Math.max(0.0, Math.min(1.0, (clientX - rect.left) / rect.width));
-        mouseScreen.y = Math.max(0.0, Math.min(1.0, 1.0 - ((clientY - rect.top) / rect.height)));
+      if (cameraRef.current) {
+        const coords = getCanvasCoords(clientX, clientY);
+        mouseScreen.x = coords.normX;
+        mouseScreen.y = coords.normY;
 
         unprojectScratch.set(mouseScreen.x * 2 - 1, mouseScreen.y * 2 - 1, 0.5);
         unprojectScratch.unproject(cameraRef.current);
@@ -4092,7 +4131,7 @@ export function SakuraCanvas({
       if (!isTrunkGrowthFinished || fullVortexHoldTimer >= 0.0) return false;
       if (!cameraRef.current || !canvasRef.current) return false;
 
-      const rect = canvasRef.current.getBoundingClientRect();
+      const coords = getCanvasCoords(clientX, clientY);
       // Optimized generous hit radius so nodes are always hit reliably without frustrating misses
       const screenRadius = isMobile ? 48.0 : 38.0;
       const worldHitDistance = isMobile ? 2.4 : 1.8;
@@ -4104,12 +4143,12 @@ export function SakuraCanvas({
         const orb = activeOrbs[i];
         if (orb.userDrawn || orb.branchSpawned || orb.isExploding) continue;
 
-        // 1. Direct Screen-space projected hit detection
+        // 1. Direct Screen-space projected hit detection in local canvas coords
         const orbPos = orb.position;
         const p = orbPos.clone().project(cameraRef.current);
-        const orbScreenX = rect.left + ((p.x + 1) / 2) * rect.width;
-        const orbScreenY = rect.top + ((1 - p.y) / 2) * rect.height;
-        const pixelDist = Math.hypot(clientX - orbScreenX, clientY - orbScreenY);
+        const orbScreenX = ((p.x + 1) / 2) * coords.width;
+        const orbScreenY = ((1 - p.y) / 2) * coords.height;
+        const pixelDist = Math.hypot(coords.x - orbScreenX, coords.y - orbScreenY);
 
         if (pixelDist <= screenRadius) {
           if (pixelDist < minDistance) {
@@ -4174,14 +4213,15 @@ export function SakuraCanvas({
       if (clientX === undefined || clientY === undefined) return;
       updatePointerWorld(clientX, clientY);
 
-      mousePosRef.current = { x: clientX, y: clientY };
-      localCursorRef.current = { x: clientX, y: clientY, active: true };
+      const coords = getCanvasCoords(clientX, clientY);
+      mousePosRef.current = { x: coords.x, y: coords.y };
+      localCursorRef.current = { x: coords.x, y: coords.y, active: true };
       // Position local user cursor element with pixel-exact hardware-accelerated transform
       const activeIdx = isHostRef.current ? 1 : 2;
       const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
       if (activeCursor) {
         activeCursor.classList.add('active');
-        activeCursor.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
+        activeCursor.style.transform = `translate3d(${coords.x}px, ${coords.y}px, 0)`;
       }
 
       const nowMs = performance.now();
@@ -4189,8 +4229,8 @@ export function SakuraCanvas({
         lastCursorSendTime = nowMs;
         sendInteractionRef.current?.('CURSOR_MOVE', {
           senderIndex: activeIdx,
-          normX: clientX / window.innerWidth,
-          normY: 1.0 - (clientY / window.innerHeight)
+          normX: coords.normX,
+          normY: coords.normY
         });
       }
 
@@ -4201,7 +4241,7 @@ export function SakuraCanvas({
         fullVortexHoldTimer < 0.0
       ) {
         const nowPerf = performance.now();
-        circleTrailHistory.push({ x: clientX, y: clientY, t: nowPerf });
+        circleTrailHistory.push({ x: coords.x, y: coords.y, t: nowPerf });
         while (circleTrailHistory.length > 0 && nowPerf - circleTrailHistory[0].t > 1200) {
           circleTrailHistory.shift();
         }
@@ -4348,21 +4388,22 @@ export function SakuraCanvas({
       if (clientX === undefined || clientY === undefined) return;
       updatePointerWorld(clientX, clientY);
 
-      mousePosRef.current = { x: clientX, y: clientY };
-      localCursorRef.current = { x: clientX, y: clientY, active: true };
+      const coords = getCanvasCoords(clientX, clientY);
+      mousePosRef.current = { x: coords.x, y: coords.y };
+      localCursorRef.current = { x: coords.x, y: coords.y, active: true };
       // Immediately sync cursor hotspot on touch/press
       const activeIdx = isHostRef.current ? 1 : 2;
       const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
       if (activeCursor) {
         activeCursor.classList.add('active');
-        activeCursor.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
+        activeCursor.style.transform = `translate3d(${coords.x}px, ${coords.y}px, 0)`;
       }
 
       // Sync position immediately to remote peer on tap/press
       sendInteractionRef.current?.('CURSOR_MOVE', {
         senderIndex: activeIdx,
-        normX: clientX / window.innerWidth,
-        normY: 1.0 - (clientY / window.innerHeight)
+        normX: coords.normX,
+        normY: coords.normY
       });
 
       // Trigger gesture animation and broadcast to session
@@ -4437,11 +4478,12 @@ export function SakuraCanvas({
       const clientX = touch ? touch.clientX : (e as MouseEvent | undefined)?.clientX;
       const clientY = touch ? touch.clientY : (e as MouseEvent | undefined)?.clientY;
       if (clientX !== undefined && clientY !== undefined) {
-        mousePosRef.current = { x: clientX, y: clientY };
+        const coords = getCanvasCoords(clientX, clientY);
+        mousePosRef.current = { x: coords.x, y: coords.y };
         const activeCursor = document.getElementById(activeIdx === 1 ? 'userCursor1' : 'userCursor2');
         if (activeCursor) {
           activeCursor.classList.add('active');
-          activeCursor.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
+          activeCursor.style.transform = `translate3d(${coords.x}px, ${coords.y}px, 0)`;
         }
       }
 
@@ -5748,8 +5790,10 @@ export function SakuraCanvas({
     const handleResize = () => {
       if (!canvasRef.current) return;
       const isPortrait = window.innerHeight > window.innerWidth;
-      const w = window.innerWidth;
-      const h = (isRunningRef.current && isPortrait) ? Math.round(window.innerWidth * 9 / 16) : window.innerHeight;
+      const isIPhoneOrMobile = isMobile || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const shouldRotate = isRunningRef.current && isPortrait && isIPhoneOrMobile;
+      const w = shouldRotate ? window.innerHeight : window.innerWidth;
+      const h = shouldRotate ? window.innerWidth : window.innerHeight;
       updateCameraDistance(w, h, activeModeRef.current);
       const targetPR = isMobile ? Math.min(window.devicePixelRatio, 1.0) : Math.min(window.devicePixelRatio, 1.25);
       renderer.setPixelRatio(targetPR);
@@ -5806,8 +5850,13 @@ export function SakuraCanvas({
         if (msg.kind === 'CURSOR_MOVE') {
           if (typeof msg.normX === 'number' && typeof msg.normY === 'number') {
             lastRemoteCursorMoveTime = performance.now();
-            const cX = (msg.normX as number) * window.innerWidth;
-            const cY = (1.0 - (msg.normY as number)) * window.innerHeight;
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const isIPhoneOrMobile = isMobile || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const shouldRotate = isRunningRef.current && isPortrait && isIPhoneOrMobile;
+            const curW = shouldRotate ? window.innerHeight : window.innerWidth;
+            const curH = shouldRotate ? window.innerWidth : window.innerHeight;
+            const cX = (msg.normX as number) * curW;
+            const cY = (1.0 - (msg.normY as number)) * curH;
             remoteCursorRef.current = { x: cX, y: cY, active: true };
             const cursorElem = document.getElementById(remoteIdx === 1 ? 'userCursor1' : 'userCursor2');
             if (cursorElem) {
@@ -6017,16 +6066,33 @@ export function SakuraCanvas({
             ? `Hold down to create a plexus and drag it onto an orb of your choice. (${plexusAttachedCount}/6)`
             : `Halte gedrückt, um einen Plexus zu erschaffen, und docke ihn an einen Orb deiner Wahl an. (${plexusAttachedCount}/6)`);
 
+  const isVirtualLandscape = Boolean(
+    isRunning &&
+    isPortraitMode &&
+    (isMobile || (typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)))
+  );
+
   return (
-    <div ref={containerRef} className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016] select-none z-0">
-      {/* 16:9 Centered Artwork Wrapper on Mobile Portrait ONLY when artwork session is running; full-screen Magenta Background on Onepager */}
+    <div
+      ref={containerRef}
+      className={`fixed overflow-hidden bg-[#2b0016] select-none z-0 ${
+        isVirtualLandscape ? '' : 'inset-0 w-screen h-[100dvh] min-h-screen'
+      }`}
+      style={isVirtualLandscape ? {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100dvh',
+        height: '100dvw',
+        transform: 'translate(100dvw, 0) rotate(90deg)',
+        transformOrigin: '0 0',
+      } : undefined}
+    >
+      {/* Centered Artwork Canvas Wrapper */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <canvas
           ref={canvasRef}
-          className={`pointer-events-auto block ${isRunning
-            ? 'cursor-none portrait:w-screen portrait:h-[calc(100vw*9/16)] portrait:border-y portrait:border-white/15 portrait:shadow-[0_0_60px_rgba(0,0,0,0.95),0_0_25px_rgba(255,42,157,0.2)] landscape:w-full landscape:h-full'
-            : 'cursor-pointer w-full h-full'
-            }`}
+          className={`pointer-events-auto block ${isRunning ? 'cursor-none w-full h-full' : 'cursor-pointer w-full h-full'}`}
         />
       </div>
 
@@ -6061,8 +6127,8 @@ export function SakuraCanvas({
             </div>
           )}
 
-          {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape, compact on smartphones) */}
-          {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && !isPortraitMode && (
+          {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape & Virtual Landscape, compact on smartphones) */}
+          {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && (!isPortraitMode || isVirtualLandscape) && (
             <div className="absolute right-3 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1.5 sm:gap-2 lg:gap-3.5 p-2 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
               <div className="hidden lg:block text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
                 {isEn ? 'Palette' : 'Farbpalette'}
@@ -6102,7 +6168,7 @@ export function SakuraCanvas({
           )}
 
           {/* Modern HUD Layer: Portrait Stacked on Smartphones vs 4-Corner Glassmorphic in Landscape */}
-          {isPortraitMode ? (
+          {(isPortraitMode && !isVirtualLandscape) ? (
             /* PORTRAIT STACKED HUD (iPhone & Portrait Smartphones) */
             <div className={`absolute inset-0 px-4 py-3 pt-[max(12px,var(--sat))] pb-[max(14px,var(--sab))] flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
               {/* TOP SECTION: Cleanly stacked above the 16:9 canvas */}
@@ -6283,13 +6349,13 @@ export function SakuraCanvas({
               </div>
             </div>
           ) : (
-            /* LANDSCAPE 4-CORNER GLASSMORPHIC HUD (Desktop & Mobile Landscape) */
-            <div className={`absolute inset-0 p-8 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
+            /* LANDSCAPE 4-CORNER GLASSMORPHIC HUD (Desktop, Tablet & Mobile Virtual Landscape) */
+            <div className={`absolute inset-0 p-4 sm:p-6 lg:p-8 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}>
 
               {/* TOP BAR: Instruction Box (Left) & Control Buttons (Right) */}
-              <div className="flex justify-between items-start w-full">
+              <div className="flex justify-between items-start w-full gap-2">
                 {/* Top Left: Dynamic Instruction Box */}
-                <div className="pointer-events-auto flex flex-col gap-1.5 p-4 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] max-w-[440px]">
+                <div className="pointer-events-auto flex flex-col gap-1 sm:gap-1.5 p-2.5 sm:p-3 lg:p-4 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] max-w-[260px] sm:max-w-[340px] lg:max-w-[440px]">
                   {(roundInfo || isPaused) && (
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
