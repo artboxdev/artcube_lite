@@ -559,7 +559,8 @@ const fractalOrbVertexShader = /* glsl */ `
     vLocalPosition = position;
     vNormal = normalize(normalMatrix * normal);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vViewPosition = -mvPosition.xyz;
+    vec4 mvCenter = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vViewPosition = vec3(mvCenter.xy - mvPosition.xy, -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -715,7 +716,8 @@ const atmosphereVertexShader = /* glsl */ `
   void main() {
     vNormal = normalize(normalMatrix * normal);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vViewPosition = -mvPosition.xyz;
+    vec4 mvCenter = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vViewPosition = vec3(mvCenter.xy - mvPosition.xy, -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -782,9 +784,9 @@ const FRACTAL_ORB_PRESETS: Record<BlossomColorId, {
     fractalDecay: -16.7,
     smoothness: 0.031,
     asymmetry: 0.48,
-    atmosphereGlow: 1.5,
+    atmosphereGlow: 0.95,
     atmosphereLevel: 1.0,
-    atmosphereScale: 1.03
+    atmosphereScale: 1.02
   },
   blue: {
     primary: '#00b3ff',
@@ -802,7 +804,7 @@ const FRACTAL_ORB_PRESETS: Record<BlossomColorId, {
   },
   green: {
     primary: '#00e676',
-    secondary: '#0062ff',
+    secondary: '#00c853',
     density: 3.0,
     speed: 0.55,
     fractalIters: 4,
@@ -810,9 +812,9 @@ const FRACTAL_ORB_PRESETS: Record<BlossomColorId, {
     fractalDecay: -16.7,
     smoothness: 0.031,
     asymmetry: 0.48,
-    atmosphereGlow: 1.5,
+    atmosphereGlow: 0.85,
     atmosphereLevel: 1.0,
-    atmosphereScale: 1.03
+    atmosphereScale: 1.02
   },
   yellow: {
     primary: '#ffbb00',
@@ -3363,11 +3365,14 @@ export function SakuraCanvas({
         this.mesh.rotation.x += delta * 0.28;
         this.mesh.updateMatrixWorld();
 
-        if (camera) {
-          const localCam = camera.position.clone();
-          this.mesh.worldToLocal(localCam);
-          this.material.uniforms.uLocalCamPos.value.copy(localCam);
-        }
+        // Frontale Raymarching-Projektion verhindert Randverzerrungen und harte Ränder
+        const localCam = new THREE.Vector3(
+          this.mesh.position.x,
+          this.mesh.position.y,
+          this.mesh.position.z + 150.0
+        );
+        this.mesh.worldToLocal(localCam);
+        this.material.uniforms.uLocalCamPos.value.copy(localCam);
 
         if (isFinale) {
           // Orbs ohne angedockte Plexus werden in der finalen Animation komplett ausgeblendet
@@ -3384,21 +3389,21 @@ export function SakuraCanvas({
           if (!this.hasCapturedPreFinale) {
             this.preFinaleOrbitAngle = this.orbitAngle;
             this.hasCapturedPreFinale = true;
-            // Initial organic velocity pointing toward center
+            // Initial organic velocity pointing toward center (+50% speed boost)
             const angleToCenter = Math.atan2(-this.y, -this.x);
-            this.finaleVx = Math.cos(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0;
-            this.finaleVy = Math.sin(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0;
+            this.finaleVx = (Math.cos(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0) * 1.5;
+            this.finaleVy = (Math.sin(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0) * 1.5;
           }
 
           const BOUND_X = 105.0;
           const BOUND_Y = 70.0;
 
           if (this.inImpulse) {
-            // Position during active 2s impulse is coupled around impulse midpoint
+            // Position during active 1s impulse is coupled around impulse midpoint
           } else {
             this.impulseCooldown = Math.max(0.0, this.impulseCooldown - delta);
 
-            // Smooth physical wandering on random/organic paths in small center area
+            // Smooth physical wandering on random/organic paths in small center area (+50% velocity)
             this.x += this.finaleVx * delta;
             this.y += this.finaleVy * delta;
             this.z = Math.sin(time * 2.0 + this.phase) * 8.0;
@@ -3409,22 +3414,22 @@ export function SakuraCanvas({
             if (this.y > BOUND_Y) { this.finaleVy = -Math.abs(this.finaleVy); this.y = BOUND_Y; }
             else if (this.y < -BOUND_Y) { this.finaleVy = Math.abs(this.finaleVy); this.y = -BOUND_Y; }
 
-            // Continuous organic curl acceleration
-            this.finaleVx += Math.sin(time * 1.8 + this.phase) * 22.0 * delta;
-            this.finaleVy += Math.cos(time * 1.5 + this.phase * 1.3) * 22.0 * delta;
+            // Continuous organic curl acceleration (+50% speed boost)
+            this.finaleVx += Math.sin(time * 1.8 + this.phase) * 33.0 * delta;
+            this.finaleVy += Math.cos(time * 1.5 + this.phase * 1.3) * 33.0 * delta;
 
-            // Damping & speed clamping
+            // Damping & speed clamping (+50% speed clamp range: 27.0 - 98.0)
             this.finaleVx *= (1.0 - delta * 0.45);
             this.finaleVy *= (1.0 - delta * 0.45);
 
             const curSpeed = Math.hypot(this.finaleVx, this.finaleVy);
-            if (curSpeed > 65.0) {
-              this.finaleVx = (this.finaleVx / curSpeed) * 65.0;
-              this.finaleVy = (this.finaleVy / curSpeed) * 65.0;
-            } else if (curSpeed < 18.0) {
+            if (curSpeed > 98.0) {
+              this.finaleVx = (this.finaleVx / curSpeed) * 98.0;
+              this.finaleVy = (this.finaleVy / curSpeed) * 98.0;
+            } else if (curSpeed < 27.0) {
               const ang = Math.random() * Math.PI * 2;
-              this.finaleVx += Math.cos(ang) * 20.0;
-              this.finaleVy += Math.sin(ang) * 20.0;
+              this.finaleVx += Math.cos(ang) * 30.0;
+              this.finaleVy += Math.sin(ang) * 30.0;
             }
           }
 
@@ -5082,13 +5087,18 @@ export function SakuraCanvas({
           plexusPointsMesh.visible = true;
 
           // 3 Scheduled Encounter Rounds across 10 seconds:
+          // In den Sekunden 1-2, 5-6 und 9-10 flackernde Netzwerke; dazwischen Pausen!
           // Nur Orbs mit tatsächlich angedockten Plexus (attachedPlexusCount > 0) werden einbezogen!
           const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
-          const roundStartSeeks = [0.2, 3.4, 6.6];
+          const FINALE_WINDOWS = [
+            { startSeek: 0.1, triggerAt: 1.0, endAt: 2.0 },
+            { startSeek: 3.8, triggerAt: 5.0, endAt: 6.0 },
+            { startSeek: 7.8, triggerAt: 9.0, endAt: 10.0 }
+          ];
 
-          for (let r = 0; r < roundStartSeeks.length; r++) {
-            const startSeek = roundStartSeeks[r];
-            if (finaleAge >= startSeek && finaleAge < startSeek + 3.1) {
+          for (let r = 0; r < FINALE_WINDOWS.length; r++) {
+            const win = FINALE_WINDOWS[r];
+            if (finaleAge >= win.startSeek && finaleAge < win.endAt) {
               const roundPairs: [FloatingPlexusOrbInstance, FloatingPlexusOrbInstance][] = [];
               if (activeDockedOrbs.length === 2) {
                 roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
@@ -5118,15 +5128,15 @@ export function SakuraCanvas({
                   const nx = dx / dist;
                   const ny = dy / dist;
 
-                  if (dist > 65.0) {
-                    // Mutual Proximity Attraction: Orbs pull toward each other
-                    const pull = Math.min(170.0, 380.0 / Math.max(20.0, dist));
-                    orbA.finaleVx += nx * pull * delta * 2.4;
-                    orbA.finaleVy += ny * pull * delta * 2.4;
-                    orbB.finaleVx -= nx * pull * delta * 2.4;
-                    orbB.finaleVy -= ny * pull * delta * 2.4;
+                  if (finaleAge < win.triggerAt) {
+                    // Mutual Proximity Attraction during seek phase (+50% attraction pull)
+                    const pull = Math.min(260.0, 550.0 / Math.max(20.0, dist));
+                    orbA.finaleVx += nx * pull * delta * 3.6;
+                    orbA.finaleVy += ny * pull * delta * 3.6;
+                    orbB.finaleVx -= nx * pull * delta * 3.6;
+                    orbB.finaleVy -= ny * pull * delta * 3.6;
                   } else {
-                    // Contact made! Trigger 2-Second Flickering Network (DualSlider 1:1)
+                    // Window trigger reached (Sekunden 1-2, 5-6, 9-10): Trigger 1-Second Flickering Network!
                     orbA.triggerDockWobble();
                     orbB.triggerDockWobble();
                     orbA.trailHistory = [];
@@ -5160,12 +5170,13 @@ export function SakuraCanvas({
                       );
                     }
 
+                    const impulseDuration = Math.max(0.1, win.endAt - finaleAge);
                     activeImpulses.push({
                       orbA,
                       orbB,
                       age: 0.0,
-                      remaining: 2.0,
-                      duration: 2.0,
+                      remaining: impulseDuration,
+                      duration: impulseDuration,
                       midX,
                       midY,
                       particles,
@@ -5189,11 +5200,11 @@ export function SakuraCanvas({
             imp.age += delta;
             imp.remaining -= delta;
 
-            const transitionProgress = Math.min(1.0, imp.age / 0.5);
-            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.25, Math.max(0.0, imp.remaining / 0.35))) * modeFadeAlpha;
+            const transitionProgress = Math.min(1.0, imp.age / 0.25);
+            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.15, Math.max(0.0, imp.remaining / 0.20))) * modeFadeAlpha;
 
             // Coupled Orbit around midpoint for the 2 colliding Orbs
-            const orbitRot = imp.age * 2.2;
+            const orbitRot = imp.age * 3.5;
             const orbitR = 28.0;
             imp.orbA.x = imp.midX + Math.cos(orbitRot) * orbitR;
             imp.orbA.y = imp.midY + Math.sin(orbitRot) * orbitR * 0.85;
@@ -5236,7 +5247,7 @@ export function SakuraCanvas({
               worldNodeGroup[hubIdx] = -(impIdx + 1);
             }
 
-            // After 2 seconds: Gentle Repulsive Impulse separating the orbs
+            // After impulse ends (1s duration): Strong separation impulse separating orbs for the pause
             if (imp.remaining <= 0) {
               const dx = imp.orbB.x - imp.orbA.x;
               const dy = imp.orbB.y - imp.orbA.y;
@@ -5244,15 +5255,15 @@ export function SakuraCanvas({
               const nx = dx / d;
               const ny = dy / d;
 
-              const sepImpulse = 115.0; // Gentle separation impulse
+              const sepImpulse = 175.0; // Dynamic separation impulse for fast pause wandering
               imp.orbA.finaleVx = -nx * sepImpulse;
               imp.orbA.finaleVy = -ny * sepImpulse;
               imp.orbB.finaleVx = nx * sepImpulse;
               imp.orbB.finaleVy = ny * sepImpulse;
               imp.orbA.inImpulse = false;
               imp.orbB.inImpulse = false;
-              imp.orbA.impulseCooldown = 0.8;
-              imp.orbB.impulseCooldown = 0.8;
+              imp.orbA.impulseCooldown = 0.5;
+              imp.orbB.impulseCooldown = 0.5;
 
               activeImpulses.splice(impIdx, 1);
             }
