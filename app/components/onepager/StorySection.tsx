@@ -89,13 +89,13 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
             {/* Hero Top Banner */}
             <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-pink-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)] bg-[#0d0714]">
               <img
-                src={`${basePath}/artcube_version1.jpg`}
+                src={`${basePath}/artcube_version1_2.jpg`}
                 alt={t.card1Title}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 block"
                 onError={(e) => {
                   const img = e.currentTarget;
                   if (!img.src.includes('/artcube_lite')) {
-                    img.src = '/artcube_lite/artcube_version1.jpg';
+                    img.src = '/artcube_lite/artcube_version1_2.jpg';
                   }
                 }}
               />

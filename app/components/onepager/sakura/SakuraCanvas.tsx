@@ -3024,6 +3024,7 @@ export function SakuraCanvas({
     const worldNodeDistCenter = new Float32Array(MAX_TOTAL_NODES);
     const worldNodeActivated = new Uint8Array(MAX_TOTAL_NODES);
     const worldNodeGroup = new Int16Array(MAX_TOTAL_NODES);
+    const worldNodeAlpha = new Float32Array(MAX_TOTAL_NODES);
     const nodeConnCounts = new Uint8Array(MAX_TOTAL_NODES);
     let prevActiveTrailCount = 0;
 
@@ -3280,15 +3281,14 @@ export function SakuraCanvas({
             varying vec2 vUv;
             void main() {
               float distFromCenter = abs(vUv.x - 0.5) * 2.0;
-              float lateralGlow = exp(-distFromCenter * distFromCenter * 3.6);
-              float coreBeam = exp(-distFromCenter * distFromCenter * 14.0) * 0.4;
-              float brightness = mix(1.4, 0.35, vUv.y);
-              float lengthAlpha = pow(clamp(1.0 - vUv.y, 0.0, 1.0), 1.2) * uAlpha;
-              float combinedIntensity = (lateralGlow + coreBeam) * lengthAlpha;
-              if (combinedIntensity < 0.002) discard;
-              vec3 headTint = mix(vec3(1.0), uColor, 0.3);
-              vec3 beamColor = mix(headTint, uColor, clamp(vUv.y * 1.8, 0.0, 1.0)) * brightness;
-              gl_FragColor = vec4(beamColor * combinedIntensity, combinedIntensity);
+              // Weicher Gaußscher Helligkeitsverlauf über die Schweifbreite
+              float lateralGlow = exp(-distFromCenter * distFromCenter * 3.8);
+              // Dezenter, fließender Fade vom Kopf (0.0) zum Schweifende (1.0)
+              float lengthFade = pow(clamp(1.0 - vUv.y, 0.0, 1.0), 1.5);
+              float intensity = lateralGlow * lengthFade * uAlpha * 0.70;
+              if (intensity < 0.003) discard;
+              // Reiner Farbschweif in Orb-Farbe (ohne überblendetes Weiß)
+              gl_FragColor = vec4(uColor * intensity, 1.0);
             }
           `,
           uniforms: {
@@ -3302,6 +3302,7 @@ export function SakuraCanvas({
         });
 
         this.trailRibbonMesh = new THREE.Mesh(this.trailRibbonGeo, this.trailRibbonMat);
+        this.trailRibbonMesh.renderOrder = 0;
         this.trailRibbonMesh.visible = false;
         plexusSceneGroup.add(this.trailRibbonMesh);
 
@@ -3446,7 +3447,7 @@ export function SakuraCanvas({
           this.starSprite.material.opacity = modeFadeAlpha;
 
           this.trailHistory.unshift({ x: this.x, y: this.y, z: this.z });
-          if (this.trailHistory.length > 40) this.trailHistory.pop();
+          if (this.trailHistory.length > 25) this.trailHistory.pop();
 
           if (this.trailRibbonMesh && this.trailRibbonGeo) {
             const hasTrail = (activeModeRef.current === 'plexus') && this.trailHistory.length >= 3;
@@ -3454,7 +3455,7 @@ export function SakuraCanvas({
             this.trailRibbonMat.uniforms.uAlpha.value = finaleAlpha;
 
             if (hasTrail) {
-              const activeCount = Math.max(6, this.trailHistory.length);
+              const activeCount = this.trailHistory.length;
               const activePts = [];
               for (let h = 0; h < activeCount; h++) {
                 const pt = this.trailHistory[h];
@@ -3466,7 +3467,8 @@ export function SakuraCanvas({
                 const samples = spline.getSpacedPoints(this.ribbonSamples - 1);
                 const rPositions = this.trailRibbonGeo.attributes.position.array as Float32Array;
                 const camPos = camera ? camera.position : { x: 0, y: 0, z: 540 };
-                const BASE_RIBBON_WIDTH = (this.inImpulse ? 32.0 : 22.0);
+                // Dezenter Schweif: sanft proportionierte Anfangsbreite passend zum Orb-Radius
+                const BASE_RIBBON_WIDTH = (this.inImpulse ? 18.0 : 14.0);
 
                 for (let s = 0; s < this.ribbonSamples; s++) {
                   const curP = samples[s];
@@ -3492,7 +3494,7 @@ export function SakuraCanvas({
                   nx /= nLen; ny /= nLen; nz /= nLen;
 
                   const normS = s / (this.ribbonSamples - 1);
-                  const w = BASE_RIBBON_WIDTH * Math.pow(Math.max(0.0, 1.0 - normS), 0.92);
+                  const w = BASE_RIBBON_WIDTH * Math.pow(Math.max(0.0, 1.0 - normS), 1.25);
 
                   const vIdx = s * 6;
                   rPositions[vIdx] = curP.x + nx * w;
@@ -3875,6 +3877,9 @@ export function SakuraCanvas({
       duration: number;
       midX: number;
       midY: number;
+      initialAngle: number;
+      initialDistA: number;
+      initialDistB: number;
       particles: FinaleMeshParticle[];
       roundIdx: number;
     }
@@ -5139,11 +5144,13 @@ export function SakuraCanvas({
                     // Window trigger reached (Sekunden 1-2, 5-6, 9-10): Trigger 1-Second Flickering Network!
                     orbA.triggerDockWobble();
                     orbB.triggerDockWobble();
-                    orbA.trailHistory = [];
-                    orbB.trailHistory = [];
 
                     const midX = (orbA.x + orbB.x) * 0.5;
                     const midY = (orbA.y + orbB.y) * 0.5;
+                    const initialAngle = Math.atan2(orbA.y - midY, orbA.x - midX);
+                    const initialDistA = Math.hypot(orbA.x - midX, orbA.y - midY);
+                    const initialDistB = Math.hypot(orbB.x - midX, orbB.y - midY);
+
                     const palA = SATURATED_PLEXUS_PALETTES[orbA.id] || PALETTE_RGB_CACHE[orbA.id];
                     const palB = SATURATED_PLEXUS_PALETTES[orbB.id] || PALETTE_RGB_CACHE[orbB.id];
                     const particles: FinaleMeshParticle[] = [];
@@ -5179,6 +5186,9 @@ export function SakuraCanvas({
                       duration: impulseDuration,
                       midX,
                       midY,
+                      initialAngle,
+                      initialDistA,
+                      initialDistB,
                       particles,
                       roundIdx: r
                     });
@@ -5200,16 +5210,21 @@ export function SakuraCanvas({
             imp.age += delta;
             imp.remaining -= delta;
 
-            const transitionProgress = Math.min(1.0, imp.age / 0.25);
-            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.15, Math.max(0.0, imp.remaining / 0.20))) * modeFadeAlpha;
+            const transitionProgress = Math.min(1.0, imp.age / 0.30);
+            const impAlpha = Math.min(1.0, Math.min(imp.age / 0.22, Math.max(0.0, imp.remaining / 0.22))) * modeFadeAlpha;
 
-            // Coupled Orbit around midpoint for the 2 colliding Orbs
-            const orbitRot = imp.age * 3.5;
-            const orbitR = 28.0;
-            imp.orbA.x = imp.midX + Math.cos(orbitRot) * orbitR;
-            imp.orbA.y = imp.midY + Math.sin(orbitRot) * orbitR * 0.85;
-            imp.orbB.x = imp.midX - Math.cos(orbitRot) * orbitR;
-            imp.orbB.y = imp.midY - Math.sin(orbitRot) * orbitR * 0.85;
+            // Flüssige spiralförmige Transition vom Eintrittspunkt in die gekoppelte Umlaufbahn
+            const entryProg = Math.min(1.0, imp.age / 0.30);
+            const smoothEase = entryProg * entryProg * (3.0 - 2.0 * entryProg);
+            const targetOrbitR = 26.0;
+            const curDistA = THREE.MathUtils.lerp(imp.initialDistA, targetOrbitR, smoothEase);
+            const curDistB = THREE.MathUtils.lerp(imp.initialDistB, targetOrbitR, smoothEase);
+            const orbitAngle = imp.initialAngle + imp.age * 3.4;
+
+            imp.orbA.x = imp.midX + Math.cos(orbitAngle) * curDistA;
+            imp.orbA.y = imp.midY + Math.sin(orbitAngle) * curDistA * 0.85;
+            imp.orbB.x = imp.midX - Math.cos(orbitAngle) * curDistB;
+            imp.orbB.y = imp.midY - Math.sin(orbitAngle) * curDistB * 0.85;
 
             // 1. 100 Unfolding Dual-Color FinaleMeshParticles (Filament Threads)
             for (let p = 0; p < imp.particles.length; p++) {
@@ -5224,9 +5239,10 @@ export function SakuraCanvas({
               worldNodeR[nIdx] = pt.color.r;
               worldNodeG[nIdx] = pt.color.g;
               worldNodeB[nIdx] = pt.color.b;
-              worldNodeSize[nIdx] = pt.radius * (0.35 + 0.65 * impAlpha);
+              worldNodeSize[nIdx] = pt.radius * (0.25 + 0.75 * impAlpha);
               worldNodeActivated[nIdx] = 1;
               worldNodeGroup[nIdx] = -(impIdx + 1);
+              worldNodeAlpha[nIdx] = impAlpha;
             }
 
             // 2. Add the 2 Hub Orbs inside the Network
@@ -5245,6 +5261,7 @@ export function SakuraCanvas({
               worldNodeSize[hubIdx] = 44.0 * impAlpha;
               worldNodeActivated[hubIdx] = 1;
               worldNodeGroup[hubIdx] = -(impIdx + 1);
+              worldNodeAlpha[hubIdx] = impAlpha;
             }
 
             // After impulse ends (1s duration): Strong separation impulse separating orbs for the pause
@@ -5269,16 +5286,17 @@ export function SakuraCanvas({
             }
           }
 
-          // Populate Node Buffers
+          // Populate Node Buffers mit fließender Impuls-Alpha-Transition
           for (let k = 0; k < worldNodeCount; k++) {
             const k3 = k * 3;
             nodePositions[k3] = worldNodeX[k];
             nodePositions[k3 + 1] = worldNodeY[k];
             nodePositions[k3 + 2] = worldNodeZ[k];
 
-            nodeColors[k3] = worldNodeR[k];
-            nodeColors[k3 + 1] = worldNodeG[k];
-            nodeColors[k3 + 2] = worldNodeB[k];
+            const aMul = worldNodeAlpha[k] || 1.0;
+            nodeColors[k3] = worldNodeR[k] * aMul;
+            nodeColors[k3 + 1] = worldNodeG[k] * aMul;
+            nodeColors[k3 + 2] = worldNodeB[k] * aMul;
             nodeSizes[k] = worldNodeSize[k];
           }
 
@@ -5293,6 +5311,7 @@ export function SakuraCanvas({
             const x1 = worldNodeX[i], y1 = worldNodeY[i], z1 = worldNodeZ[i];
             const grpA = worldNodeGroup[i];
             const ar = worldNodeR[i], ag = worldNodeG[i], ab = worldNodeB[i];
+            const nodeAlphaA = worldNodeAlpha[i] || 1.0;
 
             for (let j = i + 1; j < worldNodeCount; j++) {
               if (lineVertexIdx >= maxLineVertices) break;
@@ -5327,6 +5346,7 @@ export function SakuraCanvas({
                   nodeLinkCounts[j]++;
 
                   const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.25 * flickerMul);
+                  const effectiveAlpha = lineAlpha * nodeAlphaA;
                   const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
 
                   // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
@@ -5344,7 +5364,7 @@ export function SakuraCanvas({
                   const perpX = (-dy / pLen) * 0.85;
                   const perpY = (dx / pLen) * 0.85;
 
-                  // 1. Center Line
+                  // 1. Center Line (mit flüssiger Ein- und Ausblendung)
                   linePositions[lineVertexIdx++] = x1;
                   linePositions[lineVertexIdx++] = y1;
                   linePositions[lineVertexIdx++] = z1;
@@ -5352,12 +5372,12 @@ export function SakuraCanvas({
                   linePositions[lineVertexIdx++] = y2;
                   linePositions[lineVertexIdx++] = z2;
 
-                  lineColors[lineColorIdx++] = lAr;
-                  lineColors[lineColorIdx++] = lAg;
-                  lineColors[lineColorIdx++] = lAb;
-                  lineColors[lineColorIdx++] = lR2;
-                  lineColors[lineColorIdx++] = lG2;
-                  lineColors[lineColorIdx++] = lB2;
+                  lineColors[lineColorIdx++] = lAr * effectiveAlpha;
+                  lineColors[lineColorIdx++] = lAg * effectiveAlpha;
+                  lineColors[lineColorIdx++] = lAb * effectiveAlpha;
+                  lineColors[lineColorIdx++] = lR2 * effectiveAlpha;
+                  lineColors[lineColorIdx++] = lG2 * effectiveAlpha;
+                  lineColors[lineColorIdx++] = lB2 * effectiveAlpha;
 
                   // 2. Positive Perpendicular Filament
                   if (lineVertexIdx < maxLineVertices) {
@@ -5368,12 +5388,12 @@ export function SakuraCanvas({
                     linePositions[lineVertexIdx++] = y2 + perpY;
                     linePositions[lineVertexIdx++] = z2;
 
-                    lineColors[lineColorIdx++] = lAr * 0.95;
-                    lineColors[lineColorIdx++] = lAg * 0.95;
-                    lineColors[lineColorIdx++] = lAb * 0.95;
-                    lineColors[lineColorIdx++] = lR2 * 0.95;
-                    lineColors[lineColorIdx++] = lG2 * 0.95;
-                    lineColors[lineColorIdx++] = lB2 * 0.95;
+                    lineColors[lineColorIdx++] = lAr * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lAg * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lAb * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lR2 * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lG2 * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lB2 * 0.95 * effectiveAlpha;
                   }
 
                   // 3. Negative Perpendicular Filament
@@ -5385,12 +5405,12 @@ export function SakuraCanvas({
                     linePositions[lineVertexIdx++] = y2 - perpY;
                     linePositions[lineVertexIdx++] = z2;
 
-                    lineColors[lineColorIdx++] = lAr * 0.95;
-                    lineColors[lineColorIdx++] = lAg * 0.95;
-                    lineColors[lineColorIdx++] = lAb * 0.95;
-                    lineColors[lineColorIdx++] = lR2 * 0.95;
-                    lineColors[lineColorIdx++] = lG2 * 0.95;
-                    lineColors[lineColorIdx++] = lB2 * 0.95;
+                    lineColors[lineColorIdx++] = lAr * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lAg * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lAb * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lR2 * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lG2 * 0.95 * effectiveAlpha;
+                    lineColors[lineColorIdx++] = lB2 * 0.95 * effectiveAlpha;
                   }
                 }
               }
