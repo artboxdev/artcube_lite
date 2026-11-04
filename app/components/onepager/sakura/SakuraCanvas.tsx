@@ -692,13 +692,18 @@ const fractalOrbFragmentShader = /* glsl */ `
     
     float edgeAA = smoothstep(0.0, 0.08, facingRatio);
     vec3 finalColor = 0.5 * log(1.0 + volumeColor);
-    finalColor = clamp(finalColor, 0.0, 1.0) * edgeAA;
+    finalColor = clamp(finalColor, 0.0, 1.0);
     
     float maxLuma = max(finalColor.r, max(finalColor.g, finalColor.b));
-    float alpha = clamp(maxLuma * 1.6, 0.0, 1.0) * edgeAA * uAlpha;
+    float minWhite = min(finalColor.r, min(finalColor.g, finalColor.b));
+    // 1:1 from DualSlider: Reduce white component by 70% so the Orb's primary color is deeply saturated and recognizable
+    finalColor = max(vec3(0.0), finalColor - vec3(minWhite * 0.70));
+    finalColor = mix(finalColor * 1.35, uPrimaryColor * maxLuma * 1.35, 0.42) * edgeAA;
+    
+    float alpha = clamp(maxLuma * 1.65, 0.0, 1.0) * edgeAA * uAlpha;
     
     if (alpha < 0.005) discard;
-    gl_FragColor = vec4(finalColor * 1.65, alpha);
+    gl_FragColor = vec4(finalColor, alpha);
   }
 `;
 
@@ -2891,7 +2896,7 @@ export function SakuraCanvas({
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
     lineGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
-    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.NormalBlending, depthWrite: false });
     const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
     plexusSceneGroup.add(plexusLinesMesh);
 
@@ -2925,12 +2930,13 @@ export function SakuraCanvas({
           float starVal = pow(clamp(1.0 - abs(p.x) * 2.0, 0.0, 1.0) * clamp(1.0 - abs(p.y) * 2.0, 0.0, 1.0), 2.5);
           float softCore = exp(-d * d * 14.0);
           float intensity = max(starVal * 2.2, softCore * 1.8);
-          vec3 brightColor = vColor * 1.45 + vec3(0.55) * starVal + vec3(0.35) * softCore;
-          gl_FragColor = vec4(brightColor, clamp(intensity * 1.25 * uAlpha, 0.0, 1.0));
+          // 1:1 from DualSlider: zero white washout, keep saturated color
+          vec3 brightColor = clamp(vColor * 1.15 + vec3(0.04) * starVal, 0.0, 1.0);
+          gl_FragColor = vec4(brightColor, clamp(intensity * 1.15 * uAlpha, 0.0, 1.0));
         }
       `,
       transparent: true,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false
     });
     const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
@@ -2960,46 +2966,34 @@ export function SakuraCanvas({
     plexusFinaleMesh.visible = false;
     plexusSceneGroup.add(plexusFinaleMesh);
 
-    // Subtle Magenta Center Circle Drop Zone Mesh for Finale Trigger
+    // Subtle Magenta Center Circle Drop Zone Mesh for Finale Trigger (durchgezogene, leicht transparente Linie)
     const centerZoneGroup = new THREE.Group();
     centerZoneGroup.visible = false;
     plexusSceneGroup.add(centerZoneGroup);
 
-    const centerRingGeo = new THREE.RingGeometry(82, 88, 64);
+    // Durchgezogene, schlanke Hauptkreis-Linie (Ring mit 2.0 Einheiten Stärke)
+    const centerRingGeo = new THREE.RingGeometry(84.0, 86.0, 96);
     const centerRingMat = new THREE.MeshBasicMaterial({
       color: 0xff2a9d,
       transparent: true,
-      opacity: 0.65,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.40,
       side: THREE.DoubleSide,
       depthWrite: false
     });
     const centerRingMesh = new THREE.Mesh(centerRingGeo, centerRingMat);
     centerZoneGroup.add(centerRingMesh);
 
-    const centerDiscGeo = new THREE.CircleGeometry(82, 64);
+    // Leicht transparenter Innenbereich
+    const centerDiscGeo = new THREE.CircleGeometry(84.0, 64);
     const centerDiscMat = new THREE.MeshBasicMaterial({
       color: 0xff2a9d,
       transparent: true,
-      opacity: 0.08,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.045,
       side: THREE.DoubleSide,
       depthWrite: false
     });
     const centerDiscMesh = new THREE.Mesh(centerDiscGeo, centerDiscMat);
     centerZoneGroup.add(centerDiscMesh);
-
-    const centerAccentGeo = new THREE.RingGeometry(94, 96, 64);
-    const centerAccentMat = new THREE.MeshBasicMaterial({
-      color: 0xff69b4,
-      transparent: true,
-      opacity: 0.35,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-    const centerAccentMesh = new THREE.Mesh(centerAccentGeo, centerAccentMat);
-    centerZoneGroup.add(centerAccentMesh);
 
     // Pre-allocated flat buffers for high-performance zero-GC Plexus updates
     const worldNodeX = new Float32Array(MAX_TOTAL_NODES);
@@ -3171,7 +3165,7 @@ export function SakuraCanvas({
           transparent: true,
           side: THREE.DoubleSide,
           depthWrite: false,
-          blending: THREE.AdditiveBlending
+          blending: THREE.NormalBlending
         });
         this.mesh = new THREE.Mesh(geom, this.material);
         this.mesh.position.set(this.x, this.y, this.z);
@@ -3183,7 +3177,7 @@ export function SakuraCanvas({
           fragmentShader: atmosphereFragmentShader,
           uniforms: {
             uColor: { value: new THREE.Color(preset.primary) },
-            uGlow: { value: preset.atmosphereGlow },
+            uGlow: { value: preset.atmosphereGlow * 0.85 },
             uLevel: { value: preset.atmosphereLevel },
             uAlpha: { value: 0.0 }
           },
@@ -3196,17 +3190,18 @@ export function SakuraCanvas({
         this.atmosphereMesh.scale.set(preset.atmosphereScale, preset.atmosphereScale, preset.atmosphereScale);
         this.mesh.add(this.atmosphereMesh);
 
-        // Shining Starburst Sprite Flare
+        // Shining Starburst Sprite Flare (1:1 from DualSlider, 70% less white washout)
         const starTex = generateStarCrossTexture(this.config.uiColor || preset.primary);
         const spriteMat = new THREE.SpriteMaterial({
           map: starTex,
           color: 0xffffff,
           transparent: true,
+          opacity: 0.55,
           blending: THREE.AdditiveBlending,
           depthWrite: false
         });
         this.starSprite = new THREE.Sprite(spriteMat);
-        this.starSprite.scale.set(48, 48, 1);
+        this.starSprite.scale.set(34, 34, 1);
         this.starSprite.visible = false;
         this.mesh.add(this.starSprite);
 
@@ -3249,7 +3244,7 @@ export function SakuraCanvas({
         this.trailRibbonGeo.setAttribute('uv', new THREE.BufferAttribute(ribbonUvs, 2));
         this.trailRibbonGeo.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
 
-        const rgbList = PALETTE_RGB_CACHE[this.id];
+        const rgbList = SATURATED_PLEXUS_PALETTES[this.id];
         const orbRgb = rgbList[0];
 
         this.trailRibbonMat = new THREE.ShaderMaterial({
@@ -3590,7 +3585,7 @@ export function SakuraCanvas({
         const layerRadius = 38.0 + (tier - 1) * 14.0;
         const speedMul = 1.0 + (tier % 2 === 0 ? 0.35 : -0.25);
 
-        const rgbList = PALETTE_RGB_CACHE[this.id];
+        const rgbList = SATURATED_PLEXUS_PALETTES[this.id];
 
         cluster.nodes.forEach((cn, i) => {
           const angle = (i / cluster.nodes.length) * Math.PI * 2 + Math.random() * 0.4;
@@ -4281,7 +4276,7 @@ export function SakuraCanvas({
             const orb = floatingPlexusOrbs[i];
             const dx = orb.x - draggedPlexusCluster.centerX;
             const dy = orb.y - draggedPlexusCluster.centerY;
-            if (Math.hypot(dx, dy) < 80.0) {
+            if (Math.hypot(dx, dy) < 50.0) {
               orb.triggerHoverWobble();
             }
           }
@@ -4436,8 +4431,10 @@ export function SakuraCanvas({
           hasActivelyDraggedOrb = false;
           checkPlexusFinaleTrigger(true);
         } else if (draggedPlexusCluster) {
+          // Die Nutzer müssen die Plexus aktiv zu den Orbs schieben damit sie andocken.
+          // Von selbst docken die Plexus nicht an: Schwellenwert auf Orb-Kontakt (50.0 Units) begrenzt.
           let dockedOrb: FloatingPlexusOrbInstance | null = null;
-          let minDist = 120.0;
+          let minDist = 50.0;
 
           for (let i = 0; i < floatingPlexusOrbs.length; i++) {
             const orb = floatingPlexusOrbs[i];
@@ -4477,22 +4474,23 @@ export function SakuraCanvas({
                 : `🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${totalAttachedPlexusCount}/6 angedockt)`
             );
           }
+          // Wenn dist >= 50.0: Der Cluster bleibt an der abgesetzten Position frei im Raum schweben und dockt NICHT an!
         } else {
-          if (plexusHoldTime >= 1.5) {
-            const newCluster = createDriftingPlexusCluster(plexusOriginX, plexusOriginY, 0.0, activeHoldNodes);
-            const createMsg = {
-              id: newCluster.id,
-              x: plexusOriginX,
-              y: plexusOriginY,
-              z: 0.0,
-              driftX: newCluster.driftX,
-              driftY: newCluster.driftY,
-              driftZ: newCluster.driftZ,
-              nodes: activeHoldNodes
-            };
-            sendInteractionRef.current?.('PLEXUS_CLUSTER_CREATE', createMsg);
-            channelRef.current?.postMessage({ type: 'PLEXUS_CLUSTER_CREATE', ...createMsg });
-          }
+          // Klick / Tap in den freien Raum erzeugt einen neuen freien Plexus-Cluster
+          const nodesToSpawn = activeHoldNodes.length > 0 ? activeHoldNodes : generateRandomPlexusHoldNodes();
+          const newCluster = createDriftingPlexusCluster(plexusOriginX, plexusOriginY, 0.0, nodesToSpawn);
+          const createMsg = {
+            id: newCluster.id,
+            x: plexusOriginX,
+            y: plexusOriginY,
+            z: 0.0,
+            driftX: newCluster.driftX,
+            driftY: newCluster.driftY,
+            driftZ: newCluster.driftZ,
+            nodes: nodesToSpawn
+          };
+          sendInteractionRef.current?.('PLEXUS_CLUSTER_CREATE', createMsg);
+          channelRef.current?.postMessage({ type: 'PLEXUS_CLUSTER_CREATE', ...createMsg });
         }
       }
       isMouseDown = false;
@@ -5042,11 +5040,10 @@ export function SakuraCanvas({
 
         centerZoneGroup.visible = isCenterDropZoneActive;
         if (isCenterDropZoneActive) {
-          const pulse = 0.55 + Math.sin(totalAnimTime * 3.2) * 0.25;
+          // Durchgezogene, leicht transparente magentafarbene Kreislinie mit sanftem Glow-Puls
+          const pulse = 0.35 + Math.sin(totalAnimTime * 2.8) * 0.12;
           centerRingMat.opacity = pulse * modeFadeAlpha;
-          centerDiscMat.opacity = (0.07 + Math.sin(totalAnimTime * 3.2) * 0.03) * modeFadeAlpha;
-          centerAccentMat.opacity = (0.28 + Math.cos(totalAnimTime * 2.5) * 0.15) * modeFadeAlpha;
-          centerAccentMesh.rotation.z = totalAnimTime * 0.15;
+          centerDiscMat.opacity = (0.04 + Math.sin(totalAnimTime * 2.8) * 0.015) * modeFadeAlpha;
         }
 
         if (activeModeRef.current === 'plexus' && !isPlexusFinaleActive && !isPlexusCompleted) {
@@ -5235,9 +5232,9 @@ export function SakuraCanvas({
             nodePositions[k3 + 1] = worldNodeY[k];
             nodePositions[k3 + 2] = worldNodeZ[k];
 
-            nodeColors[k3] = Math.min(1.0, worldNodeR[k] * 1.6);
-            nodeColors[k3 + 1] = Math.min(1.0, worldNodeG[k] * 1.6);
-            nodeColors[k3 + 2] = Math.min(1.0, worldNodeB[k] * 1.6);
+            nodeColors[k3] = worldNodeR[k];
+            nodeColors[k3 + 1] = worldNodeG[k];
+            nodeColors[k3 + 2] = worldNodeB[k];
             nodeSizes[k] = worldNodeSize[k];
           }
 
@@ -5534,14 +5531,14 @@ export function SakuraCanvas({
               linePositions[lineVertexIdx++] = worldNodeY[j];
               linePositions[lineVertexIdx++] = worldNodeZ[j];
 
-              const effAlpha = Math.pow(alpha, 0.72) * 1.35;
-              lineColors[lineColorIdx++] = Math.min(1.0, ar * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, ag * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, ab * effAlpha);
+              const effAlpha = Math.pow(alpha, 0.72) * 1.15;
+              lineColors[lineColorIdx++] = ar * effAlpha;
+              lineColors[lineColorIdx++] = ag * effAlpha;
+              lineColors[lineColorIdx++] = ab * effAlpha;
 
-              lineColors[lineColorIdx++] = Math.min(1.0, worldNodeR[j] * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, worldNodeG[j] * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, worldNodeB[j] * effAlpha);
+              lineColors[lineColorIdx++] = worldNodeR[j] * effAlpha;
+              lineColors[lineColorIdx++] = worldNodeG[j] * effAlpha;
+              lineColors[lineColorIdx++] = worldNodeB[j] * effAlpha;
             }
           }
 
