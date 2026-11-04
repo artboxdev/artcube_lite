@@ -267,6 +267,8 @@ const bgFragmentShader = /* glsl */ `
 
     float vignetteVal = max(0.0, 70.0 * uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y));
     col *= (0.80 * (0.70 + 0.65 * sqrt(vignetteVal))) * uBgDim;
+    // Hintergrundhelligkeit um 10% reduziert
+    col *= 0.90;
     
     gl_FragColor = vec4(col, 1.0);
   }
@@ -2896,8 +2898,9 @@ export function SakuraCanvas({
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
     lineGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
-    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.NormalBlending, depthWrite: false });
     const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
+    plexusLinesMesh.renderOrder = 1;
     plexusSceneGroup.add(plexusLinesMesh);
 
     const nodeGeo = new THREE.BufferGeometry();
@@ -2940,6 +2943,7 @@ export function SakuraCanvas({
       depthWrite: false
     });
     const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
+    plexusPointsMesh.renderOrder = 2;
     plexusSceneGroup.add(plexusPointsMesh);
 
     // Plexus Finale Shader Mesh (The Universe Within multi-layer network)
@@ -3180,6 +3184,7 @@ export function SakuraCanvas({
           blending: THREE.NormalBlending
         });
         this.mesh = new THREE.Mesh(geom, this.material);
+        this.mesh.renderOrder = 0; // Dauerhaft ebenentechnisch hinter den angedockten Plexus (Linien=1, Punkte=2)
         this.mesh.position.set(this.x, this.y, this.z);
         this.mesh.visible = false;
 
@@ -3199,6 +3204,7 @@ export function SakuraCanvas({
           blending: THREE.AdditiveBlending
         });
         this.atmosphereMesh = new THREE.Mesh(geom, this.atmosphereMaterial);
+        this.atmosphereMesh.renderOrder = 0;
         this.atmosphereMesh.scale.set(preset.atmosphereScale, preset.atmosphereScale, preset.atmosphereScale);
         this.mesh.add(this.atmosphereMesh);
 
@@ -3364,6 +3370,17 @@ export function SakuraCanvas({
         }
 
         if (isFinale) {
+          // Orbs ohne angedockte Plexus werden in der finalen Animation komplett ausgeblendet
+          if (this.attachedPlexusCount === 0) {
+            this.mesh.visible = false;
+            this.atmosphereMesh.visible = false;
+            if (this.starSprite) this.starSprite.visible = false;
+            if (this.trailRibbonMesh) this.trailRibbonMesh.visible = false;
+            this.material.uniforms.uAlpha.value = 0.0;
+            this.atmosphereMaterial.uniforms.uAlpha.value = 0.0;
+            return;
+          }
+
           if (!this.hasCapturedPreFinale) {
             this.preFinaleOrbitAngle = this.orbitAngle;
             this.hasCapturedPreFinale = true;
@@ -5065,22 +5082,29 @@ export function SakuraCanvas({
           plexusPointsMesh.visible = true;
 
           // 3 Scheduled Encounter Rounds across 10 seconds:
-          // Round 0 (t >= 0.2s): Pairs (0, 1) & (2, 3)
-          // Round 1 (t >= 3.4s): Pairs (0, 2) & (1, 3)
-          // Round 2 (t >= 6.6s): Pairs (0, 3) & (1, 2)
-          const FINALE_ROUNDS = [
-            { startSeek: 0.2, pairs: [[0, 1], [2, 3]] },
-            { startSeek: 3.4, pairs: [[0, 2], [1, 3]] },
-            { startSeek: 6.6, pairs: [[0, 3], [1, 2]] }
-          ];
+          // Nur Orbs mit tatsächlich angedockten Plexus (attachedPlexusCount > 0) werden einbezogen!
+          const activeDockedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
+          const roundStartSeeks = [0.2, 3.4, 6.6];
 
-          for (let r = 0; r < FINALE_ROUNDS.length; r++) {
-            const fRound = FINALE_ROUNDS[r];
-            if (finaleAge >= fRound.startSeek && finaleAge < fRound.startSeek + 3.1) {
-              fRound.pairs.forEach(([idxA, idxB]) => {
-                const orbA = floatingPlexusOrbs[idxA];
-                const orbB = floatingPlexusOrbs[idxB];
+          for (let r = 0; r < roundStartSeeks.length; r++) {
+            const startSeek = roundStartSeeks[r];
+            if (finaleAge >= startSeek && finaleAge < startSeek + 3.1) {
+              const roundPairs: [FloatingPlexusOrbInstance, FloatingPlexusOrbInstance][] = [];
+              if (activeDockedOrbs.length === 2) {
+                roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
+              } else if (activeDockedOrbs.length === 3) {
+                if (r === 0) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
+                else if (r === 1) roundPairs.push([activeDockedOrbs[1], activeDockedOrbs[2]]);
+                else if (r === 2) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[2]]);
+              } else if (activeDockedOrbs.length >= 4) {
+                if (r === 0) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]], [activeDockedOrbs[2], activeDockedOrbs[3]]);
+                else if (r === 1) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[2]], [activeDockedOrbs[1], activeDockedOrbs[3]]);
+                else if (r === 2) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[3]], [activeDockedOrbs[1], activeDockedOrbs[2]]);
+              }
+
+              roundPairs.forEach(([orbA, orbB]) => {
                 if (!orbA || !orbB) return;
+                if (orbA.attachedPlexusCount === 0 || orbB.attachedPlexusCount === 0) return;
 
                 const alreadyInImpulse = activeImpulses.some(
                   imp => (imp.orbA === orbA || imp.orbB === orbA || imp.orbA === orbB || imp.orbB === orbB)
@@ -5294,16 +5318,16 @@ export function SakuraCanvas({
                   const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.25 * flickerMul);
                   const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
 
-                  // 70% reduzierter Weißanteil für Linien im Netzwerk
+                  // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
                   const minWhiteA = Math.min(ar, Math.min(ag, ab));
-                  const lAr = Math.max(0.0, ar - minWhiteA * 0.70);
-                  const lAg = Math.max(0.0, ag - minWhiteA * 0.70);
-                  const lAb = Math.max(0.0, ab - minWhiteA * 0.70);
+                  const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
+                  const lAg = Math.max(0.0, ag - minWhiteA * 0.85);
+                  const lAb = Math.max(0.0, ab - minWhiteA * 0.85);
 
                   const minWhiteB = Math.min(r2, Math.min(g2, b2));
-                  const lR2 = Math.max(0.0, r2 - minWhiteB * 0.70);
-                  const lG2 = Math.max(0.0, g2 - minWhiteB * 0.70);
-                  const lB2 = Math.max(0.0, b2 - minWhiteB * 0.70);
+                  const lR2 = Math.max(0.0, r2 - minWhiteB * 0.85);
+                  const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
+                  const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
 
                   const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
                   const perpX = (-dy / pLen) * 0.85;
@@ -5552,17 +5576,17 @@ export function SakuraCanvas({
               linePositions[lineVertexIdx++] = worldNodeZ[j];
 
               const effAlpha = Math.pow(alpha, 0.72) * 1.15;
-              // 70% reduzierter Weißanteil für Linien im Netzwerk
+              // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
               const minWhiteA = Math.min(ar, Math.min(ag, ab));
-              const lAr = Math.max(0.0, ar - minWhiteA * 0.70);
-              const lAg = Math.max(0.0, ag - minWhiteA * 0.70);
-              const lAb = Math.max(0.0, ab - minWhiteA * 0.70);
+              const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
+              const lAg = Math.max(0.0, ag - minWhiteA * 0.85);
+              const lAb = Math.max(0.0, ab - minWhiteA * 0.85);
 
               const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
               const minWhiteB = Math.min(r2, Math.min(g2, b2));
-              const lR2 = Math.max(0.0, r2 - minWhiteB * 0.70);
-              const lG2 = Math.max(0.0, g2 - minWhiteB * 0.70);
-              const lB2 = Math.max(0.0, b2 - minWhiteB * 0.70);
+              const lR2 = Math.max(0.0, r2 - minWhiteB * 0.85);
+              const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
+              const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
 
               lineColors[lineColorIdx++] = lAr * effAlpha;
               lineColors[lineColorIdx++] = lAg * effAlpha;
