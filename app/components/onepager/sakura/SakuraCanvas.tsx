@@ -557,7 +557,8 @@ const fractalOrbVertexShader = /* glsl */ `
     vLocalPosition = position;
     vNormal = normalize(normalMatrix * normal);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vViewPosition = -mvPosition.xyz;
+    vec4 mvCenter = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vViewPosition = vec3(mvCenter.xy - mvPosition.xy, -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -696,11 +697,11 @@ const fractalOrbFragmentShader = /* glsl */ `
     
     float maxLuma = max(finalColor.r, max(finalColor.g, finalColor.b));
     float minWhite = min(finalColor.r, min(finalColor.g, finalColor.b));
-    // Red orb white removal: additional 50% white reduction (0.92 vs 0.70) and boosted primary saturation
-    float isRedOrb = (uPrimaryColor.r > 0.8 && uPrimaryColor.g < 0.2) ? 1.0 : 0.0;
-    float whiteSubFactor = mix(0.70, 0.92, isRedOrb);
+    // Red orb white removal: additional 50% white reduction and boosted primary saturation (ensuring pink b > 0.35 is not affected)
+    float isRedOrb = (uPrimaryColor.r > 0.8 && uPrimaryColor.g < 0.15 && uPrimaryColor.b < 0.2) ? 1.0 : 0.0;
+    float whiteSubFactor = mix(0.70, 0.90, isRedOrb);
     finalColor = max(vec3(0.0), finalColor - vec3(minWhite * whiteSubFactor));
-    float mixWeight = mix(0.42, 0.65, isRedOrb);
+    float mixWeight = mix(0.42, 0.60, isRedOrb);
     finalColor = mix(finalColor * 1.35, uPrimaryColor * maxLuma * 1.35, mixWeight) * edgeAA;
     
     float alpha = clamp(maxLuma * 1.65, 0.0, 1.0) * edgeAA * uAlpha;
@@ -716,7 +717,8 @@ const atmosphereVertexShader = /* glsl */ `
   void main() {
     vNormal = normalize(normalMatrix * normal);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vViewPosition = -mvPosition.xyz;
+    vec4 mvCenter = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vViewPosition = vec3(mvCenter.xy - mvPosition.xy, -mvPosition.z);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -2923,11 +2925,39 @@ export function SakuraCanvas({
     trailPointsMesh.renderOrder = 1;
     plexusSceneGroup.add(trailPointsMesh);
 
-    // 4. Plexus Mesh
+    // 4. Plexus Mesh (1:1 ShaderMaterial with distance-based alpha from DualSlider)
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
     lineGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
-    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.NormalBlending, depthWrite: false });
+    lineGeo.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 2), 1));
+    const lineMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uAlpha: { value: 1.0 }
+      },
+      vertexShader: /* glsl */ `
+        attribute vec3 color;
+        attribute float alpha;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          vColor = color;
+          vAlpha = alpha;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uAlpha;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          if (vAlpha < 0.01) discard;
+          gl_FragColor = vec4(vColor, clamp(vAlpha * uAlpha, 0.0, 1.0));
+        }
+      `,
+      transparent: true,
+      blending: THREE.NormalBlending,
+      depthWrite: false
+    });
     const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
     plexusLinesMesh.renderOrder = 2;
     plexusSceneGroup.add(plexusLinesMesh);
@@ -3093,7 +3123,7 @@ export function SakuraCanvas({
       speed: number;
       phase: number;
     }[] = [
-        { id: 'pink', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
+        { id: 'red', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
         { id: 'blue', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
         { id: 'yellow', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
         { id: 'green', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 },
@@ -3385,13 +3415,6 @@ export function SakuraCanvas({
         // Smooth 3D tumbling rotation of volumetric orb
         this.mesh.rotation.y += delta * 0.55;
         this.mesh.rotation.x += delta * 0.28;
-        this.mesh.updateMatrixWorld();
-
-        if (camera) {
-          const localCam = camera.position.clone();
-          this.mesh.worldToLocal(localCam);
-          this.material.uniforms.uLocalCamPos.value.copy(localCam);
-        }
 
         if (isFinale) {
           const hasPlexus = this.attachedPlexusCount > 0;
@@ -3540,6 +3563,7 @@ export function SakuraCanvas({
           this.material.uniforms.uAlpha.value = 0.95 * modeFadeAlpha;
           this.atmosphereMaterial.uniforms.uAlpha.value = this.preset.atmosphereGlow * modeFadeAlpha;
           this.mesh.visible = (activeModeRef.current === 'plexus' && modeFadeAlpha > 0.001);
+          this.atmosphereMesh.visible = this.mesh.visible;
 
           if (this.isDragged) {
             this.x = this.dragTargetX;
@@ -3611,6 +3635,16 @@ export function SakuraCanvas({
 
         this.mesh.scale.set(scaleX, scaleY, scaleZ);
         this.mesh.position.set(this.x + wobbleDispX, this.y + wobbleDispY, this.z);
+        this.mesh.updateMatrixWorld();
+
+        // Always compute raymarch camera directly in front of the Orb along +Z so it never distorts at the right edge
+        const localCam = new THREE.Vector3(
+          this.mesh.position.x,
+          this.mesh.position.y,
+          this.mesh.position.z + 150.0
+        );
+        this.mesh.worldToLocal(localCam);
+        this.material.uniforms.uLocalCamPos.value.copy(localCam);
 
         // Update dock impulse shockwave ring
         if (this.impulseTimer < 0.85) {
@@ -5078,16 +5112,18 @@ export function SakuraCanvas({
         // ==========================================
         // PLEXUS ENGINE UPDATE LOOP
         // ==========================================
-        if (plexusLinesMesh && plexusLinesMesh.material) {
-          (plexusLinesMesh.material as THREE.LineBasicMaterial).opacity = 0.85 * modeFadeAlpha;
+        if (plexusLinesMesh && plexusLinesMesh.material && (plexusLinesMesh.material as THREE.ShaderMaterial).uniforms?.uAlpha) {
+          (plexusLinesMesh.material as THREE.ShaderMaterial).uniforms.uAlpha.value = 0.85 * modeFadeAlpha;
         }
         if (plexusPointsMesh && plexusPointsMesh.material && (plexusPointsMesh.material as THREE.ShaderMaterial).uniforms?.uAlpha) {
           (plexusPointsMesh.material as THREE.ShaderMaterial).uniforms.uAlpha.value = modeFadeAlpha;
         }
         const linePosAttr = plexusLinesMesh.geometry.attributes.position;
         const lineColAttr = plexusLinesMesh.geometry.attributes.color;
+        const lineAlphaAttr = plexusLinesMesh.geometry.attributes.alpha;
         const linePositions = linePosAttr.array as Float32Array;
         const lineColors = lineColAttr.array as Float32Array;
+        const lineAlphas = lineAlphaAttr.array as Float32Array;
 
         const nodePosAttr = plexusPointsMesh.geometry.attributes.position;
         const nodeColAttr = plexusPointsMesh.geometry.attributes.color;
@@ -5412,6 +5448,7 @@ export function SakuraCanvas({
           // Populate GPU Line Buffers with DualSlider 1:1 Flickering Network (3 Filaments + 14Hz/25Hz noise)
           let lineVertexIdx = 0;
           let lineColorIdx = 0;
+          let lineAlphaIdx = 0;
           const maxLineVertices = linePositions.length - 18;
           const nodeLinkCounts = new Uint8Array(worldNodeCount);
 
@@ -5475,6 +5512,9 @@ export function SakuraCanvas({
                   lineColors[lineColorIdx++] = g2;
                   lineColors[lineColorIdx++] = b2;
 
+                  lineAlphas[lineAlphaIdx++] = lineAlpha;
+                  lineAlphas[lineAlphaIdx++] = lineAlpha;
+
                   // 2. Positive Perpendicular Filament
                   if (lineVertexIdx < maxLineVertices) {
                     linePositions[lineVertexIdx++] = x1 + perpX;
@@ -5490,6 +5530,9 @@ export function SakuraCanvas({
                     lineColors[lineColorIdx++] = r2 * 0.95;
                     lineColors[lineColorIdx++] = g2 * 0.95;
                     lineColors[lineColorIdx++] = b2 * 0.95;
+
+                    lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
+                    lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
                   }
 
                   // 3. Negative Perpendicular Filament
@@ -5507,6 +5550,9 @@ export function SakuraCanvas({
                     lineColors[lineColorIdx++] = r2 * 0.95;
                     lineColors[lineColorIdx++] = g2 * 0.95;
                     lineColors[lineColorIdx++] = b2 * 0.95;
+
+                    lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
+                    lineAlphas[lineAlphaIdx++] = lineAlpha * 0.78;
                   }
                 }
               }
@@ -5533,9 +5579,13 @@ export function SakuraCanvas({
             linePositions[k] = 0;
             lineColors[k] = 0;
           }
+          for (let k = lineAlphaIdx; k < lineAlphas.length; k++) {
+            lineAlphas[k] = 0;
+          }
 
           linePosAttr.needsUpdate = true;
           lineColAttr.needsUpdate = true;
+          lineAlphaAttr.needsUpdate = true;
           nodePosAttr.needsUpdate = true;
           nodeColAttr.needsUpdate = true;
           nodeSizeAttr.needsUpdate = true;
@@ -5659,6 +5709,7 @@ export function SakuraCanvas({
           // Render Dynamic Lines Between Connected Nodes
           let lineVertexIdx = 0;
           let lineColorIdx = 0;
+          let lineAlphaIdx = 0;
           const maxLineVertices = linePositions.length - 6;
           nodeConnCounts.fill(0, 0, worldNodeCount);
 
@@ -5702,14 +5753,17 @@ export function SakuraCanvas({
               linePositions[lineVertexIdx++] = worldNodeY[j];
               linePositions[lineVertexIdx++] = worldNodeZ[j];
 
-              const effAlpha = Math.pow(alpha, 0.72) * 1.15;
-              lineColors[lineColorIdx++] = ar * effAlpha;
-              lineColors[lineColorIdx++] = ag * effAlpha;
-              lineColors[lineColorIdx++] = ab * effAlpha;
+              const effAlpha = Math.min(0.92, Math.pow(alpha, 0.72) * 1.15);
+              lineColors[lineColorIdx++] = ar;
+              lineColors[lineColorIdx++] = ag;
+              lineColors[lineColorIdx++] = ab;
 
-              lineColors[lineColorIdx++] = worldNodeR[j] * effAlpha;
-              lineColors[lineColorIdx++] = worldNodeG[j] * effAlpha;
-              lineColors[lineColorIdx++] = worldNodeB[j] * effAlpha;
+              lineColors[lineColorIdx++] = worldNodeR[j];
+              lineColors[lineColorIdx++] = worldNodeG[j];
+              lineColors[lineColorIdx++] = worldNodeB[j];
+
+              lineAlphas[lineAlphaIdx++] = effAlpha;
+              lineAlphas[lineAlphaIdx++] = effAlpha;
             }
           }
 
@@ -5733,9 +5787,13 @@ export function SakuraCanvas({
             linePositions[k] = 0;
             lineColors[k] = 0;
           }
+          for (let k = lineAlphaIdx; k < lineAlphas.length; k++) {
+            lineAlphas[k] = 0;
+          }
 
           linePosAttr.needsUpdate = true;
           lineColAttr.needsUpdate = true;
+          lineAlphaAttr.needsUpdate = true;
           nodePosAttr.needsUpdate = true;
           nodeColAttr.needsUpdate = true;
           nodeSizeAttr.needsUpdate = true;
