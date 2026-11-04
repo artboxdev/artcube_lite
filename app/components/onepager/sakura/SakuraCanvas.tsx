@@ -692,13 +692,18 @@ const fractalOrbFragmentShader = /* glsl */ `
     
     float edgeAA = smoothstep(0.0, 0.08, facingRatio);
     vec3 finalColor = 0.5 * log(1.0 + volumeColor);
-    finalColor = clamp(finalColor, 0.0, 1.0) * edgeAA;
+    finalColor = clamp(finalColor, 0.0, 1.0);
     
     float maxLuma = max(finalColor.r, max(finalColor.g, finalColor.b));
-    float alpha = clamp(maxLuma * 1.6, 0.0, 1.0) * edgeAA * uAlpha;
+    float minWhite = min(finalColor.r, min(finalColor.g, finalColor.b));
+    // 70% reduzierte Weißanteile: Entzieht dem Orb das überblendete Weiß und verstärkt die Sättigung
+    finalColor = max(vec3(0.0), finalColor - vec3(minWhite * 0.70));
+    finalColor = mix(finalColor * 1.35, uPrimaryColor * maxLuma * 1.35, 0.42) * edgeAA;
+    
+    float alpha = clamp(maxLuma * 1.65, 0.0, 1.0) * edgeAA * uAlpha;
     
     if (alpha < 0.005) discard;
-    gl_FragColor = vec4(finalColor * 1.65, alpha);
+    gl_FragColor = vec4(finalColor, alpha);
   }
 `;
 
@@ -2925,7 +2930,9 @@ export function SakuraCanvas({
           float starVal = pow(clamp(1.0 - abs(p.x) * 2.0, 0.0, 1.0) * clamp(1.0 - abs(p.y) * 2.0, 0.0, 1.0), 2.5);
           float softCore = exp(-d * d * 14.0);
           float intensity = max(starVal * 2.2, softCore * 1.8);
-          vec3 brightColor = vColor * 1.45 + vec3(0.55) * starVal + vec3(0.35) * softCore;
+          // 70% reduzierter Weißanteil (nur 30% verbleibend für dezenten Glanz statt Weiß-Washout)
+          vec3 whiteCore = (vec3(0.55) * starVal + vec3(0.35) * softCore) * 0.30;
+          vec3 brightColor = vColor * 1.35 + whiteCore;
           gl_FragColor = vec4(brightColor, clamp(intensity * 1.25 * uAlpha, 0.0, 1.0));
         }
       `,
@@ -3063,7 +3070,7 @@ export function SakuraCanvas({
       speed: number;
       phase: number;
     }[] = [
-        { id: 'pink', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
+        { id: 'red', homeX: -160, homeY: 85, orbitRx: 42, orbitRy: 28, speed: 0.35, phase: 0.0 },
         { id: 'blue', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
         { id: 'yellow', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
         { id: 'green', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 },
@@ -3249,7 +3256,7 @@ export function SakuraCanvas({
         this.trailRibbonGeo.setAttribute('uv', new THREE.BufferAttribute(ribbonUvs, 2));
         this.trailRibbonGeo.setIndex(new THREE.BufferAttribute(ribbonIndices, 1));
 
-        const rgbList = PALETTE_RGB_CACHE[this.id];
+        const rgbList = SATURATED_PLEXUS_PALETTES[this.id] || PALETTE_RGB_CACHE[this.id];
         const orbRgb = rgbList[0];
 
         this.trailRibbonMat = new THREE.ShaderMaterial({
@@ -3590,7 +3597,7 @@ export function SakuraCanvas({
         const layerRadius = 38.0 + (tier - 1) * 14.0;
         const speedMul = 1.0 + (tier % 2 === 0 ? 0.35 : -0.25);
 
-        const rgbList = PALETTE_RGB_CACHE[this.id];
+        const rgbList = SATURATED_PLEXUS_PALETTES[this.id] || PALETTE_RGB_CACHE[this.id];
 
         cluster.nodes.forEach((cn, i) => {
           const angle = (i / cluster.nodes.length) * Math.PI * 2 + Math.random() * 0.4;
@@ -5235,9 +5242,9 @@ export function SakuraCanvas({
             nodePositions[k3 + 1] = worldNodeY[k];
             nodePositions[k3 + 2] = worldNodeZ[k];
 
-            nodeColors[k3] = Math.min(1.0, worldNodeR[k] * 1.6);
-            nodeColors[k3 + 1] = Math.min(1.0, worldNodeG[k] * 1.6);
-            nodeColors[k3 + 2] = Math.min(1.0, worldNodeB[k] * 1.6);
+            nodeColors[k3] = worldNodeR[k];
+            nodeColors[k3 + 1] = worldNodeG[k];
+            nodeColors[k3 + 2] = worldNodeB[k];
             nodeSizes[k] = worldNodeSize[k];
           }
 
@@ -5288,6 +5295,17 @@ export function SakuraCanvas({
                   const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.25 * flickerMul);
                   const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
 
+                  // 70% reduzierter Weißanteil für Linien im Netzwerk
+                  const minWhiteA = Math.min(ar, Math.min(ag, ab));
+                  const lAr = Math.max(0.0, ar - minWhiteA * 0.70);
+                  const lAg = Math.max(0.0, ag - minWhiteA * 0.70);
+                  const lAb = Math.max(0.0, ab - minWhiteA * 0.70);
+
+                  const minWhiteB = Math.min(r2, Math.min(g2, b2));
+                  const lR2 = Math.max(0.0, r2 - minWhiteB * 0.70);
+                  const lG2 = Math.max(0.0, g2 - minWhiteB * 0.70);
+                  const lB2 = Math.max(0.0, b2 - minWhiteB * 0.70);
+
                   const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
                   const perpX = (-dy / pLen) * 0.85;
                   const perpY = (dx / pLen) * 0.85;
@@ -5300,12 +5318,12 @@ export function SakuraCanvas({
                   linePositions[lineVertexIdx++] = y2;
                   linePositions[lineVertexIdx++] = z2;
 
-                  lineColors[lineColorIdx++] = ar;
-                  lineColors[lineColorIdx++] = ag;
-                  lineColors[lineColorIdx++] = ab;
-                  lineColors[lineColorIdx++] = r2;
-                  lineColors[lineColorIdx++] = g2;
-                  lineColors[lineColorIdx++] = b2;
+                  lineColors[lineColorIdx++] = lAr;
+                  lineColors[lineColorIdx++] = lAg;
+                  lineColors[lineColorIdx++] = lAb;
+                  lineColors[lineColorIdx++] = lR2;
+                  lineColors[lineColorIdx++] = lG2;
+                  lineColors[lineColorIdx++] = lB2;
 
                   // 2. Positive Perpendicular Filament
                   if (lineVertexIdx < maxLineVertices) {
@@ -5316,12 +5334,12 @@ export function SakuraCanvas({
                     linePositions[lineVertexIdx++] = y2 + perpY;
                     linePositions[lineVertexIdx++] = z2;
 
-                    lineColors[lineColorIdx++] = ar * 0.95;
-                    lineColors[lineColorIdx++] = ag * 0.95;
-                    lineColors[lineColorIdx++] = ab * 0.95;
-                    lineColors[lineColorIdx++] = r2 * 0.95;
-                    lineColors[lineColorIdx++] = g2 * 0.95;
-                    lineColors[lineColorIdx++] = b2 * 0.95;
+                    lineColors[lineColorIdx++] = lAr * 0.95;
+                    lineColors[lineColorIdx++] = lAg * 0.95;
+                    lineColors[lineColorIdx++] = lAb * 0.95;
+                    lineColors[lineColorIdx++] = lR2 * 0.95;
+                    lineColors[lineColorIdx++] = lG2 * 0.95;
+                    lineColors[lineColorIdx++] = lB2 * 0.95;
                   }
 
                   // 3. Negative Perpendicular Filament
@@ -5333,12 +5351,12 @@ export function SakuraCanvas({
                     linePositions[lineVertexIdx++] = y2 - perpY;
                     linePositions[lineVertexIdx++] = z2;
 
-                    lineColors[lineColorIdx++] = ar * 0.95;
-                    lineColors[lineColorIdx++] = ag * 0.95;
-                    lineColors[lineColorIdx++] = ab * 0.95;
-                    lineColors[lineColorIdx++] = r2 * 0.95;
-                    lineColors[lineColorIdx++] = g2 * 0.95;
-                    lineColors[lineColorIdx++] = b2 * 0.95;
+                    lineColors[lineColorIdx++] = lAr * 0.95;
+                    lineColors[lineColorIdx++] = lAg * 0.95;
+                    lineColors[lineColorIdx++] = lAb * 0.95;
+                    lineColors[lineColorIdx++] = lR2 * 0.95;
+                    lineColors[lineColorIdx++] = lG2 * 0.95;
+                    lineColors[lineColorIdx++] = lB2 * 0.95;
                   }
                 }
               }
@@ -5534,14 +5552,26 @@ export function SakuraCanvas({
               linePositions[lineVertexIdx++] = worldNodeY[j];
               linePositions[lineVertexIdx++] = worldNodeZ[j];
 
-              const effAlpha = Math.pow(alpha, 0.72) * 1.35;
-              lineColors[lineColorIdx++] = Math.min(1.0, ar * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, ag * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, ab * effAlpha);
+              const effAlpha = Math.pow(alpha, 0.72) * 1.15;
+              // 70% reduzierter Weißanteil für Linien im Netzwerk
+              const minWhiteA = Math.min(ar, Math.min(ag, ab));
+              const lAr = Math.max(0.0, ar - minWhiteA * 0.70);
+              const lAg = Math.max(0.0, ag - minWhiteA * 0.70);
+              const lAb = Math.max(0.0, ab - minWhiteA * 0.70);
 
-              lineColors[lineColorIdx++] = Math.min(1.0, worldNodeR[j] * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, worldNodeG[j] * effAlpha);
-              lineColors[lineColorIdx++] = Math.min(1.0, worldNodeB[j] * effAlpha);
+              const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
+              const minWhiteB = Math.min(r2, Math.min(g2, b2));
+              const lR2 = Math.max(0.0, r2 - minWhiteB * 0.70);
+              const lG2 = Math.max(0.0, g2 - minWhiteB * 0.70);
+              const lB2 = Math.max(0.0, b2 - minWhiteB * 0.70);
+
+              lineColors[lineColorIdx++] = lAr * effAlpha;
+              lineColors[lineColorIdx++] = lAg * effAlpha;
+              lineColors[lineColorIdx++] = lAb * effAlpha;
+
+              lineColors[lineColorIdx++] = lR2 * effAlpha;
+              lineColors[lineColorIdx++] = lG2 * effAlpha;
+              lineColors[lineColorIdx++] = lB2 * effAlpha;
             }
           }
 
