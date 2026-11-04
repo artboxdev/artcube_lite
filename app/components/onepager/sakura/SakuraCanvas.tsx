@@ -2930,14 +2930,13 @@ export function SakuraCanvas({
           float starVal = pow(clamp(1.0 - abs(p.x) * 2.0, 0.0, 1.0) * clamp(1.0 - abs(p.y) * 2.0, 0.0, 1.0), 2.5);
           float softCore = exp(-d * d * 14.0);
           float intensity = max(starVal * 2.2, softCore * 1.8);
-          // 70% reduzierter Weißanteil (nur 30% verbleibend für dezenten Glanz statt Weiß-Washout)
-          vec3 whiteCore = (vec3(0.55) * starVal + vec3(0.35) * softCore) * 0.30;
-          vec3 brightColor = vColor * 1.35 + whiteCore;
-          gl_FragColor = vec4(brightColor, clamp(intensity * 1.25 * uAlpha, 0.0, 1.0));
+          // 1:1 DualSlider: pure satutated starry points without washout
+          vec3 brightColor = clamp(vColor * 1.15 + vec3(0.04) * starVal, 0.0, 1.0);
+          gl_FragColor = vec4(brightColor, clamp(intensity * 1.15 * uAlpha, 0.0, 1.0));
         }
       `,
       transparent: true,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false
     });
     const plexusPointsMesh = new THREE.Points(nodeGeo, nodeMat);
@@ -3178,7 +3177,7 @@ export function SakuraCanvas({
           transparent: true,
           side: THREE.DoubleSide,
           depthWrite: false,
-          blending: THREE.AdditiveBlending
+          blending: THREE.NormalBlending
         });
         this.mesh = new THREE.Mesh(geom, this.material);
         this.mesh.position.set(this.x, this.y, this.z);
@@ -3190,7 +3189,7 @@ export function SakuraCanvas({
           fragmentShader: atmosphereFragmentShader,
           uniforms: {
             uColor: { value: new THREE.Color(preset.primary) },
-            uGlow: { value: preset.atmosphereGlow },
+            uGlow: { value: preset.atmosphereGlow * 0.85 },
             uLevel: { value: preset.atmosphereLevel },
             uAlpha: { value: 0.0 }
           },
