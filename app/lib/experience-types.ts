@@ -1,5 +1,9 @@
 import type { MutableRefObject, ComponentType } from 'react';
-import type { PeerMessage } from './types';
+
+export interface PeerMessage {
+  type: string;
+  [key: string]: unknown;
+}
 
 export interface ExperienceRendererAPI {
   start: (mode?: 'bluten' | 'plexus' | string, expMode?: 'test' | 'souvenir') => void;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { PiX } from "react-icons/pi";
-import { Language, translations } from "./onepager/translations";
+import { Language, translations } from "./translations";
 
 type WalletUnavailableModalProps = {
   open: boolean;

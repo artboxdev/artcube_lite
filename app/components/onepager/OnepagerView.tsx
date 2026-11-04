@@ -8,7 +8,7 @@ import { StorySection } from './StorySection';
 import { NewsletterSection } from './NewsletterSection';
 import { OnepagerFooter } from './OnepagerFooter';
 import { GuestJoinScreen } from './GuestJoinScreen';
-import WalletUnavailableModal from '../WalletUnavailableModal';
+import WalletUnavailableModal from './WalletUnavailableModal';
 import { Language } from './translations';
 
 interface OnepagerViewProps {

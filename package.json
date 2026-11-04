@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+	"dev:ios": "npx tsx dev-ios.ts",
+	"ios": "concurrently -k -s first \"npm run dev\" \"npm run dev:ios\""
   },
   "dependencies": {
     "@react-three/fiber": "^9.6.1",
