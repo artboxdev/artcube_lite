@@ -1,5 +1,5 @@
 import { SakuraCanvas } from './SakuraCanvas';
-import type { ExperienceDefinition } from '../../lib/experience-types';
+import type { ExperienceDefinition } from '../../../lib/experience-types';
 
 export const sakuraExperience: ExperienceDefinition = {
   id: 'sakura',

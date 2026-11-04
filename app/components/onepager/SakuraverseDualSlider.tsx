@@ -7,7 +7,7 @@ import {
   PALETTE_RGB_CACHE,
   BG_COLOR_PALETTES,
   type BlossomColorId,
-} from '../../experiences/sakura/SakuraCanvas';
+} from './sakura/SakuraCanvas';
 import { Language, translations } from './translations';
 
 interface SakuraverseDualSliderProps {

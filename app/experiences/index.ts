@@ -7,7 +7,7 @@ import { flowExperience } from './flow';
 import { particles2dExperience } from './particles2d';
 import { berlinParticlesExperience } from './berlinparticles';
 import { quantumExperience } from './quantum';
-import { sakuraExperience } from './sakura';
+import { sakuraExperience } from '../components/onepager/sakura';
 import type { ExperienceDefinition } from '../lib/experience-types';
 
 export const EXPERIENCES: ExperienceDefinition[] = [

@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import type { ExperienceComponentProps } from '../../lib/experience-types';
+import type { ExperienceComponentProps } from '../../../lib/experience-types';
 
 // ==========================================
 // CONSTANTS & SHADERS
@@ -6569,7 +6569,7 @@ export function SakuraCanvas({
                       try {
                         sendInteractionRef.current?.('PEER_LEAVE', { senderIndex: isHostRef.current ? 1 : 2 });
                         channelRef.current?.postMessage({ type: 'PEER_LEAVE', senderIndex: isHostRef.current ? 1 : 2 });
-                      } catch {}
+                      } catch { }
                       handleExit();
                     }}
                     className="flex-1 py-3 px-5 rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-sm shadow-[0_0_25px_rgba(244,63,94,0.5)] transition-all active:scale-95 cursor-pointer"
