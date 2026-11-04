@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
 import { Language, translations } from './translations';
-import { PrototypeHeroVisual, ArtcubeHeroVisual } from './StoryHeroVisuals';
 
 interface StorySectionProps {
   lang: Language;
@@ -14,10 +13,14 @@ interface StorySectionProps {
 export function StorySection({ lang, onModalToggle }: StorySectionProps) {
   const [isNftModalOpen, setIsNftModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [basePath, setBasePath] = useState('');
   const t = translations[lang].story;
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/artcube_lite')) {
+      setBasePath('/artcube_lite');
+    }
   }, []);
 
   const openModal = useCallback(() => {
@@ -84,8 +87,18 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
 
           <div>
             {/* Hero Top Banner */}
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-pink-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-              <PrototypeHeroVisual />
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-pink-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)] bg-[#0d0714]">
+              <img
+                src={`${basePath}/artcube_version1.jpg`}
+                alt={t.card1Title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 block"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (!img.src.includes('/artcube_lite')) {
+                    img.src = '/artcube_lite/artcube_version1.jpg';
+                  }
+                }}
+              />
 
               {/* Floating Badges */}
               <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
@@ -155,8 +168,18 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
 
           <div>
             {/* Hero Top Banner */}
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-cyan-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-              <ArtcubeHeroVisual />
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 group-hover:border-cyan-500/40 transition-colors mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)] bg-[#06121a]">
+              <img
+                src={`${basePath}/artcube_version2.jpg`}
+                alt={t.card2Title}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 block"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (!img.src.includes('/artcube_lite')) {
+                    img.src = '/artcube_lite/artcube_version2.jpg';
+                  }
+                }}
+              />
 
               {/* Floating Badges */}
               <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
