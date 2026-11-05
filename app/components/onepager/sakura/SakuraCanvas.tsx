@@ -1580,6 +1580,14 @@ export function SakuraCanvas({
         document.body.classList.remove('artwork-session-active');
       }
     }
+    if (!isRunning) {
+      setIsPaused(false);
+      isPausedRef.current = false;
+      setIsExitConfirmOpen(false);
+      setIsLightboxOpen(false);
+      setIsCreationMode(false);
+      restartTriggerRef.current?.();
+    }
     return () => {
       if (typeof document !== 'undefined') {
         document.body.classList.remove('artwork-session-active');
@@ -2232,6 +2240,12 @@ export function SakuraCanvas({
     }
     if (trackBadgeTimeoutRef.current) clearTimeout(trackBadgeTimeoutRef.current);
     setTrackBadgeText(null);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    setIsExitConfirmOpen(false);
+    setIsLightboxOpen(false);
+    setIsCreationMode(false);
+    restartTriggerRef.current?.();
     isRunningRef.current = false;
     if (onExitRef.current) {
       onExitRef.current();
@@ -4813,7 +4827,10 @@ export function SakuraCanvas({
         orb.restY = orb.y;
       });
 
-      if (activeModeRef.current === 'bluten') {
+      if (!isRunningRef.current) {
+        blutenSceneGroup.visible = false;
+        plexusSceneGroup.visible = false;
+      } else if (activeModeRef.current === 'bluten') {
         blutenSceneGroup.visible = true;
         plexusSceneGroup.visible = false;
 
@@ -4862,7 +4879,7 @@ export function SakuraCanvas({
     const animateLoop = () => {
       animFrameId = requestAnimationFrame(animateLoop);
       const delta = Math.min(clock.getDelta(), 0.1);
-      if (isPausedRef.current) return;
+      if (isRunningRef.current && isPausedRef.current) return;
 
       totalAnimTime += delta;
 
@@ -4897,6 +4914,8 @@ export function SakuraCanvas({
       // While on the start screen, ONLY render the living metallic background shader pass!
       // Do NOT start trunk growth, branch spawning, or Plexus physics!
       if (!isRunningRef.current) {
+        blutenSceneGroup.visible = false;
+        plexusSceneGroup.visible = false;
         renderer.clear();
         renderer.render(bgScene, bgCamera);
         return;
@@ -6618,10 +6637,9 @@ export function SakuraCanvas({
                   )}
                   <button
                     onClick={toggleCreationReady}
-                    className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
+                    className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
                     title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
                   >
-                    <span>🎨</span>
                     <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
                   </button>
                 </div>
@@ -6786,10 +6804,9 @@ export function SakuraCanvas({
                   <div className="flex items-center gap-3">
                     <button
                       onClick={toggleCreationReady}
-                      className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center gap-2.5 bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
+                      className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
                       title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
                     >
-                      <span>🎨</span>
                       <span className="relative z-10">
                         {isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}
                       </span>
@@ -6805,56 +6822,35 @@ export function SakuraCanvas({
 
           {/* Lightbox: Artwork Selection Modal */}
           {isLightboxOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in">
-              <div className="relative w-full max-w-3xl bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/45 rounded-3xl p-10 text-center shadow-[0_30px_80px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.3)]">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in pointer-events-auto">
+              <div className="relative w-full max-w-md bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/45 rounded-3xl p-8 sm:p-10 text-center shadow-[0_30px_80px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.3)] flex flex-col gap-4">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsLightboxOpen(false);
                     setHostCreationReady(false);
                     setGuestCreationReady(false);
                   }}
-                  className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all"
+                  className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all cursor-pointer"
                 >
                   ✕
                 </button>
 
-                <h2 className="text-3xl font-extrabold tracking-widest uppercase bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(255,42,157,0.6)] mb-8">
-                  {isEn ? 'Choose your artwork' : 'Wähle dein Kunstwerk'}
-                </h2>
-
-                <div className="grid grid-cols-2 gap-8">
-                  {/* Sumi-e Card */}
+                <div className="flex flex-col gap-3.5 pt-2">
                   <button
+                    type="button"
                     onClick={() => selectArtworkChoice('bluten')}
-                    className="group relative rounded-2xl overflow-hidden border-2 border-[#ff69b4]/30 hover:border-[#ff2a9d] bg-[#120c1c]/60 flex flex-col items-center transition-all hover:-translate-y-2 hover:scale-[1.025] hover:shadow-[0_20px_50px_rgba(255,42,157,0.5),0_0_35px_rgba(78,226,236,0.35)] cursor-pointer"
+                    className="w-full py-4 px-6 rounded-2xl font-bold text-xs sm:text-sm tracking-[1.5px] uppercase transition-all duration-300 flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca] text-white border border-[#ff69b4]/50 shadow-[0_8px_25px_rgba(255,42,157,0.4)] hover:shadow-[0_12px_35px_rgba(255,42,157,0.65)] hover:scale-[1.02] active:scale-98 cursor-pointer"
                   >
-                    <div className="relative w-full aspect-square overflow-hidden bg-[#0d0614]">
-                      <img src="/sumie_preview.jpg" alt="Sumi-e Blütenkunstwerk" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108" />
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-[#120818]/40 to-[#0e0414]/95 pointer-events-none" />
-                      <div className="absolute bottom-5 inset-x-0 text-center text-2xl font-extrabold tracking-widest text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                        Sumi-e
-                      </div>
-                    </div>
-                    <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
-                      {isEn ? '🌸 Blossoms & Branches' : '🌸 Blüten & Äste'}
-                    </div>
+                    {isEn ? 'Start "Sumi-E" Souvenir Mode' : 'Souvenirmodus "Sumi-E" Starten'}
                   </button>
 
-                  {/* Plexus Card */}
                   <button
+                    type="button"
                     onClick={() => selectArtworkChoice('plexus')}
-                    className="group relative rounded-2xl overflow-hidden border-2 border-[#ff69b4]/30 hover:border-[#ff2a9d] bg-[#120c1c]/60 flex flex-col items-center transition-all hover:-translate-y-2 hover:scale-[1.025] hover:shadow-[0_20px_50px_rgba(255,42,157,0.5),0_0_35px_rgba(78,226,236,0.35)] cursor-pointer"
+                    className="w-full py-4 px-6 rounded-2xl font-bold text-xs sm:text-sm tracking-[1.5px] uppercase transition-all duration-300 flex items-center justify-center bg-gradient-to-r from-[#4ee2ec] via-[#a855f7] to-[#ff2a9d] text-white border border-[#4ee2ec]/50 shadow-[0_8px_25px_rgba(78,226,236,0.35)] hover:shadow-[0_12px_35px_rgba(78,226,236,0.6)] hover:scale-[1.02] active:scale-98 cursor-pointer"
                   >
-                    <div className="relative w-full aspect-square overflow-hidden bg-[#0d0614]">
-                      <img src="/plexus_preview.jpg" alt="Plexus Konstellation" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108" />
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-[#120818]/40 to-[#0e0414]/95 pointer-events-none" />
-                      <div className="absolute bottom-5 inset-x-0 text-center text-2xl font-extrabold tracking-widest text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                        Plexus
-                      </div>
-                    </div>
-                    <div className="w-full py-3.5 px-4 text-xs font-bold tracking-widest uppercase text-[#ffdcf5]/90 bg-white/5 group-hover:bg-[#ff2a9d]/20 group-hover:text-white border-t border-white/10 transition-colors">
-                      {isEn ? '✨ Orb & Constellation' : '✨ Orb & Konstellation'}
-                    </div>
+                    {isEn ? 'Start "Plexus" Souvenir Mode' : 'Souvenirmodus "Plexus" Starten'}
                   </button>
                 </div>
               </div>
