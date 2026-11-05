@@ -6657,20 +6657,20 @@ export function SakuraCanvas({
                 </div>
 
                 {/* Souvenir Action Button & Badges */}
-                <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-full max-w-[280px]">
+                <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-auto">
                   {(hostCreationReady || guestCreationReady) && (
                     <div className="flex items-center gap-3">
                       <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> Host
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black text-[9px]">✓</span> Host
                       </div>
                       <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black">✓</span> {isEn ? 'Guest' : 'Gast'}
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black text-[9px]">✓</span> {isEn ? 'Guest' : 'Gast'}
                       </div>
                     </div>
                   )}
                   <button
                     onClick={toggleCreationReady}
-                    className="w-full py-2.5 px-5 rounded-full text-[11px] font-bold tracking-[1.5px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_8px_25px_rgba(255,42,157,0.4)] cursor-pointer"
+                    className="py-1.5 sm:py-2 px-4 sm:px-5 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-[1.2px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/70 shadow-[0_4px_16px_rgba(255,42,157,0.35)] cursor-pointer active:scale-95"
                     title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
                   >
                     <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
@@ -6821,23 +6821,23 @@ export function SakuraCanvas({
                 </div>
 
                 {/* Bottom Right: Creation Button & Readiness Indicators */}
-                <div className="pointer-events-auto flex flex-col items-center gap-2">
+                <div className="pointer-events-auto flex flex-col items-end gap-1.5">
                   {/* Ready Status Badges with Green Checkmarks */}
-                  <div className="flex items-center gap-4 min-h-[44px]">
-                    <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${hostCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
-                      <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">Host</span>
+                  {(hostCreationReady || guestCreationReady) && (
+                    <div className="flex items-center gap-3 pr-1">
+                      <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                        <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center text-[9px] font-black shadow-[0_0_8px_rgba(16,231,130,0.8)]">✓</span> Host
+                      </div>
+                      <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                        <span className="w-4 h-4 rounded-full bg-[#10e782] text-black flex items-center justify-center text-[9px] font-black shadow-[0_0_8px_rgba(16,231,130,0.8)]">✓</span> {isEn ? 'Guest' : 'Gast'}
+                      </div>
                     </div>
-                    <div className={`flex flex-col items-center gap-1 transition-all duration-300 ${guestCreationReady ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                      <span className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10e782] to-[#00b045] text-[#051a0e] flex items-center justify-center text-xs font-black shadow-[0_0_14px_rgba(16,231,130,0.8)]">✓</span>
-                      <span className="text-[10px] font-bold tracking-wider uppercase text-white shadow-sm">{isEn ? 'Guest' : 'Gast'}</span>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center">
                     <button
                       onClick={toggleCreationReady}
-                      className="relative overflow-hidden px-8 py-3.5 rounded-full text-xs font-bold tracking-[2px] uppercase transition-all shadow-2xl flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec] shadow-[0_12px_35px_rgba(255,42,157,0.4)] hover:scale-105 active:scale-95 cursor-pointer"
+                      className="relative overflow-hidden px-4.5 sm:px-5 py-2 sm:py-2.5 rounded-full text-[11px] font-semibold tracking-[1.2px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/60 shadow-[0_4px_18px_rgba(255,42,157,0.35)] hover:shadow-[0_6px_22px_rgba(255,42,157,0.5)] hover:scale-[1.02] active:scale-95 cursor-pointer"
                       title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
                     >
                       <span className="relative z-10">
@@ -6892,30 +6892,31 @@ export function SakuraCanvas({
 
 
 
-          {/* Lightbox 2: 16:9 Souvenir Video Preview & NFT Modal */}
+          {/* Lightbox 2: 16:9 Souvenir Video Preview & NFT Modal (Fully Responsive on Mobile, Tablet & Desktop) */}
           {isSouvenirVideoOpen && (
-            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-[#06020c]/90 backdrop-blur-2xl animate-fade-in pointer-events-auto">
-              <div className="relative w-full max-w-2xl bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/50 rounded-3xl p-6 md:p-8 text-center shadow-[0_30px_80px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
+            <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-[#06020c]/90 backdrop-blur-2xl animate-fade-in pointer-events-auto">
+              <div className="relative w-full max-w-[92vw] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[92dvh] overflow-y-auto bg-gradient-to-br from-[#1a0e26]/95 to-[#0e0816]/98 border border-[#ff69b4]/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-center shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-3 sm:gap-4 md:gap-5 my-auto">
                 <button
                   onClick={() => setIsSouvenirVideoOpen(false)}
-                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-sm transition-all cursor-pointer"
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-[#ff2a9d]/40 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-xs sm:text-sm transition-all cursor-pointer z-10"
+                  aria-label="Schließen"
                 >
                   ✕
                 </button>
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#ff2a9d] bg-[#ff2a9d]/15 px-3 py-1 rounded-full border border-[#ff2a9d]/30">
-                    14s VIDEO SOUVENIR
+                <div className="flex flex-col items-center gap-1 sm:gap-1.5 pt-1 sm:pt-0">
+                  <div className="text-[9px] sm:text-[10px] font-extrabold tracking-[2px] uppercase text-[#ff2a9d] bg-[#ff2a9d]/15 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#ff2a9d]/30">
+                    VIDEO SOUVENIR
                   </div>
-                  <h2 className="text-2xl md:text-3xl font-extrabold tracking-wider text-white">
+                  <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold tracking-wider text-white">
                     {isEn ? 'Your artwork is ready!' : 'Dein Kunstwerk ist fertig!'}
                   </h2>
-                  <p className="text-xs text-white/70">
+                  <p className="text-[11px] sm:text-xs text-white/70 max-w-md">
                     {isEn ? 'Unique one-of-a-kind piece from your creation session' : 'Einzigartiges Unikat deiner Schöpfungs-Session'}
                   </p>
                 </div>
 
-                {/* 16:9 Video Player */}
-                <div className="w-full max-w-[560px] aspect-video bg-black/80 rounded-2xl overflow-hidden border border-white/20 shadow-2xl flex items-center justify-center">
+                {/* 16:9 Video Player: Responsively scaled with max-height constraint to guarantee fit in mobile landscape */}
+                <div className="w-full max-w-[480px] md:max-w-[560px] max-h-[45dvh] sm:max-h-[50dvh] aspect-video bg-black/80 rounded-xl sm:rounded-2xl overflow-hidden border border-white/20 shadow-2xl flex items-center justify-center">
                   {souvenirVideoUrl ? (
                     <video
                       src={souvenirVideoUrl}
@@ -6936,9 +6937,9 @@ export function SakuraCanvas({
                 <button
                   type="button"
                   onClick={handleSaveNFT}
-                  className={`w-full max-w-[320px] py-3.5 px-6 rounded-full font-extrabold text-sm tracking-wider uppercase transition-all duration-300 shadow-xl cursor-pointer flex items-center justify-center gap-2 ${isNftSaved
+                  className={`w-full max-w-[260px] sm:max-w-[300px] py-2.5 sm:py-3.5 px-5 sm:px-6 rounded-full font-bold text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 shadow-xl cursor-pointer flex items-center justify-center gap-2 ${isNftSaved
                     ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-emerald-500/40 border border-emerald-300'
-                    : 'bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white hover:scale-103 hover:shadow-[0_0_25px_rgba(255,42,157,0.6)] border border-white/30'
+                    : 'bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(255,42,157,0.6)] border border-white/30 active:scale-95'
                     }`}
                 >
                   <span>{isNftSaved ? (isEn ? '✅ Video saved!' : '✅ Video gesichert!') : (isEn ? '✨ Save as NFT' : '✨ Als NFT sichern')}</span>
