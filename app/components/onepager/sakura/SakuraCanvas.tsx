@@ -1567,6 +1567,10 @@ export function SakuraCanvas({
   }, [initialMode]);
 
   const isRunningRef = useRef(isRunning);
+  const isWaitingForHostRef = useRef(isWaitingForHost);
+  useEffect(() => {
+    isWaitingForHostRef.current = isWaitingForHost;
+  }, [isWaitingForHost]);
 
   useEffect(() => {
     isRunningRef.current = isRunning;
@@ -1667,9 +1671,12 @@ export function SakuraCanvas({
     audioRef.current = audio;
 
     const handleEnded = () => {
-      if (!isRunningRef.current) return;
+      if (!isRunningRef.current || isWaitingForHostRef.current) return;
       const nextIdx = (currentTrackIndexRef.current + 1) % AUDIO_PLAYLIST.length;
       playTrack(nextIdx);
+      if (isHostRef.current) {
+        sendInteractionRef.current?.('TRACK_SYNC', { trackIndex: nextIdx });
+      }
     };
 
     audio.addEventListener('ended', handleEnded);
@@ -1678,11 +1685,17 @@ export function SakuraCanvas({
     };
   }, [playTrack]);
 
-  // Session start / stop audio management: random track on start, clean pause on stop
+  // Session start / stop audio management: only active when session is running AND not waiting for host
   useEffect(() => {
-    if (isRunning) {
-      const randomStartIdx = Math.floor(Math.random() * AUDIO_PLAYLIST.length);
-      playTrack(randomStartIdx);
+    if (isRunning && !isWaitingForHost) {
+      if (isHostRef.current) {
+        const randomStartIdx = Math.floor(Math.random() * AUDIO_PLAYLIST.length);
+        playTrack(randomStartIdx);
+        sendInteractionRef.current?.('TRACK_SYNC', { trackIndex: randomStartIdx });
+      } else {
+        const randomStartIdx = Math.floor(Math.random() * AUDIO_PLAYLIST.length);
+        playTrack(randomStartIdx);
+      }
     } else {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -1699,7 +1712,7 @@ export function SakuraCanvas({
       if (trackBadgeTimeoutRef.current) clearTimeout(trackBadgeTimeoutRef.current);
       setTrackBadgeText(null);
     };
-  }, [isRunning, playTrack]);
+  }, [isRunning, isWaitingForHost, playTrack]);
 
   // Sync pause state with audio
   useEffect(() => {
@@ -1777,7 +1790,7 @@ export function SakuraCanvas({
   }, []);
 
   useEffect(() => {
-    if (isRunning) {
+    if (isRunning && !isWaitingForHost) {
       triggerInitialLoading();
     } else {
       clearInitialLoading();
@@ -1785,7 +1798,7 @@ export function SakuraCanvas({
     return () => {
       clearInitialLoading();
     };
-  }, [isRunning, triggerInitialLoading, clearInitialLoading]);
+  }, [isRunning, isWaitingForHost, triggerInitialLoading, clearInitialLoading]);
 
   // Dynamic Language Synchronization (de / en)
   const [lang, setLang] = useState<'de' | 'en'>('de');
@@ -4911,9 +4924,9 @@ export function SakuraCanvas({
         }
       }
 
-      // While on the start screen, ONLY render the living metallic background shader pass!
+      // While on the start screen or waiting for the host, ONLY render the living metallic background shader pass!
       // Do NOT start trunk growth, branch spawning, or Plexus physics!
-      if (!isRunningRef.current) {
+      if (!isRunningRef.current || isWaitingForHostRef.current) {
         blutenSceneGroup.visible = false;
         plexusSceneGroup.visible = false;
         renderer.clear();
@@ -6060,9 +6073,10 @@ export function SakuraCanvas({
 
     // Register API
     onRendererReadyRef.current?.({
-      start: (mode?: 'bluten' | 'plexus' | string, expMode?: 'test' | 'souvenir') => {
+      start: (mode?: 'bluten' | 'plexus' | string, expMode?: 'test' | 'souvenir', trackIdx?: number) => {
         clock.start();
         isRunningRef.current = true;
+        isWaitingForHostRef.current = false;
         const targetMode = (mode === 'plexus' || mode === 'bluten') ? mode : 'bluten';
         activeModeRef.current = targetMode;
         setActiveMode(targetMode);
@@ -6070,6 +6084,10 @@ export function SakuraCanvas({
         // Reset and initialize scene cleanly for the active session
         restartTriggerRef.current();
         triggerInitialLoading();
+
+        if (trackIdx !== undefined) {
+          playTrack(trackIdx);
+        }
 
         if (expMode === 'souvenir') {
           setIsCreationMode(true);
@@ -6128,6 +6146,8 @@ export function SakuraCanvas({
           remoteCursorRef.current = { x: -9999, y: -9999, active: false };
           setHasRemotePeer(false);
           hasRemotePeerRef.current = false;
+        } else if (msg.kind === 'TRACK_SYNC' && typeof msg.trackIndex === 'number') {
+          playTrack(msg.trackIndex);
         } else if (msg.kind === 'GESTURE' && typeof msg.gestureType === 'string') {
           triggerCursorGesture(remoteIdx, msg.gestureType as any);
         } else if (msg.kind === 'USER_NAME') {
@@ -6353,8 +6373,8 @@ export function SakuraCanvas({
 
 
 
-      {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
-      {isRunning && (
+      {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running and host has started */}
+      {isRunning && !isWaitingForHost && (
         <>
           {/* Brief Placeholder Loading Screen at Start of Test & Souvenir Mode */}
           {isInitialLoading && (
@@ -6916,58 +6936,6 @@ export function SakuraCanvas({
 
 
 
-          {/* Waiting for Host Shimmer Modal Overlay (Guest View before Host starts session) */}
-          {isWaitingForHost && isRunning && (
-            <div className="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
-              <div className="relative w-full max-w-md bg-[rgba(18,10,28,0.92)] border border-pink-500/40 rounded-3xl p-8 sm:p-10 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
-                {/* Ambient Background Glow */}
-                <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-36 h-36 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
-
-                {/* Glowing Icon */}
-                <div className="relative w-16 h-16 flex items-center justify-center">
-                  <span className="absolute inset-0 rounded-full border border-pink-500/40 animate-ping" style={{ animationDuration: '2.5s' }} />
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_20px_rgba(255,42,157,0.5)]">
-                    <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-2xl">
-                      🌸
-                    </div>
-                  </div>
-                </div>
-
-                {/* Session Pill */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{isEn ? 'Connected with Host' : 'Mit Host verbunden'}</span>
-                </div>
-
-                {/* Titles */}
-                <div className="flex flex-col gap-1.5">
-                  <h3 className="text-xl sm:text-2xl font-extrabold tracking-wide uppercase bg-gradient-to-r from-white via-pink-100 to-[#ff80df] bg-clip-text text-transparent">
-                    {isEn ? 'Waiting for Host...' : 'Warten auf den Host...'}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
-                    {isEn
-                      ? 'The host is selecting the artwork. Your shared session will begin in sync.'
-                      : 'Der Host wählt das Kunstwerk aus. Sobald es losgeht, startet euer Erlebnis synchron.'}
-                  </p>
-                </div>
-
-                {/* Animated Loading Bar (exact shimmer style from StorySection) */}
-                <div className="w-full flex flex-col gap-2 pt-1">
-                  <div className="relative w-full h-2 rounded-full bg-white/10 overflow-hidden shadow-[0_0_15px_rgba(78,226,236,0.3)]">
-                    <div className="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_12px_rgba(78,226,236,0.8)]" />
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
-                    <span>{myName || (isEn ? 'Guest' : 'Gast')}</span>
-                    <span className="text-cyan-300">ID: {sessionId}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-
-
           {/* Lightbox: Exit Confirmation Modal */}
           {isExitConfirmOpen && (
             <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in pointer-events-auto">
@@ -7129,8 +7097,68 @@ export function SakuraCanvas({
         </>
       )}
 
+      {/* Waiting for Host Shimmer Modal Overlay (Guest View before Host starts session) */}
+      {isWaitingForHost && isRunning && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-500 pointer-events-auto">
+          <div className="relative w-full max-w-md bg-[rgba(18,10,28,0.92)] border border-pink-500/40 rounded-3xl p-8 sm:p-10 text-center shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_50px_rgba(255,42,157,0.35)] flex flex-col items-center gap-5">
+            {/* Ambient Background Glow */}
+            <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-36 h-36 bg-pink-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Cancel / Leave Button */}
+            <button
+              type="button"
+              onClick={handleExit}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-[#ff2a9d]/30 border border-white/20 hover:border-[#ff2a9d] text-white flex items-center justify-center text-xs transition-all cursor-pointer z-10"
+              title={isEn ? 'Cancel & Exit' : 'Abbrechen & Verlassen'}
+            >
+              ✕
+            </button>
+
+            {/* Glowing Icon */}
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <span className="absolute inset-0 rounded-full border border-pink-500/40 animate-ping" style={{ animationDuration: '2.5s' }} />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_20px_rgba(255,42,157,0.5)]">
+                <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-2xl">
+                  🌸
+                </div>
+              </div>
+            </div>
+
+            {/* Session Pill */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold tracking-widest uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{isEn ? 'Connected with Host' : 'Mit Host verbunden'}</span>
+            </div>
+
+            {/* Titles */}
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-xl sm:text-2xl font-extrabold tracking-wide uppercase bg-gradient-to-r from-white via-pink-100 to-[#ff80df] bg-clip-text text-transparent">
+                {isEn ? 'Waiting for Host...' : 'Warten auf den Host...'}
+              </h3>
+              <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-light">
+                {isEn
+                  ? 'The host is selecting the artwork. Your shared session will begin in sync.'
+                  : 'Der Host wählt das Kunstwerk aus. Sobald es losgeht, startet euer Erlebnis synchron.'}
+              </p>
+            </div>
+
+            {/* Animated Loading Bar (exact shimmer style from StorySection) */}
+            <div className="w-full flex flex-col gap-2 pt-1">
+              <div className="relative w-full h-2 rounded-full bg-white/10 overflow-hidden shadow-[0_0_15px_rgba(78,226,236,0.3)]">
+                <div className="animate-loading-bar h-full rounded-full bg-gradient-to-r from-pink-500 via-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_12px_rgba(78,226,236,0.8)]" />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
+                <span>{myName || (isEn ? 'Guest' : 'Gast')}</span>
+                <span className="text-cyan-300">ID: {sessionId}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Custom Translucent User Cursors with Names (Topmost layer: visible across all modals, completion windows and HUD) */}
-      {isRunning && (
+      {isRunning && !isWaitingForHost && (
         <>
           {/* User 1 Cursor (Host - Neon Pink) */}
           <div

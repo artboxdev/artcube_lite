@@ -60,9 +60,10 @@ function ArtCubeApp() {
   const [activeArtworkMode, setActiveArtworkMode] = useState<'bluten' | 'plexus'>('bluten');
 
   // Trigger local start
-  const handleStart = useCallback((mode?: 'bluten' | 'plexus', expMode?: 'test' | 'souvenir', broadcast = true) => {
+  const handleStart = useCallback((mode?: 'bluten' | 'plexus', expMode?: 'test' | 'souvenir', broadcast = true, trackIdx?: number) => {
     const targetMode = mode || 'bluten';
     const targetExpMode = expMode || 'test';
+    const chosenTrackIndex = trackIdx !== undefined ? trackIdx : Math.floor(Math.random() * 2);
     setActiveArtworkMode(targetMode);
     setIsWaitingForHost(false);
     setIsStarted(true);
@@ -70,11 +71,11 @@ function ArtCubeApp() {
     elapsedRef.current = 0;
 
     if (broadcast) {
-      multiplayerRef.current?.sendStartSession(targetMode, targetExpMode);
+      multiplayerRef.current?.sendStartSession(targetMode, targetExpMode, chosenTrackIndex);
     }
 
     setTimeout(() => {
-      rendererApiRef.current?.start?.(targetMode, targetExpMode);
+      rendererApiRef.current?.start?.(targetMode, targetExpMode, chosenTrackIndex);
     }, 50);
   }, []);
 
@@ -91,9 +92,9 @@ function ArtCubeApp() {
       if (name) setHostName(name);
       setIsJoined(true);
     },
-    onStartSession: (artwork, mode) => {
+    onStartSession: (artwork, mode, trackIdx) => {
       setIsWaitingForHost(false);
-      handleStart(artwork, mode, false);
+      handleStart(artwork, mode, false, trackIdx);
     },
     onPeerMessage: (data) => {
       rendererApiRef.current?.handlePeerMessage?.(data as any);
@@ -130,10 +131,10 @@ function ArtCubeApp() {
 
   const handleRendererReady = useCallback((api: ExperienceRendererAPI) => {
     rendererApiRef.current = api;
-    if (isStarted) {
+    if (isStarted && !isWaitingForHost) {
       api.start?.(activeArtworkMode);
     }
-  }, [isStarted, activeArtworkMode]);
+  }, [isStarted, isWaitingForHost, activeArtworkMode]);
 
   const handleSendInteraction = useCallback((kind: string, payload: unknown) => {
     multiplayerRef.current?.sendArtworkInteraction(kind, payload);

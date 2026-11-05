@@ -9,6 +9,7 @@ export interface MultiplayerMessage {
   sessionId?: string;
   artwork?: 'bluten' | 'plexus';
   mode?: 'test' | 'souvenir';
+  trackIndex?: number;
   kind?: string;
   payload?: unknown;
   senderIndex?: 1 | 2;
@@ -21,7 +22,7 @@ interface UseMultiplayerSessionOptions {
   myName: string;
   onGuestJoined?: (guestName: string) => void;
   onHostAck?: (hostName: string) => void;
-  onStartSession?: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => void;
+  onStartSession?: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir', trackIndex?: number) => void;
   onPeerMessage?: (data: unknown) => void;
 }
 
@@ -145,7 +146,7 @@ export function useMultiplayerSession({
       setIsConnected(true);
       callbacksRef.current.onHostAck?.(msg.name || 'Host');
     } else if (msg.type === 'START_SESSION') {
-      callbacksRef.current.onStartSession?.(msg.artwork || 'bluten', msg.mode || 'test');
+      callbacksRef.current.onStartSession?.(msg.artwork || 'bluten', msg.mode || 'test', msg.trackIndex);
     } else if (msg.type === 'ARTWORK_INTERACTION') {
       callbacksRef.current.onPeerMessage?.(msg.payload ?? msg);
     } else if (msg.type === 'PEER_LEAVE') {
@@ -312,11 +313,12 @@ export function useMultiplayerSession({
   }, [broadcastMessage]);
 
   // Launch artwork session for both players synchronously
-  const sendStartSession = useCallback((artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => {
+  const sendStartSession = useCallback((artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir', trackIndex?: number) => {
     broadcastMessage({
       type: 'START_SESSION',
       artwork,
       mode,
+      trackIndex,
     });
   }, [broadcastMessage]);
 

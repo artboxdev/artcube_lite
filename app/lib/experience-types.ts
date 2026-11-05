@@ -6,7 +6,7 @@ export interface PeerMessage {
 }
 
 export interface ExperienceRendererAPI {
-  start: (mode?: 'bluten' | 'plexus' | string, expMode?: 'test' | 'souvenir') => void;
+  start: (mode?: 'bluten' | 'plexus' | string, expMode?: 'test' | 'souvenir', trackIndex?: number) => void;
   handlePeerMessage?: (msg: PeerMessage) => void;
 }
 
