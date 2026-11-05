@@ -13,6 +13,21 @@ const MAX_TRAIL_PARTICLES = 2000;
 const MAX_TOTAL_NODES = 600;
 const MAX_TOTAL_LINES = 2500;
 
+const AUDIO_PLAYLIST = [
+  'And Life Shines Again.mp3',
+  'The Leaves Are Gone.mp3'
+] as const;
+
+function getAudioSrc(filename: string): string {
+  const encoded = encodeURI(filename);
+  if (typeof window !== 'undefined') {
+    const p = window.location.pathname;
+    if (p.startsWith('/artcube_lite')) return `/artcube_lite/${encoded}`;
+    if (p.startsWith('/artcube')) return `/artcube/${encoded}`;
+  }
+  return `/${encoded}`;
+}
+
 function createNoiseTexture(): THREE.DataTexture {
   const size = 256;
   const data = new Uint8Array(size * size * 4);
@@ -1589,6 +1604,104 @@ export function SakuraCanvas({
 
   const [isPaused, setIsPaused] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const isAudioMutedRef = useRef(isAudioMuted);
+  useEffect(() => {
+    isAudioMutedRef.current = isAudioMuted;
+    if (audioRef.current) {
+      audioRef.current.muted = isAudioMuted;
+    }
+  }, [isAudioMuted]);
+
+  // Playlist Audio Player & 3-Second Track Announcement Badge State
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentTrackIndexRef = useRef<number>(0);
+  const [trackBadgeText, setTrackBadgeText] = useState<string | null>(null);
+  const trackBadgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showTrackBadge = useCallback((filename: string) => {
+    if (trackBadgeTimeoutRef.current) clearTimeout(trackBadgeTimeoutRef.current);
+    setTrackBadgeText(filename);
+    trackBadgeTimeoutRef.current = setTimeout(() => {
+      setTrackBadgeText(null);
+    }, 3000);
+  }, []);
+
+  const playTrack = useCallback((index: number) => {
+    if (typeof window === 'undefined') return;
+    const validIndex = ((index % AUDIO_PLAYLIST.length) + AUDIO_PLAYLIST.length) % AUDIO_PLAYLIST.length;
+    currentTrackIndexRef.current = validIndex;
+    const filename = AUDIO_PLAYLIST[validIndex];
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+    }
+
+    const audio = audioRef.current;
+    audio.src = getAudioSrc(filename);
+    audio.muted = isAudioMutedRef.current;
+    audio.currentTime = 0;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        // Autoplay may be delayed until first user gesture
+        console.warn('[Audio] Autoplay delayed until interaction:', err);
+      });
+    }
+
+    showTrackBadge(filename);
+  }, [showTrackBadge]);
+
+  // Handle alternating continuous playback on track end
+  useEffect(() => {
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+
+    const handleEnded = () => {
+      if (!isRunningRef.current) return;
+      const nextIdx = (currentTrackIndexRef.current + 1) % AUDIO_PLAYLIST.length;
+      playTrack(nextIdx);
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    return () => {
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [playTrack]);
+
+  // Session start / stop audio management: random track on start, clean pause on stop
+  useEffect(() => {
+    if (isRunning) {
+      const randomStartIdx = Math.floor(Math.random() * AUDIO_PLAYLIST.length);
+      playTrack(randomStartIdx);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      if (trackBadgeTimeoutRef.current) clearTimeout(trackBadgeTimeoutRef.current);
+      setTrackBadgeText(null);
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      if (trackBadgeTimeoutRef.current) clearTimeout(trackBadgeTimeoutRef.current);
+      setTrackBadgeText(null);
+    };
+  }, [isRunning, playTrack]);
+
+  // Sync pause state with audio
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (isPaused) {
+      audioRef.current.pause();
+    } else if (isRunning && !isAudioMuted) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [isPaused, isRunning, isAudioMuted]);
   const [completedArtworksCount, setCompletedArtworksCount] = useState(0);
   const [blutenCounted, setBlutenCounted] = useState(false);
   const [plexusCounted, setPlexusCounted] = useState(false);
@@ -2113,6 +2226,12 @@ export function SakuraCanvas({
     setIsIOSLandscapeBlocked(false);
     setIsAndroidPortraitPrompt(false);
     clearInitialLoading();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (trackBadgeTimeoutRef.current) clearTimeout(trackBadgeTimeoutRef.current);
+    setTrackBadgeText(null);
     isRunningRef.current = false;
     if (onExitRef.current) {
       onExitRef.current();
@@ -4424,6 +4543,11 @@ export function SakuraCanvas({
       }
       isMouseDown = true;
 
+      // Ensure audio playback unlocks seamlessly on user gesture if browser blocked autoplay
+      if (isRunningRef.current && audioRef.current && audioRef.current.paused && !isPausedRef.current && !isAudioMutedRef.current) {
+        audioRef.current.play().catch(() => { });
+      }
+
       const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
       const clientX = touch ? touch.clientX : (e as MouseEvent).clientX;
       const clientY = touch ? touch.clientY : (e as MouseEvent).clientY;
@@ -6245,6 +6369,21 @@ export function SakuraCanvas({
             </div>
           )}
 
+          {/* 3-Second Track Notification Badge */}
+          {trackBadgeText && (
+            <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-[110] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d]/60 text-white shadow-[0_0_25px_rgba(255,42,157,0.5),0_8px_20px_rgba(0,0,0,0.7)]">
+                <span className="text-base animate-pulse">🎵</span>
+                <span className="text-xs sm:text-sm font-extrabold tracking-wider uppercase text-[#ff2a9d] drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+                  Track:
+                </span>
+                <span className="text-xs sm:text-sm font-medium tracking-wide text-white/95">
+                  {trackBadgeText}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* 2-Second Top-Center Gesture Instruction Badge */}
           {circlePromptVisible && (
             <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
@@ -6256,6 +6395,8 @@ export function SakuraCanvas({
               </div>
             </div>
           )}
+
+
 
           {/* Top-Center Gesture Instruction Badge for Plexus Center Drop Zone */}
           {plexusCenterPromptVisible && activeMode === 'plexus' && !isPlexusFinale && (
@@ -6270,6 +6411,8 @@ export function SakuraCanvas({
               </div>
             </div>
           )}
+
+
 
           {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape & Virtual Landscape, compact on smartphones) */}
           {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && (!isPortraitMode || isVirtualLandscape) && (
@@ -6310,6 +6453,8 @@ export function SakuraCanvas({
               </div>
             </div>
           )}
+
+
 
           {/* Modern HUD Layer: Portrait Stacked on Smartphones vs 4-Corner Glassmorphic in Landscape */}
           {(isPortraitMode && !isVirtualLandscape) ? (
@@ -6656,6 +6801,8 @@ export function SakuraCanvas({
             </div>
           )}
 
+
+
           {/* Lightbox: Artwork Selection Modal */}
           {isLightboxOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#06020c]/85 backdrop-blur-2xl animate-fade-in">
@@ -6714,6 +6861,8 @@ export function SakuraCanvas({
             </div>
           )}
 
+
+
           {/* Lightbox 2: 16:9 Souvenir Video Preview & NFT Modal */}
           {isSouvenirVideoOpen && (
             <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-6 bg-[#06020c]/90 backdrop-blur-2xl animate-fade-in pointer-events-auto">
@@ -6769,6 +6918,8 @@ export function SakuraCanvas({
             </div>
           )}
 
+
+
           {/* Waiting for Host Shimmer Modal Overlay (Guest View before Host starts session) */}
           {isWaitingForHost && isRunning && (
             <div className="fixed inset-0 z-[180] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-500">
@@ -6818,6 +6969,8 @@ export function SakuraCanvas({
               </div>
             </div>
           )}
+
+
 
           {/* Lightbox: Exit Confirmation Modal */}
           {isExitConfirmOpen && (
@@ -6876,6 +7029,8 @@ export function SakuraCanvas({
             </div>
           )}
 
+
+
           {/* Android Landscape Switch Prompt Overlay */}
           {isAndroidPortraitPrompt && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#06020c]/94 backdrop-blur-3xl animate-fade-in pointer-events-auto">
@@ -6923,6 +7078,8 @@ export function SakuraCanvas({
             </div>
           )}
 
+
+
           {/* iOS Landscape Block Modal (Blocks rotation to landscape on iPhones) */}
           {isIOSLandscapeBlocked && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#06020c]/94 backdrop-blur-3xl animate-fade-in pointer-events-auto">
@@ -6960,6 +7117,8 @@ export function SakuraCanvas({
             </div>
           )}
 
+
+
           {/* Mobile Double-Back Notice Toast */}
           {backNoticeVisible && (
             <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
@@ -6969,6 +7128,8 @@ export function SakuraCanvas({
               </div>
             </div>
           )}
+
+
         </>
       )}
 
