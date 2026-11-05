@@ -1626,6 +1626,46 @@ export function SakuraCanvas({
   // Lightbox: Exit Session Confirmation Modal State
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
+  // Brief Placeholder Loading Screen at Start of Test & Souvenir Mode
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [isLoadingFadingOut, setIsLoadingFadingOut] = useState(false);
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fadeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearInitialLoading = useCallback(() => {
+    setIsInitialLoading(false);
+    setIsLoadingFadingOut(false);
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+  }, []);
+
+  const triggerInitialLoading = useCallback(() => {
+    setIsInitialLoading(true);
+    setIsLoadingFadingOut(false);
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+
+    loadingTimerRef.current = setTimeout(() => {
+      setIsLoadingFadingOut(true);
+    }, 1400);
+
+    fadeTimerRef.current = setTimeout(() => {
+      setIsInitialLoading(false);
+      setIsLoadingFadingOut(false);
+    }, 1950);
+  }, []);
+
+  useEffect(() => {
+    if (isRunning) {
+      triggerInitialLoading();
+    } else {
+      clearInitialLoading();
+    }
+    return () => {
+      clearInitialLoading();
+    };
+  }, [isRunning, triggerInitialLoading, clearInitialLoading]);
+
   // Dynamic Language Synchronization (de / en)
   const [lang, setLang] = useState<'de' | 'en'>('de');
   useEffect(() => {
@@ -1962,13 +2002,14 @@ export function SakuraCanvas({
     setPlexusOccupiedOrbsCount(0);
     setIsPlexusFinale(false);
     restartTriggerRef.current();
+    triggerInitialLoading();
 
     showToast(type === 'bluten' ? '🌸 Sumi-e Kunstwerk gestartet (Souvenirmodus)' : '✨ Plexus Kunstwerk gestartet (Souvenirmodus)');
     sendInteractionRef.current?.('ARTWORK_SELECT', { artwork: type });
     setIsLightboxOpen(false);
     setHostCreationReady(false);
     setGuestCreationReady(false);
-  }, [showToast, updateCameraDistance]);
+  }, [showToast, updateCameraDistance, triggerInitialLoading]);
 
   const selectArtworkChoiceRef = useRef(selectArtworkChoice);
   useEffect(() => {
@@ -2071,6 +2112,7 @@ export function SakuraCanvas({
     } catch { }
     setIsIOSLandscapeBlocked(false);
     setIsAndroidPortraitPrompt(false);
+    clearInitialLoading();
     isRunningRef.current = false;
     if (onExitRef.current) {
       onExitRef.current();
@@ -5815,6 +5857,7 @@ export function SakuraCanvas({
 
         // Reset and initialize scene cleanly for the active session
         restartTriggerRef.current();
+        triggerInitialLoading();
 
         if (expMode === 'souvenir') {
           setIsCreationMode(true);
@@ -6101,6 +6144,38 @@ export function SakuraCanvas({
       {/* HUD Layer, Modals & Controls are ONLY rendered when artwork session is running */}
       {isRunning && (
         <>
+          {/* Brief Placeholder Loading Screen at Start of Test & Souvenir Mode */}
+          {isInitialLoading && (
+            <div
+              className={`absolute inset-0 w-full h-full z-[300] bg-black flex items-center justify-center select-none transition-opacity duration-600 ease-in-out ${
+                isLoadingFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
+              }`}
+            >
+              <style>{`
+                @keyframes loadingLetterPulse {
+                  0%, 100% {
+                    opacity: 0.18;
+                    transform: scale(0.985);
+                    filter: drop-shadow(0 0 4px rgba(255, 42, 157, 0.25));
+                  }
+                  50% {
+                    opacity: 1;
+                    transform: scale(1);
+                    filter: drop-shadow(0 0 18px rgba(255, 42, 157, 0.95));
+                  }
+                }
+              `}</style>
+              <div className="flex items-center justify-center text-center">
+                <span
+                  className="text-2xl sm:text-3xl font-light tracking-[0.35em] uppercase text-[#ff2a9d] select-none pl-[0.35em]"
+                  style={{ animation: 'loadingLetterPulse 1.8s ease-in-out infinite' }}
+                >
+                  {isEn ? 'Loading' : 'Laden'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* 2-Second Top-Center Gesture Instruction Badge */}
           {circlePromptVisible && (
             <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
