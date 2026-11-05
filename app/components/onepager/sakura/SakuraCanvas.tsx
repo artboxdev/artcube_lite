@@ -3911,7 +3911,7 @@ export function SakuraCanvas({
 
     interface ActiveFinaleImpulse {
       orbA: FloatingPlexusOrbInstance;
-      orbB: FloatingPlexusOrbInstance;
+      orbB: FloatingPlexusOrbInstance | null;
       age: number;
       remaining: number;
       duration: number;
@@ -5188,65 +5188,26 @@ export function SakuraCanvas({
           for (let r = 0; r < FINALE_WINDOWS.length; r++) {
             const win = FINALE_WINDOWS[r];
             if (finaleAge >= win.startSeek && finaleAge < win.endAt) {
-              const roundPairs: [FloatingPlexusOrbInstance, FloatingPlexusOrbInstance][] = [];
-              if (activeDockedOrbs.length === 2) {
-                roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
-              } else if (activeDockedOrbs.length === 3) {
-                if (r === 0) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
-                else if (r === 1) roundPairs.push([activeDockedOrbs[1], activeDockedOrbs[2]]);
-                else if (r === 2) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[2]]);
-              } else if (activeDockedOrbs.length >= 4) {
-                if (r === 0) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]], [activeDockedOrbs[2], activeDockedOrbs[3]]);
-                else if (r === 1) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[2]], [activeDockedOrbs[1], activeDockedOrbs[3]]);
-                else if (r === 2) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[3]], [activeDockedOrbs[1], activeDockedOrbs[2]]);
-              }
+              if (activeDockedOrbs.length === 1) {
+                // Ein einzelner Orb erzeugt in den vorhandenen Intervallen allein ein Netzwerk in seiner Farbe
+                const singleOrb = activeDockedOrbs[0];
+                const alreadyInImpulse = activeImpulses.some(imp => imp.orbA === singleOrb || imp.orbB === singleOrb);
+                const hasDoneRound = singleOrb.finaleNetworkCount > r;
 
-              roundPairs.forEach(([orbA, orbB]) => {
-                if (!orbA || !orbB) return;
-                if (orbA.attachedPlexusCount === 0 || orbB.attachedPlexusCount === 0) return;
-
-                const alreadyInImpulse = activeImpulses.some(
-                  imp => (imp.orbA === orbA || imp.orbB === orbA || imp.orbA === orbB || imp.orbB === orbB)
-                );
-                const hasDoneRound = (orbA.finaleNetworkCount > r) && (orbB.finaleNetworkCount > r);
-
-                if (!alreadyInImpulse && !hasDoneRound && orbA.impulseCooldown <= 0 && orbB.impulseCooldown <= 0) {
-                  const dx = orbB.x - orbA.x;
-                  const dy = orbB.y - orbA.y;
-                  const dist = Math.hypot(dx, dy) || 1.0;
-                  const nx = dx / dist;
-                  const ny = dy / dist;
-
-                  if (finaleAge < win.triggerAt) {
-                    // Mutual Proximity Attraction during seek phase (+50% attraction pull)
-                    const pull = Math.min(260.0, 550.0 / Math.max(20.0, dist));
-                    orbA.finaleVx += nx * pull * delta * 3.6;
-                    orbA.finaleVy += ny * pull * delta * 3.6;
-                    orbB.finaleVx -= nx * pull * delta * 3.6;
-                    orbB.finaleVy -= ny * pull * delta * 3.6;
-                  } else {
-                    // Window trigger reached (Sekunden 1-2, 5-6, 9-10): Trigger 1-Second Flickering Network!
-                    orbA.triggerDockWobble();
-                    orbB.triggerDockWobble();
-
-                    const midX = (orbA.x + orbB.x) * 0.5;
-                    const midY = (orbA.y + orbB.y) * 0.5;
-                    const initialAngle = Math.atan2(orbA.y - midY, orbA.x - midX);
-                    const initialDistA = Math.hypot(orbA.x - midX, orbA.y - midY);
-                    const initialDistB = Math.hypot(orbB.x - midX, orbB.y - midY);
-
-                    const palA = SATURATED_PLEXUS_PALETTES[orbA.id] || PALETTE_RGB_CACHE[orbA.id];
-                    const palB = SATURATED_PLEXUS_PALETTES[orbB.id] || PALETTE_RGB_CACHE[orbB.id];
+                if (!alreadyInImpulse && !hasDoneRound && singleOrb.impulseCooldown <= 0) {
+                  if (finaleAge >= win.triggerAt) {
+                    singleOrb.triggerDockWobble();
+                    const midX = singleOrb.x;
+                    const midY = singleOrb.y;
+                    const initialAngle = Math.atan2(singleOrb.y, singleOrb.x);
+                    const palA = SATURATED_PLEXUS_PALETTES[singleOrb.id] || PALETTE_RGB_CACHE[singleOrb.id];
                     const particles: FinaleMeshParticle[] = [];
 
                     for (let p = 0; p < 100; p++) {
-                      const useA = (p % 2 === 0);
-                      const srcOrb = useA ? orbA : orbB;
-                      const pal = useA ? palA : palB;
                       const originOffset = {
-                        x: srcOrb.x - midX,
-                        y: srcOrb.y - midY,
-                        z: srcOrb.z
+                        x: 0,
+                        y: 0,
+                        z: singleOrb.z
                       };
                       particles.push(
                         new FinaleMeshParticle(
@@ -5254,7 +5215,7 @@ export function SakuraCanvas({
                           165.0,
                           135.0,
                           48.0,
-                          pal,
+                          palA,
                           originOffset,
                           p
                         )
@@ -5263,26 +5224,120 @@ export function SakuraCanvas({
 
                     const impulseDuration = Math.max(0.1, win.endAt - finaleAge);
                     activeImpulses.push({
-                      orbA,
-                      orbB,
+                      orbA: singleOrb,
+                      orbB: null,
                       age: 0.0,
                       remaining: impulseDuration,
                       duration: impulseDuration,
                       midX,
                       midY,
                       initialAngle,
-                      initialDistA,
-                      initialDistB,
+                      initialDistA: 18.0,
+                      initialDistB: 0,
                       particles,
                       roundIdx: r
                     });
-                    orbA.inImpulse = true;
-                    orbB.inImpulse = true;
-                    orbA.finaleNetworkCount++;
-                    orbB.finaleNetworkCount++;
+                    singleOrb.inImpulse = true;
+                    singleOrb.finaleNetworkCount++;
                   }
                 }
-              });
+              } else {
+                const roundPairs: [FloatingPlexusOrbInstance, FloatingPlexusOrbInstance][] = [];
+                if (activeDockedOrbs.length === 2) {
+                  roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
+                } else if (activeDockedOrbs.length === 3) {
+                  if (r === 0) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]]);
+                  else if (r === 1) roundPairs.push([activeDockedOrbs[1], activeDockedOrbs[2]]);
+                  else if (r === 2) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[2]]);
+                } else if (activeDockedOrbs.length >= 4) {
+                  if (r === 0) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[1]], [activeDockedOrbs[2], activeDockedOrbs[3]]);
+                  else if (r === 1) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[2]], [activeDockedOrbs[1], activeDockedOrbs[3]]);
+                  else if (r === 2) roundPairs.push([activeDockedOrbs[0], activeDockedOrbs[3]], [activeDockedOrbs[1], activeDockedOrbs[2]]);
+                }
+
+                roundPairs.forEach(([orbA, orbB]) => {
+                  if (!orbA || !orbB) return;
+                  if (orbA.attachedPlexusCount === 0 || orbB.attachedPlexusCount === 0) return;
+
+                  const alreadyInImpulse = activeImpulses.some(
+                    imp => (imp.orbA === orbA || imp.orbB === orbA || imp.orbA === orbB || imp.orbB === orbB)
+                  );
+                  const hasDoneRound = (orbA.finaleNetworkCount > r) && (orbB.finaleNetworkCount > r);
+
+                  if (!alreadyInImpulse && !hasDoneRound && orbA.impulseCooldown <= 0 && orbB.impulseCooldown <= 0) {
+                    const dx = orbB.x - orbA.x;
+                    const dy = orbB.y - orbA.y;
+                    const dist = Math.hypot(dx, dy) || 1.0;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    if (finaleAge < win.triggerAt) {
+                      // Mutual Proximity Attraction during seek phase (+50% attraction pull)
+                      const pull = Math.min(260.0, 550.0 / Math.max(20.0, dist));
+                      orbA.finaleVx += nx * pull * delta * 3.6;
+                      orbA.finaleVy += ny * pull * delta * 3.6;
+                      orbB.finaleVx -= nx * pull * delta * 3.6;
+                      orbB.finaleVy -= ny * pull * delta * 3.6;
+                    } else {
+                      // Window trigger reached (Sekunden 1-2, 5-6, 9-10): Trigger 1-Second Flickering Network!
+                      orbA.triggerDockWobble();
+                      orbB.triggerDockWobble();
+
+                      const midX = (orbA.x + orbB.x) * 0.5;
+                      const midY = (orbA.y + orbB.y) * 0.5;
+                      const initialAngle = Math.atan2(orbA.y - midY, orbA.x - midX);
+                      const initialDistA = Math.hypot(orbA.x - midX, orbA.y - midY);
+                      const initialDistB = Math.hypot(orbB.x - midX, orbB.y - midY);
+
+                      const palA = SATURATED_PLEXUS_PALETTES[orbA.id] || PALETTE_RGB_CACHE[orbA.id];
+                      const palB = SATURATED_PLEXUS_PALETTES[orbB.id] || PALETTE_RGB_CACHE[orbB.id];
+                      const particles: FinaleMeshParticle[] = [];
+
+                      for (let p = 0; p < 100; p++) {
+                        const useA = (p % 2 === 0);
+                        const srcOrb = useA ? orbA : orbB;
+                        const pal = useA ? palA : palB;
+                        const originOffset = {
+                          x: srcOrb.x - midX,
+                          y: srcOrb.y - midY,
+                          z: srcOrb.z
+                        };
+                        particles.push(
+                          new FinaleMeshParticle(
+                            FINALE_MESH_OPTS,
+                            165.0,
+                            135.0,
+                            48.0,
+                            pal,
+                            originOffset,
+                            p
+                          )
+                        );
+                      }
+
+                      const impulseDuration = Math.max(0.1, win.endAt - finaleAge);
+                      activeImpulses.push({
+                        orbA,
+                        orbB,
+                        age: 0.0,
+                        remaining: impulseDuration,
+                        duration: impulseDuration,
+                        midX,
+                        midY,
+                        initialAngle,
+                        initialDistA,
+                        initialDistB,
+                        particles,
+                        roundIdx: r
+                      });
+                      orbA.inImpulse = true;
+                      orbB.inImpulse = true;
+                      orbA.finaleNetworkCount++;
+                      orbB.finaleNetworkCount++;
+                    }
+                  }
+                });
+              }
             }
           }
 
@@ -5303,15 +5358,22 @@ export function SakuraCanvas({
             const smoothEase = entryProg * entryProg * (3.0 - 2.0 * entryProg);
             const targetOrbitR = 26.0;
             const curDistA = THREE.MathUtils.lerp(imp.initialDistA, targetOrbitR, smoothEase);
-            const curDistB = THREE.MathUtils.lerp(imp.initialDistB, targetOrbitR, smoothEase);
             const orbitAngle = imp.initialAngle + imp.age * 1.7; // 50% verlangsamt (vorher 3.4)
 
-            imp.orbA.x = imp.midX + Math.cos(orbitAngle) * curDistA;
-            imp.orbA.y = imp.midY + Math.sin(orbitAngle) * curDistA * 0.85;
-            imp.orbB.x = imp.midX - Math.cos(orbitAngle) * curDistB;
-            imp.orbB.y = imp.midY - Math.sin(orbitAngle) * curDistB * 0.85;
+            if (imp.orbB) {
+              const curDistB = THREE.MathUtils.lerp(imp.initialDistB, targetOrbitR, smoothEase);
+              imp.orbA.x = imp.midX + Math.cos(orbitAngle) * curDistA;
+              imp.orbA.y = imp.midY + Math.sin(orbitAngle) * curDistA * 0.85;
+              imp.orbB.x = imp.midX - Math.cos(orbitAngle) * curDistB;
+              imp.orbB.y = imp.midY - Math.sin(orbitAngle) * curDistB * 0.85;
+            } else {
+              // Sanft pulsierende Orbitalbewegung des einzelnen Orbs
+              const singleR = THREE.MathUtils.lerp(imp.initialDistA, 8.0, smoothEase);
+              imp.orbA.x = imp.midX + Math.cos(orbitAngle) * singleR;
+              imp.orbA.y = imp.midY + Math.sin(orbitAngle) * singleR * 0.85;
+            }
 
-            // 1. 100 Unfolding Dual-Color FinaleMeshParticles (Filament Threads)
+            // 1. 100 Unfolding FinaleMeshParticles (Filament Threads)
             for (let p = 0; p < imp.particles.length; p++) {
               if (worldNodeCount >= MAX_TOTAL_NODES) break;
               const pt = imp.particles[p];
@@ -5330,9 +5392,9 @@ export function SakuraCanvas({
               worldNodeAlpha[nIdx] = impAlpha;
             }
 
-            // 2. Add the 2 Hub Orbs inside the Network
-            const pairOrbs = [imp.orbA, imp.orbB];
-            for (let k = 0; k < 2; k++) {
+            // 2. Add the Hub Orbs inside the Network
+            const pairOrbs = imp.orbB ? [imp.orbA, imp.orbB] : [imp.orbA];
+            for (let k = 0; k < pairOrbs.length; k++) {
               if (worldNodeCount >= MAX_TOTAL_NODES) break;
               const hOrb = pairOrbs[k];
               const hubCol = (SATURATED_PLEXUS_PALETTES[hOrb.id] || PALETTE_RGB_CACHE[hOrb.id])[0];
@@ -5349,23 +5411,30 @@ export function SakuraCanvas({
               worldNodeAlpha[hubIdx] = impAlpha;
             }
 
-            // After impulse ends (1s duration): Strong separation impulse separating orbs for the pause
+            // After impulse ends (1s duration): Separation impulse separating orbs for the pause
             if (imp.remaining <= 0) {
-              const dx = imp.orbB.x - imp.orbA.x;
-              const dy = imp.orbB.y - imp.orbA.y;
-              const d = Math.hypot(dx, dy) || 1.0;
-              const nx = dx / d;
-              const ny = dy / d;
+              if (imp.orbB) {
+                const dx = imp.orbB.x - imp.orbA.x;
+                const dy = imp.orbB.y - imp.orbA.y;
+                const d = Math.hypot(dx, dy) || 1.0;
+                const nx = dx / d;
+                const ny = dy / d;
 
-              const sepImpulse = 175.0; // Dynamic separation impulse for fast pause wandering
-              imp.orbA.finaleVx = -nx * sepImpulse;
-              imp.orbA.finaleVy = -ny * sepImpulse;
-              imp.orbB.finaleVx = nx * sepImpulse;
-              imp.orbB.finaleVy = ny * sepImpulse;
+                const sepImpulse = 175.0; // Dynamic separation impulse for fast pause wandering
+                imp.orbA.finaleVx = -nx * sepImpulse;
+                imp.orbA.finaleVy = -ny * sepImpulse;
+                imp.orbB.finaleVx = nx * sepImpulse;
+                imp.orbB.finaleVy = ny * sepImpulse;
+                imp.orbB.inImpulse = false;
+                imp.orbB.impulseCooldown = 0.5;
+              } else {
+                // Sanfter Auswanderungs-Impuls für den einzelnen Orb während der Pause
+                const wanderAngle = Math.random() * Math.PI * 2;
+                imp.orbA.finaleVx = Math.cos(wanderAngle) * 85.0;
+                imp.orbA.finaleVy = Math.sin(wanderAngle) * 85.0;
+              }
               imp.orbA.inImpulse = false;
-              imp.orbB.inImpulse = false;
               imp.orbA.impulseCooldown = 0.5;
-              imp.orbB.impulseCooldown = 0.5;
 
               activeImpulses.splice(impIdx, 1);
             }
@@ -6118,7 +6187,7 @@ export function SakuraCanvas({
   return (
     <div
       ref={containerRef}
-      className={`fixed overflow-hidden bg-[#2b0016] select-none z-0 ${
+      className={`fixed overflow-hidden bg-[#2b0016] select-none z-0 font-sans ${
         isVirtualLandscape ? '' : 'inset-0 w-screen h-[100dvh] min-h-screen'
       }`}
       style={isVirtualLandscape ? {

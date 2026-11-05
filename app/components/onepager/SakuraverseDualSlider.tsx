@@ -1859,7 +1859,10 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       return new THREE.Vector3(nx * plexusHalfW, ny * PLEXUS_HALF_H, 0);
     };
 
+    let isPointerDown = false;
+
     const onPointerDown = (e: PointerEvent) => {
+      isPointerDown = true;
       const rect = canvas.getBoundingClientRect();
       const localX = e.clientX - rect.left;
       const splitPx = width * splitRatioRef.current;
@@ -1932,8 +1935,15 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         return;
       }
 
-      // Left side (Sumi-e): Strict circular mouse gesture detection -> 3s Vortex!
+      // Left side (Sumi-e): Strict circular mouse gesture detection ONLY with held left mouse button / touch -> 3s Vortex!
       if (localX < splitPx - 8) {
+        const isLeftPressed = isPointerDown || e.buttons === 1;
+        if (!isLeftPressed) {
+          setCursorStyle('default');
+          mouseTrailHistory.length = 0;
+          return;
+        }
+
         setCursorStyle('default');
         mouseTrailHistory.push({ x: localX, y: localY, t: now });
         while (mouseTrailHistory.length > 0 && now - mouseTrailHistory[0].t > 1100) {
@@ -2055,6 +2065,8 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     };
 
     const onPointerUp = (e: PointerEvent) => {
+      isPointerDown = false;
+      mouseTrailHistory.length = 0;
       if (draggedOrb) {
         try {
           canvas.releasePointerCapture?.(e.pointerId);
@@ -2065,10 +2077,16 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       }
     };
 
+    const onGlobalPointerUp = () => {
+      isPointerDown = false;
+      mouseTrailHistory.length = 0;
+    };
+
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointerup', onGlobalPointerUp);
 
     const handleResize = () => {
       if (!container) return;
@@ -2750,6 +2768,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointerup', onGlobalPointerUp);
       renderer.dispose();
     };
   }, []);
