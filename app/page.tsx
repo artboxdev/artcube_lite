@@ -150,7 +150,7 @@ function ArtCubeApp() {
   const ExperienceComponent = selectedExperience.Component;
 
   return (
-    <main className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016]">
+    <main className="fixed inset-0 w-full h-[100dvh] min-h-screen overflow-hidden bg-[#2b0016]">
       {/* 1. EINGEBETTETES KUNSTWERK (Hintergrund-Shader & 3D-Szene laufen live hinter dem Onepager) */}
       <div className="absolute inset-0 w-full h-full z-0">
         <ExperienceComponent
