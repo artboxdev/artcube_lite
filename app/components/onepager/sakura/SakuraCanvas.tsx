@@ -2052,7 +2052,8 @@ export function SakuraCanvas({
 
   const modeTransitionTimerRef = useRef(1.0);
 
-  const handleSwitchMode = useCallback((newMode: 'bluten' | 'plexus') => {
+  const handleSwitchMode = useCallback((newMode: 'bluten' | 'plexus', shouldBroadcast = true) => {
+    if (newMode === activeModeRef.current) return;
     activeModeRef.current = newMode;
     setActiveMode(newMode);
     modeTransitionTimerRef.current = 0.0;
@@ -2064,7 +2065,9 @@ export function SakuraCanvas({
       const h = shouldRotate ? window.innerWidth : window.innerHeight;
       updateCameraDistance(w, h, newMode);
     }
-    sendInteractionRef.current?.('MODE_SWITCH', { mode: newMode });
+    if (shouldBroadcast) {
+      sendInteractionRef.current?.('MODE_SWITCH', { mode: newMode });
+    }
   }, [updateCameraDistance]);
 
   useEffect(() => {
@@ -2173,7 +2176,15 @@ export function SakuraCanvas({
 
       isSouvenirRecordingRef.current = true;
 
-      const stream = recordCanvas.captureStream(60);
+      const recordCanvasAny = recordCanvas as HTMLCanvasElement & { webkitCaptureStream?: (fps?: number) => MediaStream };
+      const stream = (
+        (typeof recordCanvas.captureStream === 'function' ? recordCanvas.captureStream(60) : undefined) ??
+        (typeof recordCanvasAny.webkitCaptureStream === 'function' ? recordCanvasAny.webkitCaptureStream(60) : undefined)
+      );
+      if (!stream) {
+        console.warn('Canvas video capture stream not supported on this browser');
+        return;
+      }
       let selectedMimeType = 'video/webm';
       const mimeTypes = [
         'video/mp4;codecs=avc1',
@@ -4392,7 +4403,7 @@ export function SakuraCanvas({
     let lastRemoteCursorMoveTime = performance.now();
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
-      if (e.cancelable && e.target instanceof HTMLElement && (e.target.tagName === 'CANVAS' || e.target.closest('canvas'))) {
+      if (e.cancelable && (isRunningRef.current || (e.target instanceof HTMLElement && (e.target.tagName === 'CANVAS' || e.target.closest('canvas'))))) {
         e.preventDefault();
       }
       const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
@@ -6080,6 +6091,7 @@ export function SakuraCanvas({
         const targetMode = (mode === 'plexus' || mode === 'bluten') ? mode : 'bluten';
         activeModeRef.current = targetMode;
         setActiveMode(targetMode);
+        modeTransitionTimerRef.current = 1.0;
 
         // Reset and initialize scene cleanly for the active session
         restartTriggerRef.current();
@@ -6184,7 +6196,7 @@ export function SakuraCanvas({
           currentPhaseRef.current = 'AWAIT_VORTEX';
           setCurrentPhase('AWAIT_VORTEX');
         } else if (msg.kind === 'MODE_SWITCH' && msg.mode) {
-          handleSwitchMode(msg.mode as 'bluten' | 'plexus');
+          handleSwitchMode(msg.mode as 'bluten' | 'plexus', false);
         } else if (msg.kind === 'COLOR_SELECT' && msg.color) {
           setSelectedColor(msg.color as BlossomColorId);
         } else if (msg.kind === 'BLOSSOM_COLOR_ADD' && msg.color) {
@@ -6368,6 +6380,7 @@ export function SakuraCanvas({
         <canvas
           ref={canvasRef}
           className={`pointer-events-auto block ${isRunning ? 'cursor-none w-full h-full' : 'cursor-pointer w-full h-full'}`}
+          style={{ touchAction: 'none' }}
         />
       </div>
 

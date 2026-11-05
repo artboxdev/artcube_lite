@@ -97,6 +97,10 @@ function ArtCubeApp() {
       handleStart(artwork, mode, false, trackIdx);
     },
     onPeerMessage: (data) => {
+      const msg = data as { kind?: string; mode?: string } | null;
+      if (msg && msg.kind === 'MODE_SWITCH' && (msg.mode === 'bluten' || msg.mode === 'plexus')) {
+        setActiveArtworkMode(msg.mode);
+      }
       rendererApiRef.current?.handlePeerMessage?.(data as any);
     },
   });

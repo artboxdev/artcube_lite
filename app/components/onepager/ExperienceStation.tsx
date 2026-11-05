@@ -390,13 +390,22 @@ export function ExperienceStation({
               <p className="text-center text-[11px] sm:text-xs text-white/60 tracking-wide font-light">
                 {t.interactionHint}
               </p>
-              <button
-                type="button"
-                onClick={() => handleStartArtwork('test', 'bluten')}
-                className="w-full py-5 px-8 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]"
-              >
-                <span>{t.startTestBtn}</span>
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleStartArtwork('test', 'bluten')}
+                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)]"
+                >
+                  <span>{t.startTestSumieBtn || 'Testmodus "Sumi-E" starten'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartArtwork('test', 'plexus')}
+                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]"
+                >
+                  <span>{t.startTestPlexusBtn || 'Testmodus "Plexus" starten'}</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
