@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-[#08020e]">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sakuraverse — Artistic Impulses Preview & Testbed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #08020e;
+      color: #ffffff;
+    }
+
+    #viewport-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-origin: center center;
+      transition: transform 0.05s ease-out;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Chromatic Fringe Vignette Layer */
+    #chromatic-fringe {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      mix-blend-mode: screen;
+      transition: opacity 0.3s ease;
+      background: radial-gradient(circle at center, transparent 55%, rgba(255, 42, 157, 0.28) 85%, rgba(78, 226, 236, 0.45) 100%);
+      box-shadow: inset 0 0 80px rgba(255, 42, 157, 0.4), inset 0 0 140px rgba(78, 226, 236, 0.3);
+    }
+
+    /* Ambient Dimmer Layer */
+    #ambient-dimmer {
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 1, 8, 0.7);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+    }
+
+    /* Top Telemetry Header */
+    .top-header {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 50;
+    }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      background: rgba(18, 10, 28, 0.85);
+      border: 1px solid rgba(255, 105, 180, 0.35);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 42, 157, 0.2);
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff, #ffb4dc, #ff2a9d);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .telemetry-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 18px;
+      border-radius: 9999px;
+      background: rgba(18, 10, 28, 0.85);
+      border: 1px solid rgba(78, 226, 236, 0.35);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #e2f8ff;
+    }
+
+    /* Floating Palette Bar (Hidden until reveal) */
+    #color-palette-bar {
+      position: absolute;
+      bottom: 125px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px) scale(0.9);
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 22px;
+      background: rgba(18, 10, 28, 0.92);
+      border: 1px solid rgba(255, 105, 180, 0.5);
+      border-radius: 9999px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 42, 157, 0.35);
+      backdrop-filter: blur(20px);
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+      z-index: 40;
+    }
+    #color-palette-bar.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+    .palette-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .palette-circle:hover {
+      transform: scale(1.25);
+      border-color: #ffffff;
+      box-shadow: 0 0 16px currentColor;
+    }
+
+    /* Bottom Interactive Dock */
+    .control-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 980px;
+      background: linear-gradient(135deg, rgba(22, 12, 34, 0.95), rgba(12, 6, 20, 0.98));
+      border: 1px solid rgba(255, 105, 180, 0.45);
+      border-radius: 24px;
+      padding: 14px 18px;
+      backdrop-filter: blur(24px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 42, 157, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 50;
+    }
+
+    .dock-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: rgba(255, 255, 255, 0.6);
+      padding: 0 4px;
+    }
+    .dock-header strong {
+      color: #ff80df;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      gap: 8px;
+    }
+
+    .impulse-btn {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 10px 8px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      text-align: center;
+    }
+    .impulse-btn:hover {
+      background: rgba(255, 42, 157, 0.2);
+      border-color: rgba(255, 42, 157, 0.6);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 42, 157, 0.35);
+    }
+    .impulse-btn:active {
+      transform: scale(0.97);
+    }
+    .impulse-btn.active {
+      background: linear-gradient(135deg, rgba(255, 42, 157, 0.8), rgba(168, 85, 247, 0.8));
+      border-color: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 25px rgba(255, 42, 157, 0.7);
+    }
+    .btn-badge {
+      font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
+    .btn-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+    .btn-duration {
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .impulse-btn.plexus-btn:hover {
+      background: rgba(78, 226, 236, 0.2);
+      border-color: rgba(78, 226, 236, 0.7);
+      box-shadow: 0 6px 20px rgba(78, 226, 236, 0.35);
+    }
+    .impulse-btn.plexus-btn.active {
+      background: linear-gradient(135deg, rgba(78, 226, 236, 0.8), rgba(59, 130, 246, 0.8));
+      border-color: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 25px rgba(78, 226, 236, 0.7);
+    }
+
+    .impulse-btn.sequence-btn {
+      background: linear-gradient(135deg, rgba(255, 42, 157, 0.25), rgba(78, 226, 236, 0.25));
+      border-color: rgba(255, 105, 180, 0.5);
+    }
+
+    /* Live Info Box */
+    #info-banner {
+      position: absolute;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(14, 8, 22, 0.88);
+      border: 1px solid rgba(255, 105, 180, 0.4);
+      padding: 8px 20px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(16px);
+      pointer-events: none;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+    }
+    #status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff2a9d;
+      box-shadow: 0 0 10px #ff2a9d;
+      animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+    @keyframes ping {
+      75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Viewport Container for Scene Heartbeat Scaling -->
+  <div id="viewport-container">
+    <canvas id="art-canvas"></canvas>
+    <div id="chromatic-fringe"></div>
+    <div id="ambient-dimmer"></div>
+  </div>
+
+  <!-- Header -->
+  <header class="top-header">
+    <div class="brand-badge">
+      <svg class="w-4 h-4 text-[#ff2a9d]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff2a9d" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
+        <circle cx="12" cy="12" r="2" fill="#ff2a9d" fill-opacity="0.4" />
+      </svg>
+      <span class="brand-title">Artistic Impulses Preview</span>
+    </div>
+
+    <div class="telemetry-pill">
+      <span id="telemetry-mode">Bereit</span>
+      <span style="opacity: 0.3;">|</span>
+      <span id="telemetry-timer">3.0s</span>
+    </div>
+  </header>
+
+  <!-- Live Info Toast -->
+  <div id="info-banner">
+    <span id="status-dot"></span>
+    <span id="info-text">Wähle einen Impuls unten zum Testen aus.</span>
+  </div>
+
+  <!-- Blossom Palette Reveal Preview -->
+  <div id="color-palette-bar">
+    <span style="font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #ffb4dc; margin-right: 4px;">Farben:</span>
+    <div class="palette-circle" style="background: #ff2a9d;" title="Sakura Pink"></div>
+    <div class="palette-circle" style="background: #ef4444;" title="Crimson Red"></div>
+    <div class="palette-circle" style="background: #00f0ff;" title="Cyan Blue"></div>
+    <div class="palette-circle" style="background: #10e782;" title="Mint Green"></div>
+    <div class="palette-circle" style="background: #fbbf24;" title="Amber Gold"></div>
+  </div>
+
+  <!-- Bottom Control Dock with Trigger Buttons -->
+  <div class="control-dock">
+    <div class="dock-header">
+      <span><strong>Interaktive Impuls-Steuerung</strong> · Klicke zum Auslösen</span>
+      <span id="fps-counter">60 FPS</span>
+    </div>
+
+    <div class="button-grid">
+      <!-- 1. Tusche-Atem -->
+      <button class="impulse-btn" id="btn-impulse-1" onclick="triggerImpulse1()">
+        <span class="btn-badge" style="color: #ff80df;">Sumi-E · Phase 1</span>
+        <span class="btn-title">Tusche-Atem</span>
+        <span class="btn-duration">3.0s · Inhale & Stamm</span>
+      </button>
+
+      <!-- 2. 8 Farbknotenpunkte -->
+      <button class="impulse-btn" id="btn-impulse-2" onclick="triggerImpulse2()">
+        <span class="btn-badge" style="color: #d946ef;">Sumi-E · Phase 2</span>
+        <span class="btn-title">8 Farbknoten</span>
+        <span class="btn-duration">3.0s · Sporen-Zerfall</span>
+      </button>
+
+      <!-- 3. Chromatische Rand-Aura -->
+      <button class="impulse-btn" id="btn-impulse-3" onclick="triggerImpulse3()">
+        <span class="btn-badge" style="color: #4ee2ec;">Sumi-E · Phase 3</span>
+        <span class="btn-title">Rand-Aura</span>
+        <span class="btn-duration">3.0s · Flimmern</span>
+      </button>
+
+      <!-- 4. Heartbeat-Kontraktion -->
+      <button class="impulse-btn" id="btn-impulse-4" onclick="triggerImpulse4()">
+        <span class="btn-badge" style="color: #f43f5e;">Sumi-E · Phase 4</span>
+        <span class="btn-title">Heartbeat</span>
+        <span class="btn-duration">3.0s · 60→130 BPM</span>
+      </button>
+
+      <!-- 5. Plexus Synaptic Web -->
+      <button class="impulse-btn plexus-btn" id="btn-impulse-5" onclick="triggerImpulse5()">
+        <span class="btn-badge" style="color: #00f0ff;">Plexus</span>
+        <span class="btn-title">Synaptic Web</span>
+        <span class="btn-duration">1.4s · 550px Flackern</span>
+      </button>
+
+      <!-- 6. Play All Sequence -->
+      <button class="impulse-btn sequence-btn" id="btn-impulse-seq" onclick="triggerFullSequence()">
+        <span class="btn-badge" style="color: #ffffff;">Ablauf</span>
+        <span class="btn-title">Gesamt-Flow</span>
+        <span class="btn-duration">Alle 4 Sumi-E Phasen</span>
+      </button>
+
+      <!-- 7. Reset -->
+      <button class="impulse-btn" style="border-color: rgba(255,255,255,0.15); opacity: 0.8;" onclick="resetAll()">
+        <span class="btn-badge" style="color: #94a3b8;">Setup</span>
+        <span class="btn-title">Zurücksetzen</span>
+        <span class="btn-duration">Initiale Szene</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // --- Canvas & Rendering Architecture ---
+    const canvas = document.getElementById('art-canvas');
+    const ctx = canvas.getContext('2d');
+    const viewportContainer = document.getElementById('viewport-container');
+    const chromaticFringe = document.getElementById('chromatic-fringe');
+    const ambientDimmer = document.getElementById('ambient-dimmer');
+    const colorPaletteBar = document.getElementById('color-palette-bar');
+    const telemetryMode = document.getElementById('telemetry-mode');
+    const telemetryTimer = document.getElementById('telemetry-timer');
+    const infoText = document.getElementById('info-text');
+
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+
+    // Color definitions
+    const PALETTE_COLORS = [
+      { name: 'Sakura Pink', hex: '#ff2a9d', rgb: [255, 42, 157] },
+      { name: 'Crimson Red', hex: '#ef4444', rgb: [239, 68, 68] },
+      { name: 'Cyan Blue', hex: '#00f0ff', rgb: [0, 240, 255] },
+      { name: 'Mint Green', hex: '#10e782', rgb: [16, 231, 130] },
+      { name: 'Amber Gold', hex: '#fbbf24', rgb: [251, 191, 36] }
+    ];
+
+    // State Variables
+    let currentActiveImpulse = null;
+    let impulseTime = 0.0;
+    let impulseDuration = 3.0;
+
+    // Sumi-E Structure State
+    let trunkProgress = 0.0;
+    let targetTrunkProgress = 0.0;
+    let branchesProgress = 0.0;
+
+    // Ink Inhale Particles (Impulse 1)
+    let inhaleParticles = [];
+
+    // 8 Spore Nodes (Impulse 2)
+    let sporeNodes = [];
+    let sporeDustParticles = [];
+
+    // Plexus Elements (Impulse 5)
+    let plexusOrbs = [];
+    let plexusFilaments = [];
+
+    // Initialize Plexus Dummy Orbs in 3D-like layout
+    function initPlexusOrbs() {
+      plexusOrbs = [
+        { id: 0, x: width * 0.28, y: height * 0.35, r: 24, color: '#ff2a9d', glow: 0.0, label: 'Orb 1' },
+        { id: 1, x: width * 0.72, y: height * 0.32, r: 26, color: '#00f0ff', glow: 0.0, label: 'Orb 2' },
+        { id: 2, x: width * 0.35, y: height * 0.68, r: 22, color: '#10e782', glow: 0.0, label: 'Orb 3' },
+        { id: 3, x: width * 0.68, y: height * 0.70, r: 25, color: '#fbbf24', glow: 0.0, label: 'Orb 4' }
+      ];
+    }
+    initPlexusOrbs();
+
+    // Spline Points for Sumi-e Trunk & Branches
+    function getTreeCurves() {
+      const startX = width * 0.5;
+      const startY = height * 0.88;
+
+      return {
+        trunk: [
+          { x: startX, y: startY },
+          { x: startX - 25, y: startY - height * 0.2 },
+          { x: startX + 30, y: startY - height * 0.38 },
+          { x: startX - 10, y: startY - height * 0.52 }
+        ],
+        branch1: [
+          { x: startX - 25, y: startY - height * 0.2 },
+          { x: startX - 140, y: startY - height * 0.28 },
+          { x: startX - 220, y: startY - height * 0.36 }
+        ],
+        branch2: [
+          { x: startX + 30, y: startY - height * 0.38 },
+          { x: startX + 160, y: startY - height * 0.44 },
+          { x: startX + 240, y: startY - height * 0.52 }
+        ],
+        branch3: [
+          { x: startX - 10, y: startY - height * 0.52 },
+          { x: startX + 60, y: startY - height * 0.62 },
+          { x: startX + 110, y: startY - height * 0.70 }
+        ]
+      };
+    }
+
+    // Bezier drawing helper
+    function drawCurveSegment(ctx, p0, p1, p2, p3, tProgress, strokeW, color = '#ffffff', alpha = 1.0) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = strokeW;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = alpha;
+
+      const steps = Math.floor(60 * tProgress);
+      if (steps > 1) {
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / 60);
+          const cx = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
+          const cy = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
+          if (i === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function getPointOnCurve(p0, p1, p2, p3, t) {
+      const cx = Math.pow(1 - t, 3) * p0.x + 3 * Math.pow(1 - t, 2) * t * p1.x + 3 * (1 - t) * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x;
+      const cy = Math.pow(1 - t, 3) * p0.y + 3 * Math.pow(1 - t, 2) * t * p1.y + 3 * (1 - t) * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y;
+      return { x: cx, y: cy };
+    }
+
+    // --- IMPULSE 1: Tusche-Atem (3.0s) ---
+    function triggerImpulse1() {
+      setActiveButton('btn-impulse-1');
+      currentActiveImpulse = 'INHALE';
+      impulseTime = 0.0;
+      impulseDuration = 3.0;
+      telemetryMode.innerText = 'Impuls 1: Tusche-Atem';
+      infoText.innerText = 'Transluzenter Tuschnebel zieht sich spiralförmig zum Stammursprung; Licht dimmt ab; Stamm wächst empor.';
+
+      // Reset tree for Inhale -> Trunk Growth demo
+      trunkProgress = 0.0;
+      branchesProgress = 0.0;
+      targetTrunkProgress = 0.0;
+      colorPaletteBar.classList.remove('visible');
+
+      // Generate 70 spiraling ink particles from screen boundaries
+      inhaleParticles = [];
+      const rootX = width * 0.5;
+      const rootY = height * 0.88;
+
+      for (let i = 0; i < 70; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.max(width, height) * (0.45 + Math.random() * 0.4);
+        inhaleParticles.push({
+          x: rootX + Math.cos(angle) * dist,
+          y: rootY + Math.sin(angle) * dist,
+          originX: rootX + Math.cos(angle) * dist,
+          originY: rootY + Math.sin(angle) * dist,
+          targetX: rootX,
+          targetY: rootY,
+          size: 4 + Math.random() * 12,
+          speed: 0.7 + Math.random() * 0.6,
+          spiralOffset: (Math.random() - 0.5) * 1.5,
+          alpha: 0.15 + Math.random() * 0.35,
+          curveAngle: angle
+        });
+      }
+    }
+
+    // --- IMPULSE 2: 8 Farbknotenpunkte (3.0s) ---
+    function triggerImpulse2() {
+      setActiveButton('btn-impulse-2');
+      currentActiveImpulse = 'SPORES';
+      impulseTime = 0.0;
+      impulseDuration = 3.0;
+      telemetryMode.innerText = 'Impuls 2: 8 Farbknoten';
+      infoText.innerText = 'Entlang der Äste entstehen 8 sakurafarbene Knotenpunkte, die in feine Partikel der 5 Palettenfarben zerfallen.';
+
+      // Ensure tree is drawn
+      trunkProgress = 1.0;
+      branchesProgress = 1.0;
+      colorPaletteBar.classList.remove('visible');
+
+      const curves = getTreeCurves();
+      sporeNodes = [];
+      sporeDustParticles = [];
+
+      // Pick 8 random positions along trunk and branches
+      const branchList = [
+        { c: curves.trunk, tMin: 0.3, tMax: 0.95 },
+        { c: curves.branch1, tMin: 0.2, tMax: 0.95 },
+        { c: curves.branch2, tMin: 0.2, tMax: 0.95 },
+        { c: curves.branch3, tMin: 0.2, tMax: 0.95 }
+      ];
+
+      for (let i = 0; i < 8; i++) {
+        const b = branchList[i % branchList.length];
+        const t = b.tMin + Math.random() * (b.tMax - b.tMin);
+        const pt = getPointOnCurve(b.c[0], b.c[1], b.c[2], b.c[b.c.length - 1], t);
+
+        // Assign one of the 5 palette colors to this node for its particles
+        const palColor = PALETTE_COLORS[i % PALETTE_COLORS.length];
+
+        sporeNodes.push({
+          x: pt.x + (Math.random() - 0.5) * 10,
+          y: pt.y + (Math.random() - 0.5) * 10,
+          bornTime: 0.15 * i,
+          hasDispersed: false,
+          color: palColor,
+          size: 7 + Math.random() * 4
+        });
+      }
+    }
+
+    // --- IMPULSE 3: Chromatische Rand-Aura (3.0s) ---
+    function triggerImpulse3() {
+      setActiveButton('btn-impulse-3');
+      currentActiveImpulse = 'FRINGE';
+      impulseTime = 0.0;
+      impulseDuration = 3.0;
+      telemetryMode.innerText = 'Impuls 3: Rand-Aura';
+      infoText.innerText = 'Feiner Magenta-Cyan-Schleier flackert an den Bildschirmrändern als Vorahnung des Dimensionssturms auf.';
+    }
+
+    // --- IMPULSE 4: Heartbeat-Kontraktion (3.0s) ---
+    function triggerImpulse4() {
+      setActiveButton('btn-impulse-4');
+      currentActiveImpulse = 'HEARTBEAT';
+      impulseTime = 0.0;
+      impulseDuration = 3.0;
+      telemetryMode.innerText = 'Impuls 4: Heartbeat';
+      infoText.innerText = 'Die gesamte Szene kontrahiert rhythmisch um 3-5% (60→130 BPM Herzschlag) während des Haltens vor dem Finale.';
+    }
+
+    // --- IMPULSE 5: Plexus Synaptic Web (1.4s) ---
+    function triggerImpulse5() {
+      setActiveButton('btn-impulse-5');
+      currentActiveImpulse = 'PLEXUS_DOCK';
+      impulseTime = 0.0;
+      impulseDuration = 1.4;
+      telemetryMode.innerText = 'Plexus: Synaptic Web';
+      infoText.innerText = 'Andocken entlädt 550px Filament-Web mit 35Hz Interferenz-Flackern und sanftem Echo benachbarter Orbs.';
+
+      // Dock at Orb 1 (Pink) as primary target
+      const hitOrb = plexusOrbs[0];
+      hitOrb.glow = 1.0;
+
+      // Other orbs get staggered echo
+      setTimeout(() => { plexusOrbs[1].glow = 0.7; }, 140);
+      setTimeout(() => { plexusOrbs[2].glow = 0.6; }, 260);
+
+      // Create 20 synaptic filaments spreading outward 400-600px
+      plexusFilaments = [];
+      const lineCount = 22;
+      for (let i = 0; i < lineCount; i++) {
+        // connect to other orbs or free floating nodes in space
+        let destX, destY;
+        if (i < 3) {
+          destX = plexusOrbs[i + 1].x;
+          destY = plexusOrbs[i + 1].y;
+        } else {
+          const angle = (i / lineCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+          const dist = 380 + Math.random() * 240;
+          destX = hitOrb.x + Math.cos(angle) * dist;
+          destY = hitOrb.y + Math.sin(angle) * dist;
+        }
+
+        plexusFilaments.push({
+          x1: hitOrb.x,
+          y1: hitOrb.y,
+          x2: destX,
+          y2: destY,
+          color: hitOrb.color,
+          flickerPhase: Math.random() * 10,
+          depthAlpha: 0.45 + Math.random() * 0.5
+        });
+      }
+    }
+
+    // --- FULL SUMI-E SEQUENCE FLOW ---
+    let sequenceTimeout = null;
+    function triggerFullSequence() {
+      clearTimeout(sequenceTimeout);
+      setActiveButton('btn-impulse-seq');
+      telemetryMode.innerText = 'Flow: 1/4 Tusche-Atem';
+      triggerImpulse1();
+
+      sequenceTimeout = setTimeout(() => {
+        telemetryMode.innerText = 'Flow: 2/4 8 Farbknoten';
+        triggerImpulse2();
+
+        sequenceTimeout = setTimeout(() => {
+          telemetryMode.innerText = 'Flow: 3/4 Rand-Aura';
+          triggerImpulse3();
+
+          sequenceTimeout = setTimeout(() => {
+            telemetryMode.innerText = 'Flow: 4/4 Heartbeat';
+            triggerImpulse4();
+
+            sequenceTimeout = setTimeout(() => {
+              telemetryMode.innerText = 'Flow Beendet';
+              infoText.innerText = 'Sequenz erfolgreich abgeschlossen. Bereit für nächste Tests.';
+              clearActiveButtons();
+            }, 3200);
+          }, 3200);
+        }, 3200);
+      }, 3200);
+    }
+
+    function resetAll() {
+      clearTimeout(sequenceTimeout);
+      clearActiveButtons();
+      currentActiveImpulse = null;
+      impulseTime = 0.0;
+      trunkProgress = 1.0;
+      branchesProgress = 1.0;
+      viewportContainer.style.transform = 'scale(1.0)';
+      chromaticFringe.style.opacity = '0';
+      ambientDimmer.style.opacity = '0';
+      colorPaletteBar.classList.remove('visible');
+      inhaleParticles = [];
+      sporeNodes = [];
+      sporeDustParticles = [];
+      plexusFilaments = [];
+      plexusOrbs.forEach(o => o.glow = 0.0);
+      telemetryMode.innerText = 'Bereit';
+      telemetryTimer.innerText = '3.0s';
+      infoText.innerText = 'Szene zurückgesetzt. Wähle einen Impuls zum Testen.';
+    }
+
+    function setActiveButton(btnId) {
+      clearActiveButtons();
+      const b = document.getElementById(btnId);
+      if (b) b.classList.add('active');
+    }
+    function clearActiveButtons() {
+      document.querySelectorAll('.impulse-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    // --- Main 60 FPS Render Loop ---
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fpsTimer = 0;
+
+    function render(now) {
+      const delta = Math.min((now - lastTime) / 1000, 0.06);
+      lastTime = now;
+
+      frameCount++;
+      fpsTimer += delta;
+      if (fpsTimer >= 1.0) {
+        document.getElementById('fps-counter').innerText = `${frameCount} FPS`;
+        frameCount = 0;
+        fpsTimer = 0;
+      }
+
+      // Update Active Impulse Timer
+      if (currentActiveImpulse) {
+        impulseTime += delta;
+        const remaining = Math.max(0, impulseDuration - impulseTime);
+        telemetryTimer.innerText = `${remaining.toFixed(1)}s`;
+
+        if (impulseTime >= impulseDuration) {
+          if (currentActiveImpulse === 'HEARTBEAT') {
+            viewportContainer.style.transform = 'scale(1.0)';
+          }
+          if (currentActiveImpulse === 'FRINGE') {
+            chromaticFringe.style.opacity = '0';
+          }
+          if (currentActiveImpulse === 'INHALE') {
+            ambientDimmer.style.opacity = '0';
+          }
+          currentActiveImpulse = null;
+        }
+      }
+
+      // Clear Canvas with subtle deep indigo vignette
+      ctx.fillStyle = '#08020e';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw subtle background grid/ambient field
+      const bgGrad = ctx.createRadialGradient(width * 0.5, height * 0.55, 50, width * 0.5, height * 0.5, width * 0.7);
+      bgGrad.addColorStop(0, 'rgba(40, 10, 50, 0.45)');
+      bgGrad.addColorStop(0.6, 'rgba(20, 6, 28, 0.35)');
+      bgGrad.addColorStop(1, 'rgba(8, 2, 14, 0.95)');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      const curves = getTreeCurves();
+
+      // ==========================================
+      // IMPULSE 1 EXECUTION: Inhale & Trunk Growth
+      // ==========================================
+      if (currentActiveImpulse === 'INHALE') {
+        const p = Math.min(1.0, impulseTime / impulseDuration);
+        
+        // 1. Dimm Ambient Background by ~12%
+        if (p < 0.4) {
+          ambientDimmer.style.opacity = (p / 0.4 * 0.75).toString();
+        } else if (p > 0.75) {
+          ambientDimmer.style.opacity = ((1.0 - (p - 0.75) / 0.25) * 0.75).toString();
+        }
+
+        // 2. Draw Spiraling Ink Mist Inhale Particles
+        inhaleParticles.forEach(pt => {
+          const moveProgress = Math.min(1.0, p * 1.5 * pt.speed);
+          const currentDist = (1.0 - moveProgress);
+          const spiralAngle = pt.curveAngle + (p * 5.0 * pt.spiralOffset);
+
+          const curX = pt.targetX + Math.cos(spiralAngle) * (pt.originX - pt.targetX) * currentDist;
+          const curY = pt.targetY + Math.sin(spiralAngle) * (pt.originY - pt.targetY) * currentDist;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(curX, curY, pt.size * (1.0 - moveProgress * 0.7), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 140, 210, ${pt.alpha * (1.0 - moveProgress * 0.5)})`;
+          ctx.shadowColor = '#ff2a9d';
+          ctx.shadowBlur = 12;
+          ctx.fill();
+          ctx.restore();
+        });
+
+        // 3. Trunk Origin Glowing Coal Ember (Center of focus)
+        const emberGlow = (p < 0.5) ? (p / 0.5) : (1.0 - (p - 0.5) / 0.5);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(curves.trunk[0].x, curves.trunk[0].y, 14 + emberGlow * 18, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 42, 157, ${0.4 + emberGlow * 0.5})`;
+        ctx.shadowColor = '#ff2a9d';
+        ctx.shadowBlur = 35 * emberGlow;
+        ctx.fill();
+        ctx.restore();
+
+        // 4. Trunk Growth starts after Inhale plateau (from 1.2s onward)
+        if (p > 0.4) {
+          trunkProgress = Math.min(1.0, (p - 0.4) / 0.6);
+        }
+      }
+
+      // ==========================================
+      // DRAW SUMI-E TREE (TRUNK & BRANCHES)
+      // ==========================================
+      if (trunkProgress > 0.0) {
+        // Main Trunk
+        drawCurveSegment(ctx, curves.trunk[0], curves.trunk[1], curves.trunk[2], curves.trunk[3], trunkProgress, 16, '#f3d5ea', 0.95);
+        // Outer Ink Wash aura
+        drawCurveSegment(ctx, curves.trunk[0], curves.trunk[1], curves.trunk[2], curves.trunk[3], trunkProgress, 26, 'rgba(255, 42, 157, 0.22)', 0.5);
+      }
+
+      if (branchesProgress > 0.0) {
+        // Branch 1
+        drawCurveSegment(ctx, curves.branch1[0], curves.branch1[1], curves.branch1[2], curves.branch1[2], branchesProgress, 8, '#f3d5ea', 0.9);
+        // Branch 2
+        drawCurveSegment(ctx, curves.branch2[0], curves.branch2[1], curves.branch2[2], curves.branch2[2], branchesProgress, 8, '#f3d5ea', 0.9);
+        // Branch 3
+        drawCurveSegment(ctx, curves.branch3[0], curves.branch3[1], curves.branch3[2], curves.branch3[2], branchesProgress, 6, '#f3d5ea', 0.85);
+      }
+
+      // ==========================================
+      // IMPULSE 2 EXECUTION: 8 Spore Nodes & Dust
+      // ==========================================
+      if (currentActiveImpulse === 'SPORES' || sporeDustParticles.length > 0) {
+        // 1. Spore Nodes Appearance & Burst
+        sporeNodes.forEach(node => {
+          if (impulseTime >= node.bornTime && !node.hasDispersed) {
+            const age = impulseTime - node.bornTime;
+            
+            // Phase A: Node pulses sakurapink (0.0s - 0.7s)
+            if (age < 0.75) {
+              const pulseScale = Math.sin(age * Math.PI / 0.75);
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, node.size * (1.0 + pulseScale * 0.5), 0, Math.PI * 2);
+              ctx.fillStyle = '#ffb4dc';
+              ctx.shadowColor = '#ff2a9d';
+              ctx.shadowBlur = 24 * pulseScale;
+              ctx.fill();
+
+              // Outer Sakura Ring
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, (node.size + 4) * (1.0 + pulseScale * 0.8), 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(255, 42, 157, ${pulseScale * 0.85})`;
+              ctx.lineWidth = 2.5;
+              ctx.stroke();
+              ctx.restore();
+            } else {
+              // Phase B: Burst into Palette-colored spores!
+              node.hasDispersed = true;
+              const dustCount = 28;
+              for (let d = 0; d < dustCount; d++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = 40 + Math.random() * 110;
+                sporeDustParticles.push({
+                  x: node.x,
+                  y: node.y,
+                  vx: Math.cos(angle) * spd,
+                  vy: Math.sin(angle) * spd - 25, // upward drift
+                  colorHex: node.color.hex,
+                  size: 2.0 + Math.random() * 4.0,
+                  alpha: 1.0,
+                  life: 1.6 + Math.random() * 0.6
+                });
+              }
+            }
+          }
+        });
+
+        // 2. Render Spore Dust Particles
+        for (let i = sporeDustParticles.length - 1; i >= 0; i--) {
+          const p = sporeDustParticles[i];
+          p.x += p.vx * delta;
+          p.y += p.vy * delta;
+          p.life -= delta;
+          p.alpha = Math.max(0, p.life / 2.0);
+
+          if (p.life <= 0) {
+            sporeDustParticles.splice(i, 1);
+            continue;
+          }
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.colorHex;
+          ctx.shadowColor = p.colorHex;
+          ctx.shadowBlur = 10;
+          ctx.globalAlpha = p.alpha;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 3. Reveal Color Palette Bar smoothly after spores disperse (~2.0s in)
+        if (impulseTime > 1.8) {
+          colorPaletteBar.classList.add('visible');
+        }
+      }
+
+      // ==========================================
+      // IMPULSE 3 EXECUTION: Chromatic Fringe Aura
+      // ==========================================
+      if (currentActiveImpulse === 'FRINGE') {
+        const p = impulseTime / impulseDuration;
+        // 35Hz Micro-Flicker modulation
+        const flicker = 0.75 + 0.25 * Math.sin(impulseTime * 38.0);
+        const envelope = Math.sin(p * Math.PI); // Smooth in, smooth out over 3.0s
+        const opacity = envelope * flicker * 0.95;
+        chromaticFringe.style.opacity = opacity.toString();
+      }
+
+      // ==========================================
+      // IMPULSE 4 EXECUTION: Scene Heartbeat
+      // ==========================================
+      if (currentActiveImpulse === 'HEARTBEAT') {
+        const p = Math.min(1.0, impulseTime / impulseDuration);
+        // Accelerating frequency: 60 BPM (1 Hz) to 130 BPM (2.17 Hz)
+        const currentBpm = 60 + (130 - 60) * Math.pow(p, 1.4);
+        const freqHz = currentBpm / 60;
+        
+        // Double-beat heartbeat waveform (lub-dub)
+        const cycle = (impulseTime * freqHz) % 1.0;
+        let beatAmp = 0.0;
+        if (cycle < 0.18) {
+          beatAmp = Math.sin((cycle / 0.18) * Math.PI) * 0.042; // First beat (lub)
+        } else if (cycle > 0.25 && cycle < 0.42) {
+          beatAmp = Math.sin(((cycle - 0.25) / 0.17) * Math.PI) * 0.026; // Second beat (dub)
+        }
+
+        // Scale scene down by 3-4% during peak contraction
+        const currentScale = 1.0 - beatAmp;
+        viewportContainer.style.transform = `scale(${currentScale})`;
+
+        // Glow pulse on trunk
+        ctx.save();
+        ctx.shadowColor = '#ff2a9d';
+        ctx.shadowBlur = beatAmp * 500;
+        ctx.restore();
+      }
+
+      // ==========================================
+      // IMPULSE 5 EXECUTION: Plexus Synaptic Web
+      // ==========================================
+      // Render Plexus Orbs
+      plexusOrbs.forEach(orb => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
+        ctx.fillStyle = orb.color;
+        ctx.shadowColor = orb.color;
+        ctx.shadowBlur = 18 + orb.glow * 40;
+        ctx.globalAlpha = 0.85 + orb.glow * 0.15;
+        ctx.fill();
+
+        // Echo halo
+        if (orb.glow > 0.02) {
+          ctx.beginPath();
+          ctx.arc(orb.x, orb.y, orb.r + 8 + (1.0 - orb.glow) * 25, 0, Math.PI * 2);
+          ctx.strokeStyle = orb.color;
+          ctx.lineWidth = 2.0;
+          ctx.globalAlpha = orb.glow * 0.75;
+          ctx.stroke();
+          orb.glow -= delta * 0.85; // smooth decay
+        }
+        ctx.restore();
+      });
+
+      // Render Synaptic Filaments with 35Hz Micro-Flicker
+      if (plexusFilaments.length > 0 && currentActiveImpulse === 'PLEXUS_DOCK') {
+        const p = impulseTime / impulseDuration;
+        const decay = Math.max(0, 1.0 - p);
+
+        plexusFilaments.forEach(f => {
+          // 35Hz sinusoidal flicker with per-line phase offset
+          const flicker = 0.65 + 0.35 * Math.sin(impulseTime * 35.0 + f.flickerPhase);
+          const alpha = decay * flicker * f.depthAlpha;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(f.x1, f.y1);
+          ctx.lineTo(f.x2, f.y2);
+          ctx.strokeStyle = f.color;
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = f.color;
+          ctx.shadowBlur = 12 * flicker;
+          ctx.globalAlpha = alpha;
+          ctx.stroke();
+
+          // Endpoint Sparkle
+          ctx.beginPath();
+          ctx.arc(f.x2, f.y2, 2.5 * flicker, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.restore();
+        });
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    // Start with fully rendered tree on initial page load
+    trunkProgress = 1.0;
+    branchesProgress = 1.0;
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
+
