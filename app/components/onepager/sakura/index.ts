@@ -8,9 +8,9 @@ export const sakuraExperience: ExperienceDefinition = {
   duration: 120,
   Component: SakuraCanvas,
   getHUDText: (elapsed: number) => {
-    if (elapsed < 30) return '🌸 Blüten — Wachsen & Entfalten der Kirschblüten';
-    if (elapsed < 60) return '🔮 Plexus — Driftende Partikel & 3D Formen-Morphing';
-    if (elapsed < 90) return '🌀 Vortex — Der Datensturm vereint die Dimensionen';
-    return '🌸 Sakura Stage — Vollendung des kollaborativen Kunstwerks';
+    if (elapsed < 30) return 'Blüten — Wachsen & Entfalten der Kirschblüten';
+    if (elapsed < 60) return 'Plexus — Driftende Partikel & 3D Formen-Morphing';
+    if (elapsed < 90) return 'Vortex — Der Datensturm vereint die Dimensionen';
+    return 'Sakura Stage — Vollendung des kollaborativen Kunstwerks';
   },
 };

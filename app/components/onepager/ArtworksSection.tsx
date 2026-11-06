@@ -52,9 +52,10 @@ export function ArtworksSection({ activeArtwork, onSelectArtwork, onNavigateTo }
               <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-pink-300/80">
                 Organischer Stil
               </span>
-              <span className="text-4xl opacity-90 group-hover:scale-110 transition-transform duration-300">
-                🌸
-              </span>
+              <svg className="w-8 h-8 text-pink-300/90 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" fillOpacity="0.4" />
+              </svg>
             </div>
 
             <h3 className="text-3xl sm:text-4xl font-extrabold text-white tracking-wide mb-3 flex items-center gap-3">
@@ -116,9 +117,10 @@ export function ArtworksSection({ activeArtwork, onSelectArtwork, onNavigateTo }
               <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-cyan-300/80">
                 Cybernetic Flow
               </span>
-              <span className="text-4xl opacity-90 group-hover:scale-110 transition-transform duration-300">
-                ✨
-              </span>
+              <svg className="w-8 h-8 text-cyan-300/90 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <polygon points="12 2 15 9 22 12 15 15 12 22 9 15 2 12 9 9" strokeLinejoin="round" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              </svg>
             </div>
 
             <h3 className="text-3xl sm:text-4xl font-extrabold text-white tracking-wide mb-3 flex items-center gap-3">

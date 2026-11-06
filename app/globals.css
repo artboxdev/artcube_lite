@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @import "tailwindcss";
 
 :root,
@@ -44,7 +43,7 @@
   --color-header-text: var(--header-text);
   --color-header-text-hover: var(--header-text-hover);
   --font-sans: "Exo 2", var(--font-exo-2), system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", var(--font-mono), monospace;
+  --font-mono: "Exo 2", var(--font-exo-2), system-ui, sans-serif;
 }
 
 html,
@@ -61,7 +60,8 @@ body {
   transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6,
+input, button, select, textarea {
   font-family: "Exo 2", var(--font-exo-2), system-ui, sans-serif;
   letter-spacing: -0.015em;
 }

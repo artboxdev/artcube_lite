@@ -89,7 +89,10 @@ export function GuestJoinScreen({
       {/* Top Header Bar */}
       <header className="w-full max-w-xl flex items-center justify-between pt-2 pb-4">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🌸</span>
+          <svg className="w-5 h-5 text-[#ff2a9d]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" fillOpacity="0.4" />
+          </svg>
           <span className="text-sm font-extrabold tracking-[2px] uppercase bg-gradient-to-r from-white via-pink-200 to-[#ff2a9d] bg-clip-text text-transparent">
             Sakuraverse
           </span>
@@ -151,9 +154,15 @@ export function GuestJoinScreen({
                   <button
                     type="button"
                     onClick={handleRandomize}
-                    className="text-[10px] lowercase font-normal text-pink-300/70 hover:text-pink-300 hover:underline cursor-pointer"
+                    className="text-[10px] lowercase font-normal text-pink-300/70 hover:text-pink-300 hover:underline cursor-pointer flex items-center gap-1"
                   >
-                    🎲 {t.randomNameBtn}
+                    <svg className="w-3 h-3 text-pink-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                      <circle cx="16" cy="16" r="1.5" fill="currentColor" />
+                      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                    </svg>
+                    <span>{t.randomNameBtn}</span>
                   </button>
                 </label>
                 <div className="relative">
@@ -180,7 +189,6 @@ export function GuestJoinScreen({
                 onClick={handleJoinClick}
                 className="w-full py-4 sm:py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#06b6d4] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>✨</span>
                 <span>{t.joinBtn}</span>
               </button>
             </div>
@@ -195,7 +203,7 @@ export function GuestJoinScreen({
                   <span>{t.joinedSuccessBadge}: {localName || myName}</span>
                 </div>
                 <span className="text-[11px] text-white/70">
-                  {t.connectedWithHost} ✓
+                  {t.connectedWithHost}
                 </span>
               </div>
 
@@ -203,8 +211,11 @@ export function GuestJoinScreen({
               <div className="flex flex-col items-center gap-4 py-2">
                 <div className="relative flex items-center justify-center w-16 h-16">
                   <span className="absolute inset-0 rounded-full border border-pink-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
-                  <span className="w-12 h-12 rounded-full bg-pink-500/15 border border-pink-500/50 flex items-center justify-center text-2xl shadow-[0_0_25px_rgba(255,42,157,0.45)]">
-                    🌸
+                  <span className="w-12 h-12 rounded-full bg-pink-500/15 border border-pink-500/50 flex items-center justify-center text-pink-300 shadow-[0_0_25px_rgba(255,42,157,0.45)]">
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
+                      <circle cx="12" cy="12" r="2" fill="currentColor" />
+                    </svg>
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 text-center max-w-sm">

@@ -2001,7 +2001,7 @@ export function SakuraCanvas({
       document.body.removeChild(a);
     }, 1000);
     setIsNftSaved(true);
-    showToast('✨ Video auf dein Gerät heruntergeladen! Bereit als NFT.');
+    showToast('Video auf dein Gerät heruntergeladen! Bereit als NFT.');
   }, [souvenirVideoBlob, souvenirVideoUrl, showToast]);
 
   const markArtworkCompleted = useCallback((type: 'bluten' | 'plexus') => {
@@ -2141,7 +2141,7 @@ export function SakuraCanvas({
     restartTriggerRef.current();
     triggerInitialLoading();
 
-    showToast(type === 'bluten' ? '🌸 Sumi-e Kunstwerk gestartet (Souvenirmodus)' : '✨ Plexus Kunstwerk gestartet (Souvenirmodus)');
+    showToast(type === 'bluten' ? 'Sumi-e Kunstwerk gestartet (Souvenirmodus)' : 'Plexus Kunstwerk gestartet (Souvenirmodus)');
     sendInteractionRef.current?.('ARTWORK_SELECT', { artwork: type });
     setIsLightboxOpen(false);
     setHostCreationReady(false);
@@ -2220,11 +2220,11 @@ export function SakuraCanvas({
         setSouvenirVideoUrl(url);
         setIsNftSaved(false);
         setIsSouvenirVideoOpen(true);
-        showToast('✨ Dein Video-Souvenir ist fertig!');
+        showToast('Dein Video-Souvenir ist fertig!');
       };
 
       recorder.start(100);
-      showToast('🎥 Souvenir-Aufnahme der finalen Animation gestartet...');
+      showToast('Souvenir-Aufnahme der finalen Animation gestartet...');
       setTimeout(() => {
         if (recorder.state !== 'inactive') recorder.stop();
       }, durationSeconds * 1000);
@@ -2663,7 +2663,7 @@ export function SakuraCanvas({
         bgUniforms.uRippleTime.value = 0.0;
       }
 
-      showToastRef.current?.('🌸 10s Blüten-Vortex aktiviert!');
+      showToastRef.current?.('10s Blüten-Vortex aktiviert!');
 
       // In Souvenir Mode: Start MP4 video recording directly at the beginning of the final animation!
       if (isCreationModeRef.current) {
@@ -4218,8 +4218,8 @@ export function SakuraCanvas({
 
       showToastRef.current?.(
         isEnRef.current
-          ? '🌟 10s Finale: Star Network unleashed!'
-          : '🌟 10s Finale: Stern-Netzwerk aktiviert!'
+          ? '10s Finale: Star Network unleashed!'
+          : '10s Finale: Stern-Netzwerk aktiviert!'
       );
 
       if (isCreationModeRef.current) {
@@ -4386,7 +4386,7 @@ export function SakuraCanvas({
           ...activatePayload
         });
 
-        showToastRef.current?.('🌸 Interaktiver Knotenpunkt aktiviert!');
+        showToastRef.current?.('Interaktiver Knotenpunkt aktiviert!');
 
         const remainingOrbs = activeOrbs.filter(o => !o.userDrawn && !o.branchSpawned);
         if (remainingOrbs.length === 0 && roundState === 'ACTIVE') {
@@ -4752,8 +4752,8 @@ export function SakuraCanvas({
 
             showToastRef.current?.(
               isEnRef.current
-                ? `🔮 Plexus docked to ${dockedOrb.name} orb! (${totalAttachedPlexusCount}/6 docked)`
-                : `🔮 Plexus an ${dockedOrb.name}-Orb angedockt! (${totalAttachedPlexusCount}/6 angedockt)`
+                ? `Plexus docked to ${dockedOrb.name} orb! (${totalAttachedPlexusCount}/6 docked)`
+                : `Plexus an ${dockedOrb.name}-Orb angedockt! (${totalAttachedPlexusCount}/6 angedockt)`
             );
           }
         } else {
@@ -4983,7 +4983,7 @@ export function SakuraCanvas({
           if (trunkPostDelayTimer >= TRUNK_POST_DELAY) {
             if (!hasRemotePeerRef.current || isHostRef.current) {
               spawnOrbRound(1, 'BRANCH');
-              showToastRef.current?.('🌱 Astphase gestartet — Klicke die Knotenpunkte!');
+              showToastRef.current?.('Astphase gestartet — Klicke die Knotenpunkte!');
             }
           }
         }
@@ -5216,7 +5216,7 @@ export function SakuraCanvas({
                 } else {
                   if (currentPhaseName === 'BRANCH') {
                     spawnOrbRound(1, 'BLOSSOM');
-                    showToastRef.current?.('🌸 Blütenphase gestartet! Wähle deine Wunschfarbe.');
+                    showToastRef.current?.('Blütenphase gestartet! Wähle deine Wunschfarbe.');
                   } else if (currentPhaseName === 'BLOSSOM') {
                     roundState = 'IDLE';
                     startFlyingPetalsIfNeeded();
@@ -5303,8 +5303,8 @@ export function SakuraCanvas({
             markArtworkCompletedRef.current?.('plexus');
             showToastRef.current?.(
               isEnRef.current
-                ? '✨ Plexus network completed after 10s!'
-                : '✨ Plexus-Netzwerk nach 10s vollendet!'
+                ? 'Plexus network completed after 10s!'
+                : 'Plexus-Netzwerk nach 10s vollendet!'
             );
           }
         }
@@ -6425,7 +6425,9 @@ export function SakuraCanvas({
           {trackBadgeText && (
             <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-[110] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
               <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d]/60 text-white shadow-[0_0_25px_rgba(255,42,157,0.5),0_8px_20px_rgba(0,0,0,0.7)]">
-                <span className="text-base animate-pulse">🎵</span>
+                <svg className="w-4 h-4 text-[#ff2a9d] animate-pulse shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
                 <span className="text-xs sm:text-sm font-extrabold tracking-wider uppercase text-[#ff2a9d] drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   Track:
                 </span>
@@ -6440,7 +6442,9 @@ export function SakuraCanvas({
           {circlePromptVisible && (
             <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
               <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
-                <span className="text-xl animate-spin" style={{ animationDuration: '2.5s' }}>🔄</span>
+                <svg className="w-5 h-5 text-[#ff2a9d] animate-spin shrink-0" style={{ animationDuration: '2.5s' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
                 <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   {isEn ? 'Make a circular motion!' : 'Kreisbewegung ausführen!'}
                 </span>
@@ -6454,7 +6458,11 @@ export function SakuraCanvas({
           {plexusCenterPromptVisible && activeMode === 'plexus' && !isPlexusFinale && (
             <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
               <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
-                <span className="text-xl animate-pulse">🎯</span>
+                <svg className="w-5 h-5 text-[#ff2a9d] animate-pulse shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" fill="currentColor" />
+                </svg>
                 <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   {isEn
                     ? 'Drag all docked orbs into the center circle!'
@@ -6667,10 +6675,18 @@ export function SakuraCanvas({
                   {(hostCreationReady || guestCreationReady) && (
                     <div className="flex items-center gap-3">
                       <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black text-[9px]">✓</span> Host
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span> Host
                       </div>
                       <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center font-black text-[9px]">✓</span> {isEn ? 'Guest' : 'Gast'}
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span> {isEn ? 'Guest' : 'Gast'}
                       </div>
                     </div>
                   )}
@@ -6839,10 +6855,18 @@ export function SakuraCanvas({
                   {(hostCreationReady || guestCreationReady) && (
                     <div className="flex items-center gap-2 pr-0.5">
                       <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center text-[8px] font-black">✓</span> Host
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span> Host
                       </div>
                       <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center text-[8px] font-black">✓</span> {isEn ? 'Guest' : 'Gast'}
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span> {isEn ? 'Guest' : 'Gast'}
                       </div>
                     </div>
                   )}
@@ -6954,7 +6978,16 @@ export function SakuraCanvas({
                     : 'bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(255,42,157,0.6)] border border-white/30 active:scale-95'
                     }`}
                 >
-                  <span>{isNftSaved ? (isEn ? '✅ Video saved!' : '✅ Video gesichert!') : (isEn ? '✨ Save as NFT' : '✨ Als NFT sichern')}</span>
+                  {isNftSaved ? (
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>{isEn ? 'Video saved!' : 'Video gesichert!'}</span>
+                    </span>
+                  ) : (
+                    <span>{isEn ? 'Save as NFT' : 'Als NFT sichern'}</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -7053,9 +7086,12 @@ export function SakuraCanvas({
                 <button
                   type="button"
                   onClick={requestLandscapeOrientation}
-                  className="w-full py-3 px-6 bg-gradient-to-r from-[#ff2a9d] to-[#a855f7] border border-white/40 rounded-full text-white text-xs font-bold tracking-widest uppercase shadow-[0_8px_25px_rgba(255,42,157,0.55)] hover:scale-102 active:scale-98 transition-all cursor-pointer"
+                  className="w-full py-3 px-6 bg-gradient-to-r from-[#ff2a9d] to-[#a855f7] border border-white/40 rounded-full text-white text-xs font-bold tracking-widest uppercase shadow-[0_8px_25px_rgba(255,42,157,0.55)] hover:scale-102 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>{isEn ? '🔄 Start Landscape' : '🔄 Querformat starten'}</span>
+                  <svg className="w-3.5 h-3.5 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>{isEn ? 'Start Landscape' : 'Querformat starten'}</span>
                 </button>
                 <button
                   type="button"
@@ -7113,7 +7149,9 @@ export function SakuraCanvas({
           {backNoticeVisible && (
             <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[250] pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
               <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#160a22]/90 backdrop-blur-xl border border-white/20 text-white text-xs font-semibold tracking-wide shadow-2xl">
-                <span>↩️</span>
+                <svg className="w-3.5 h-3.5 text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
                 <span>{isEn ? 'Swipe "Back" again to exit session' : 'Nochmal „Zurück“ wischen, um die Session zu beenden'}</span>
               </div>
             </div>
@@ -7145,8 +7183,11 @@ export function SakuraCanvas({
             <div className="relative w-16 h-16 flex items-center justify-center">
               <span className="absolute inset-0 rounded-full border border-pink-500/40 animate-ping" style={{ animationDuration: '2.5s' }} />
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2a9d] to-[#4ee2ec] p-[1.5px] shadow-[0_0_20px_rgba(255,42,157,0.5)]">
-                <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-2xl">
-                  🌸
+                <div className="w-full h-full bg-[#0d0517] rounded-[14px] flex items-center justify-center text-[#ff80df]">
+                  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
+                    <circle cx="12" cy="12" r="2" fill="currentColor" fillOpacity="0.5" />
+                  </svg>
                 </div>
               </div>
             </div>

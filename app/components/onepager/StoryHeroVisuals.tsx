@@ -59,7 +59,7 @@ export function PrototypeHeroVisual() {
           textAnchor="middle"
           fill="#4ee2ec"
           fontSize="11"
-          fontFamily="monospace"
+          fontFamily="'Exo 2', sans-serif"
           fontWeight="bold"
           letterSpacing="2"
         >
@@ -82,7 +82,7 @@ export function PrototypeHeroVisual() {
           {/* Host touch cursor */}
           <circle cx="65" cy="110" r="14" fill="#ff2a9d" fillOpacity="0.3" stroke="#ff2a9d" strokeWidth="2" />
           <circle cx="65" cy="110" r="4" fill="#ffffff" />
-          <text x="65" y="90" textAnchor="middle" fill="#ff80df" fontSize="9" fontFamily="sans-serif" fontWeight="bold">
+          <text x="65" y="90" textAnchor="middle" fill="#ff80df" fontSize="9" fontFamily="'Exo 2', sans-serif" fontWeight="bold">
             HOST CURSOR
           </text>
         </g>
@@ -103,7 +103,7 @@ export function PrototypeHeroVisual() {
           {/* Guest touch cursor */}
           <circle cx="65" cy="110" r="14" fill="#4ee2ec" fillOpacity="0.3" stroke="#4ee2ec" strokeWidth="2" />
           <circle cx="65" cy="110" r="4" fill="#ffffff" />
-          <text x="65" y="90" textAnchor="middle" fill="#4ee2ec" fontSize="9" fontFamily="sans-serif" fontWeight="bold">
+          <text x="65" y="90" textAnchor="middle" fill="#4ee2ec" fontSize="9" fontFamily="'Exo 2', sans-serif" fontWeight="bold">
             GUEST CURSOR
           </text>
         </g>
@@ -118,7 +118,7 @@ export function PrototypeHeroVisual() {
 
         {/* Bottom Telemetry Pill */}
         <rect x="250" y="405" width="300" height="26" rx="13" fill="#000000" fillOpacity="0.7" stroke="#ff2a9d" strokeWidth="1" />
-        <text x="400" y="422" textAnchor="middle" fill="#ffffff" fontSize="11" fontFamily="monospace">
+        <text x="400" y="422" textAnchor="middle" fill="#ffffff" fontSize="11" fontFamily="'Exo 2', sans-serif">
           PHASE 1 · ZWEI GERÄTE · EIN KUNSTWERK
         </text>
       </svg>
@@ -228,7 +228,7 @@ export function ArtcubeHeroVisual() {
 
         {/* Bottom Telemetry Pill */}
         <rect x="230" y="405" width="340" height="26" rx="13" fill="#000000" fillOpacity="0.7" stroke="#4ee2ec" strokeWidth="1" />
-        <text x="400" y="422" textAnchor="middle" fill="#ffffff" fontSize="11" fontFamily="monospace">
+        <text x="400" y="422" textAnchor="middle" fill="#ffffff" fontSize="11" fontFamily="'Exo 2', sans-serif">
           PHASE 2 · 360° PROJEKTION · BEGEHBARER KUBUS
         </text>
       </svg>

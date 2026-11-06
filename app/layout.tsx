@@ -1,17 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Exo_2, JetBrains_Mono } from "next/font/google";
+import { Exo_2 } from "next/font/google";
 import "./globals.css";
 
 const exo2 = Exo_2({
   variable: "--font-exo-2",
   subsets: ["latin"],
   weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
   display: "swap",
 });
 
@@ -42,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`${exo2.variable} ${jetbrainsMono.variable} wave h-full antialiased`}
+      className={`${exo2.variable} wave h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
