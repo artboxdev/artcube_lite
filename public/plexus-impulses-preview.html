@@ -638,6 +638,9 @@
         this.hasBeenMovedByUser = false;
         this.restX = this.homeX;
         this.restY = this.homeY;
+        this.isInCluster = false;
+        this.clusterOffsetX = 0.0;
+        this.clusterOffsetY = 0.0;
 
         // Randomized 3D Finale Flight Parameters
         this.flightCenterX = 0;
@@ -823,8 +826,8 @@
         } else if (isFormationActive && this.attachedPlexusCount > 0) {
           // Synchronous Flocking Formation (nur für belegte Orbs; unbelegte Orbs kreisen frei weiter!)
           const breath = Math.sin(totalTime * 2.2 + this.orbIndex * 1.5) * 5.0;
-          const targetX = flockCenterX + this.formationOffsetX + Math.cos(totalTime * 1.5 + this.phase) * breath;
-          const targetY = flockCenterY + this.formationOffsetY + Math.sin(totalTime * 1.5 + this.phase) * breath;
+          const targetX = flockCenterX + (this.clusterOffsetX || this.formationOffsetX) + Math.cos(totalTime * 1.5 + this.phase) * breath;
+          const targetY = flockCenterY + (this.clusterOffsetY || this.formationOffsetY) + Math.sin(totalTime * 1.5 + this.phase) * breath;
           this.x = THREE.MathUtils.lerp(this.x, targetX, delta * 3.2);
           this.y = THREE.MathUtils.lerp(this.y, targetY, delta * 3.2);
           this.z = Math.sin(totalTime * 1.8 + this.phase) * 6.0;
@@ -833,6 +836,15 @@
           this.x = mouseWorld.x;
           this.y = mouseWorld.y;
           this.z = 0;
+        } else if (this.isInCluster) {
+          // Compound Cluster: floats together with subtle micro-hover around cluster center
+          const hoverX = Math.cos(totalTime * 1.5 + this.phase) * 1.8;
+          const hoverY = Math.sin(totalTime * 1.5 + this.phase) * 1.8;
+          this.x = (plexusClusterCenterX + this.clusterOffsetX) + hoverX;
+          this.y = (plexusClusterCenterY + this.clusterOffsetY) + hoverY;
+          this.z = Math.sin(totalTime * 1.2 + this.phase) * 4.0;
+          this.restX = this.x;
+          this.restY = this.y;
         } else if (totalAttachedPlexus >= 6 && this.attachedPlexusCount > 0) {
           // 2. Requirement: Keiner der belegten Orbs bewegt sich von selbst ins Zentrum!
           // Sie bleiben ortsfest am aktuellen Ort (sanftes Mikroschweben), bis der Nutzer sie bewegt.
@@ -991,6 +1003,9 @@
     const activeClusters = [];
     let draggedCluster = null;
     let draggedOrb = null;
+    let plexusClusterOrbs = [];
+    let plexusClusterCenterX = 0.0;
+    let plexusClusterCenterY = 0.0;
 
     class DriftingCluster {
       constructor(x, y) {
@@ -1131,46 +1146,141 @@
     let finaleStartTime = 0.0;
     const PLEXUS_FINALE_DURATION = 10.0;
 
+    function updateClusterOffsets(cluster) {
+      const count = cluster.length;
+      if (count === 2) {
+        cluster[0].clusterOffsetX = -36.0;
+        cluster[0].clusterOffsetY = 0.0;
+        cluster[1].clusterOffsetX = 36.0;
+        cluster[1].clusterOffsetY = 0.0;
+      } else if (count === 3) {
+        cluster[0].clusterOffsetX = 0.0;
+        cluster[0].clusterOffsetY = -40.0;
+        cluster[1].clusterOffsetX = -36.0;
+        cluster[1].clusterOffsetY = 22.0;
+        cluster[2].clusterOffsetX = 36.0;
+        cluster[2].clusterOffsetY = 22.0;
+      } else if (count >= 4) {
+        cluster[0].clusterOffsetX = -36.0;
+        cluster[0].clusterOffsetY = -36.0;
+        cluster[1].clusterOffsetX = 36.0;
+        cluster[1].clusterOffsetY = -36.0;
+        cluster[2].clusterOffsetX = 36.0;
+        cluster[2].clusterOffsetY = 36.0;
+        cluster[3].clusterOffsetX = -36.0;
+        cluster[3].clusterOffsetY = 36.0;
+      }
+    }
+
+    function checkClusterProximity(movedOrb) {
+      if (totalAttachedPlexus < 6 || isFormationActive || isFinaleActive || isPlexusLockedAfterFinale) return;
+
+      const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
+      if (occupied.length < 2) return;
+
+      // FALL 1: Genau 2 belegte Orbs -> Schiebe einen Orb zum anderen um Finale zu aktivieren
+      if (occupied.length === 2) {
+        const other = occupied.find(o => o !== movedOrb);
+        if (other) {
+          const dist = Math.hypot(movedOrb.x - other.x, movedOrb.y - other.y);
+          if (dist < 110.0) {
+            movedOrb.isInCluster = true;
+            other.isInCluster = true;
+            plexusClusterCenterX = (movedOrb.x + other.x) * 0.5;
+            plexusClusterCenterY = (movedOrb.y + other.y) * 0.5;
+            plexusClusterOrbs = [movedOrb, other];
+            updateClusterOffsets(plexusClusterOrbs);
+            movedOrb.triggerDockWobble();
+            other.triggerDockWobble();
+            checkPreFinaleProximity();
+          }
+        }
+        return;
+      }
+
+      // FALL 2: Mehr als 2 belegte Orbs (3 oder 4) -> 2 Orbs bilden Cluster, restliche Orbs zum Cluster
+      if (plexusClusterOrbs.length === 0) {
+        for (let i = 0; i < occupied.length; i++) {
+          const other = occupied[i];
+          if (other === movedOrb) continue;
+          const dist = Math.hypot(movedOrb.x - other.x, movedOrb.y - other.y);
+          if (dist < 100.0) {
+            movedOrb.isInCluster = true;
+            other.isInCluster = true;
+            plexusClusterCenterX = (movedOrb.x + other.x) * 0.5;
+            plexusClusterCenterY = (movedOrb.y + other.y) * 0.5;
+            plexusClusterOrbs = [movedOrb, other];
+            updateClusterOffsets(plexusClusterOrbs);
+            movedOrb.triggerDockWobble();
+            other.triggerDockWobble();
+            promptBanner.className = 'prompt-banner sakura';
+            promptBanner.textContent = `Cluster gebildet (2/${occupied.length})! Schiebe die restlichen Orbs zum Cluster!`;
+            showToastMsg(`Cluster gebildet (2/${occupied.length})! Schiebe restliche Orbs zum Cluster!`);
+            break;
+          }
+        }
+      } else {
+        if (movedOrb.isInCluster) {
+          for (let i = 0; i < occupied.length; i++) {
+            const candidate = occupied[i];
+            if (candidate.isInCluster) continue;
+            const dist = Math.hypot(candidate.x - plexusClusterCenterX, candidate.y - plexusClusterCenterY);
+            if (dist < 110.0) {
+              candidate.isInCluster = true;
+              candidate.triggerDockWobble();
+              plexusClusterOrbs.push(candidate);
+              updateClusterOffsets(plexusClusterOrbs);
+              if (plexusClusterOrbs.length < occupied.length) {
+                promptBanner.className = 'prompt-banner sakura';
+                promptBanner.textContent = `Orb dem Cluster beigetreten (${plexusClusterOrbs.length}/${occupied.length})! Schiebe restliche Orbs zum Cluster!`;
+                showToastMsg(`Orb dem Cluster beigetreten (${plexusClusterOrbs.length}/${occupied.length})!`);
+              }
+              checkPreFinaleProximity();
+              break;
+            }
+          }
+        } else {
+          const dist = Math.hypot(movedOrb.x - plexusClusterCenterX, movedOrb.y - plexusClusterCenterY);
+          if (dist < 110.0) {
+            movedOrb.isInCluster = true;
+            movedOrb.triggerDockWobble();
+            plexusClusterOrbs.push(movedOrb);
+            updateClusterOffsets(plexusClusterOrbs);
+            if (plexusClusterOrbs.length < occupied.length) {
+              promptBanner.className = 'prompt-banner sakura';
+              promptBanner.textContent = `Orb dem Cluster beigetreten (${plexusClusterOrbs.length}/${occupied.length})! Schiebe restliche Orbs zum Cluster!`;
+              showToastMsg(`Orb dem Cluster beigetreten (${plexusClusterOrbs.length}/${occupied.length})!`);
+            }
+            checkPreFinaleProximity();
+          }
+        }
+      }
+    }
+
     function checkPreFinaleProximity() {
-      if (isFormationActive || isFinaleActive) return;
+      if (isFormationActive || isFinaleActive || isPlexusLockedAfterFinale) return;
       if (totalAttachedPlexus < 6) return;
 
       const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
       if (occupied.length < 2) return;
 
-      // 1. Requirement: ALLE belegten Orbs müssen vom Nutzer aktiv bewegt worden sein (keiner aktiviert dies von selbst!)
-      const allMovedByUser = occupied.every(o => o.hasBeenMovedByUser);
-      if (!allMovedByUser) {
-        const movedCount = occupied.filter(o => o.hasBeenMovedByUser).length;
-        promptBanner.className = 'prompt-banner sakura';
-        promptBanner.textContent = `Schiebe ALLE belegten Orbs zusammen (${movedCount}/${occupied.length} bewegt)!`;
+      const allInCluster = (occupied.length >= 2) && (plexusClusterOrbs.length === occupied.length) && occupied.every(o => o.isInCluster);
+      if (!allInCluster) {
         return;
       }
 
-      // 2. Requirement: Alle belegten Orbs müssen auf einen gewissen Radius zusammengeschoben sein
-      let cx = 0, cy = 0;
-      occupied.forEach(o => { cx += o.x; cy += o.y; });
-      cx /= occupied.length;
-      cy /= occupied.length;
-
-      // Bestimme den maximalen Abstand zur Cluster-Mitte
-      const maxDistToCentroid = Math.max(...occupied.map(o => Math.hypot(o.x - cx, o.y - cy)));
-      const COLLAPSE_RADIUS = 110.0;
-
-      if (maxDistToCentroid < COLLAPSE_RADIUS) {
-        // Trigger Formation: Nicht übereinander, sondern über Netzwerke verbunden und synchron schwebend!
-        isFormationActive = true;
-        formationTimer = 0.0;
-        flockAngle = 0.0;
-        bgUniforms.uRippleActive.value = 1.0;
-        bgUniforms.uRippleTime.value = 0.0;
-        promptBanner.className = 'prompt-banner finale';
-        promptBanner.textContent = 'Alle Orbs im Radius verbunden — Finale startet in 2.0s...';
-        showToastMsg('Perfekt! Alle Orbs zusammengeführt: Finale startet in 2s!');
-      } else {
-        promptBanner.className = 'prompt-banner sakura';
-        promptBanner.textContent = `Orbs noch nicht nah genug zusammen (${Math.round(maxDistToCentroid)}px / max ${COLLAPSE_RADIUS}px)!`;
-      }
+      // Trigger Formation: Nicht übereinander, sondern über Netzwerke verbunden und synchron schwebend!
+      isFormationActive = true;
+      formationTimer = 0.0;
+      flockAngle = 0.0;
+      flockCenterX = plexusClusterCenterX;
+      flockCenterY = plexusClusterCenterY;
+      occupied.forEach(orb => orb.triggerDockWobble());
+      bgUniforms.uRippleActive.value = 1.0;
+      bgUniforms.uRippleTime.value = 0.0;
+      promptBanner.className = 'prompt-banner finale';
+      promptBanner.textContent = 'Alle Orbs im Cluster vereint — Finale startet in 2.0s...';
+      showToastMsg('Perfekt! Alle Orbs im Cluster vereint: Finale startet in 2s!');
     }
 
     // ==========================================
@@ -1398,11 +1508,24 @@
       }
 
       if (draggedOrb) {
-        draggedOrb.x = mouseWorld.x;
-        draggedOrb.y = mouseWorld.y;
-        draggedOrb.restX = mouseWorld.x;
-        draggedOrb.restY = mouseWorld.y;
         draggedOrb.hasBeenMovedByUser = true;
+        if (draggedOrb.isInCluster && plexusClusterOrbs.length > 0) {
+          plexusClusterCenterX = mouseWorld.x - draggedOrb.clusterOffsetX;
+          plexusClusterCenterY = mouseWorld.y - draggedOrb.clusterOffsetY;
+          plexusClusterOrbs.forEach(member => {
+            member.x = plexusClusterCenterX + member.clusterOffsetX;
+            member.y = plexusClusterCenterY + member.clusterOffsetY;
+            member.restX = member.x;
+            member.restY = member.y;
+          });
+          checkClusterProximity(draggedOrb);
+        } else {
+          draggedOrb.x = mouseWorld.x;
+          draggedOrb.y = mouseWorld.y;
+          draggedOrb.restX = mouseWorld.x;
+          draggedOrb.restY = mouseWorld.y;
+          checkClusterProximity(draggedOrb);
+        }
         checkPreFinaleProximity();
       } else if (draggedCluster) {
         draggedCluster.x = mouseWorld.x;
@@ -1433,6 +1556,13 @@
         draggedOrb.restX = mouseWorld.x;
         draggedOrb.restY = mouseWorld.y;
         draggedOrb.hasBeenMovedByUser = true;
+        if (draggedOrb.isInCluster) {
+          plexusClusterOrbs.forEach(member => {
+            member.isDragged = false;
+            member.restX = member.x;
+            member.restY = member.y;
+          });
+        }
         checkPreFinaleProximity();
         draggedOrb = null;
       } else if (draggedCluster) {
@@ -1633,6 +1763,9 @@
       isFormationActive = false;
       isPlexusLockedAfterFinale = false;
       formationTimer = 0.0;
+      plexusClusterOrbs = [];
+      plexusClusterCenterX = 0.0;
+      plexusClusterCenterY = 0.0;
       activeImpulses.length = 0;
       activeDockingNetworks.length = 0;
       activeClusters.length = 0;
@@ -1648,6 +1781,9 @@
         o.attachedPlexusCount = 0;
         o.attachedNodes = [];
         o.hasBeenMovedByUser = false;
+        o.isInCluster = false;
+        o.clusterOffsetX = 0.0;
+        o.clusterOffsetY = 0.0;
         o.finaleVx = 0;
         o.finaleVy = 0;
       });

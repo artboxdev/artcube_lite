@@ -3625,6 +3625,10 @@ export function SakuraCanvas({
         { id: 'green', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 },
       ];
 
+    let plexusClusterOrbs: FloatingPlexusOrbInstance[] = [];
+    let plexusClusterCenterX = 0.0;
+    let plexusClusterCenterY = 0.0;
+
     class FloatingPlexusOrbInstance {
       config: typeof BLOSSOM_PALETTES[BlossomColorId];
       id: BlossomColorId;
@@ -3692,6 +3696,9 @@ export function SakuraCanvas({
       finaleNetworkCount = 0;
       inImpulse = false;
       impulseCooldown = 0.0;
+      isInCluster = false;
+      clusterOffsetX = 0.0;
+      clusterOffsetY = 0.0;
 
       constructor(cfg: typeof PLEXUS_4_ORB_CONFIGS[number], orbIndex = 0) {
         this.config = BLOSSOM_PALETTES[cfg.id];
@@ -4114,14 +4121,22 @@ export function SakuraCanvas({
           } else if (isFormation && this.attachedPlexusCount > 0) {
             // Synchronous Flocking Formation (interconnected without overlapping)
             const breath = Math.sin(time * 2.2 + this.orbIndex * 1.5) * 5.0;
-            const targetX = flockX + this.formationOffsetX + Math.cos(time * 1.5 + this.phase) * breath;
-            const targetY = flockY + this.formationOffsetY + Math.sin(time * 1.5 + this.phase) * breath;
+            const targetX = flockX + (this.clusterOffsetX || this.formationOffsetX) + Math.cos(time * 1.5 + this.phase) * breath;
+            const targetY = flockY + (this.clusterOffsetY || this.formationOffsetY) + Math.sin(time * 1.5 + this.phase) * breath;
             this.x = THREE.MathUtils.lerp(this.x, targetX, delta * 3.2);
             this.y = THREE.MathUtils.lerp(this.y, targetY, delta * 3.2);
             this.z = Math.sin(time * 1.8 + this.phase) * 6.0;
+          } else if (this.isInCluster) {
+            // Compound Cluster: floats together with subtle micro-hover around cluster center
+            const hoverX = Math.cos(time * 1.5 + this.phase) * 1.8;
+            const hoverY = Math.sin(time * 1.5 + this.phase) * 1.8;
+            this.x = (plexusClusterCenterX + this.clusterOffsetX) + hoverX;
+            this.y = (plexusClusterCenterY + this.clusterOffsetY) + hoverY;
+            this.z = Math.sin(time * 1.2 + this.phase) * 4.0;
+            this.restX = this.x;
+            this.restY = this.y;
           } else if (totalAttachedPlexusCount >= 6 && this.attachedPlexusCount > 0) {
-            // Keiner der belegten Orbs bewegt sich von selbst ins Zentrum!
-            // Sie bleiben ortsfest am aktuellen Ort (sanftes Mikroschweben), bis der Nutzer sie bewegt.
+            // Free occupied orb (not yet in cluster): stays at its resting position until pushed by user
             const hoverX = Math.cos(time * 1.5 + this.phase) * 2.5;
             const hoverY = Math.sin(time * 1.5 + this.phase) * 2.5;
             this.x = this.restX + hoverX;
@@ -4681,6 +4696,9 @@ export function SakuraCanvas({
         targetOrb.hasBeenMovedByUser = true;
         targetOrb.dragTargetX = x;
         targetOrb.dragTargetY = y;
+        targetOrb.x = x;
+        targetOrb.y = y;
+        checkClusterProximity(targetOrb, false);
         checkPlexusFinaleTrigger(false);
       }
     };
@@ -4751,45 +4769,167 @@ export function SakuraCanvas({
       triggerPlexusFinale(false);
     };
 
+    const updateClusterOffsets = (cluster: FloatingPlexusOrbInstance[]) => {
+      const count = cluster.length;
+      if (count === 2) {
+        cluster[0].clusterOffsetX = -36.0;
+        cluster[0].clusterOffsetY = 0.0;
+        cluster[1].clusterOffsetX = 36.0;
+        cluster[1].clusterOffsetY = 0.0;
+      } else if (count === 3) {
+        cluster[0].clusterOffsetX = 0.0;
+        cluster[0].clusterOffsetY = -40.0;
+        cluster[1].clusterOffsetX = -36.0;
+        cluster[1].clusterOffsetY = 22.0;
+        cluster[2].clusterOffsetX = 36.0;
+        cluster[2].clusterOffsetY = 22.0;
+      } else if (count >= 4) {
+        cluster[0].clusterOffsetX = -36.0;
+        cluster[0].clusterOffsetY = -36.0;
+        cluster[1].clusterOffsetX = 36.0;
+        cluster[1].clusterOffsetY = -36.0;
+        cluster[2].clusterOffsetX = 36.0;
+        cluster[2].clusterOffsetY = 36.0;
+        cluster[3].clusterOffsetX = -36.0;
+        cluster[3].clusterOffsetY = 36.0;
+      }
+    };
+
     const checkPlexusFinaleTrigger = (shouldBroadcast = true): boolean => {
       if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) return false;
       if (totalAttachedPlexusCount < 6) return false;
 
       const occupiedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount >= 1);
-      if (occupiedOrbs.length === 0) return false;
+      if (occupiedOrbs.length < 2) return false;
 
-      // Requirement: ALL occupied orbs must have been moved by user
-      const allMovedByUser = occupiedOrbs.every(o => o.hasBeenMovedByUser);
-      if (!allMovedByUser) {
+      // Requirement:
+      // Bei 2 Orbs: ein Orb zum anderen geschoben -> alle in cluster (2/2)
+      // Bei >2 Orbs: 2 Orbs bilden Cluster, alle restlichen Orbs müssen zum Cluster geschoben sein
+      const allInCluster = (plexusClusterOrbs.length === occupiedOrbs.length) && occupiedOrbs.every(o => o.isInCluster);
+      if (!allInCluster) {
         return false;
       }
 
-      // Check cluster radius around centroid
-      let cx = 0, cy = 0;
-      occupiedOrbs.forEach(o => { cx += o.x; cy += o.y; });
-      cx /= occupiedOrbs.length;
-      cy /= occupiedOrbs.length;
+      if (!isPlexusFormationActive) {
+        isPlexusFormationActive = true;
+        plexusFormationTimer = 0.0;
+        flockCenterX = plexusClusterCenterX;
+        flockCenterY = plexusClusterCenterY;
+        occupiedOrbs.forEach(orb => orb.triggerDockWobble());
+        showToastRef.current?.(
+          isEnRef.current
+            ? 'All orbs united in cluster! Finale starting in 2s...'
+            : 'Alle Orbs im Cluster vereint! Finale startet in 2s...'
+        );
 
-      const maxDistToCentroid = Math.max(...occupiedOrbs.map(o => Math.hypot(o.x - cx, o.y - cy)));
-      const COLLAPSE_RADIUS = 110.0;
-
-      if (maxDistToCentroid < COLLAPSE_RADIUS) {
-        if (!isPlexusFormationActive) {
-          isPlexusFormationActive = true;
-          plexusFormationTimer = 0.0;
-          flockCenterX = cx;
-          flockCenterY = cy;
-          occupiedOrbs.forEach(orb => orb.triggerDockWobble());
-          showToastRef.current?.(
-            isEnRef.current
-              ? 'Orbs interconnected! Finale starting in 2s...'
-              : 'Orbs gekoppelt! Finale startet in 2s...'
-          );
+        if (shouldBroadcast) {
+          sendInteractionRef.current?.('PLEXUS_FORMATION_START', {
+            flockCenterX,
+            flockCenterY
+          });
+          channelRef.current?.postMessage({
+            type: 'PLEXUS_FORMATION_START',
+            flockCenterX,
+            flockCenterY
+          });
         }
-        return true;
+      }
+      return true;
+    };
+
+    const checkClusterProximity = (movedOrb: FloatingPlexusOrbInstance, shouldBroadcast = true) => {
+      if (totalAttachedPlexusCount < 6 || isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) return;
+
+      const occupiedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
+      if (occupiedOrbs.length < 2) return;
+
+      // FALL 1: Genau 2 belegte Orbs -> Schiebe einen Orb zum anderen um Finale zu aktivieren
+      if (occupiedOrbs.length === 2) {
+        const other = occupiedOrbs.find(o => o !== movedOrb);
+        if (other) {
+          const dist = Math.hypot(movedOrb.x - other.x, movedOrb.y - other.y);
+          if (dist < 110.0) {
+            movedOrb.isInCluster = true;
+            other.isInCluster = true;
+            plexusClusterCenterX = (movedOrb.x + other.x) * 0.5;
+            plexusClusterCenterY = (movedOrb.y + other.y) * 0.5;
+            plexusClusterOrbs = [movedOrb, other];
+            updateClusterOffsets(plexusClusterOrbs);
+            movedOrb.triggerDockWobble();
+            other.triggerDockWobble();
+            checkPlexusFinaleTrigger(shouldBroadcast);
+          }
+        }
+        return;
       }
 
-      return false;
+      // FALL 2: Mehr als 2 belegte Orbs (3 oder 4) -> 2 Orbs bilden Cluster, restliche Orbs zum Cluster
+      if (plexusClusterOrbs.length === 0) {
+        // Noch kein Cluster vorhanden: prüfe ob movedOrb einen anderen belegten Orb berührt
+        for (let i = 0; i < occupiedOrbs.length; i++) {
+          const other = occupiedOrbs[i];
+          if (other === movedOrb) continue;
+          const dist = Math.hypot(movedOrb.x - other.x, movedOrb.y - other.y);
+          if (dist < 100.0) {
+            movedOrb.isInCluster = true;
+            other.isInCluster = true;
+            plexusClusterCenterX = (movedOrb.x + other.x) * 0.5;
+            plexusClusterCenterY = (movedOrb.y + other.y) * 0.5;
+            plexusClusterOrbs = [movedOrb, other];
+            updateClusterOffsets(plexusClusterOrbs);
+            movedOrb.triggerDockWobble();
+            other.triggerDockWobble();
+            showToastRef.current?.(
+              isEnRef.current
+                ? `Cluster formed (2/${occupiedOrbs.length})! Push remaining orbs to the cluster!`
+                : `Cluster gebildet (2/${occupiedOrbs.length})! Schiebe die restlichen Orbs zum Cluster!`
+            );
+            break;
+          }
+        }
+      } else {
+        // Cluster existiert bereits
+        if (movedOrb.isInCluster) {
+          // Cluster bewegt sich: prüfe ob ein noch nicht geclusterter Orb berührt wird
+          for (let i = 0; i < occupiedOrbs.length; i++) {
+            const candidate = occupiedOrbs[i];
+            if (candidate.isInCluster) continue;
+            const dist = Math.hypot(candidate.x - plexusClusterCenterX, candidate.y - plexusClusterCenterY);
+            if (dist < 110.0) {
+              candidate.isInCluster = true;
+              candidate.triggerDockWobble();
+              plexusClusterOrbs.push(candidate);
+              updateClusterOffsets(plexusClusterOrbs);
+              if (plexusClusterOrbs.length < occupiedOrbs.length) {
+                showToastRef.current?.(
+                  isEnRef.current
+                    ? `Orb joined cluster (${plexusClusterOrbs.length}/${occupiedOrbs.length})! Push remaining to cluster!`
+                    : `Orb dem Cluster beigetreten (${plexusClusterOrbs.length}/${occupiedOrbs.length})! Schiebe restliche Orbs zum Cluster!`
+                );
+              }
+              checkPlexusFinaleTrigger(shouldBroadcast);
+              break;
+            }
+          }
+        } else {
+          // Einzelner Orb wird zum Cluster bewegt
+          const dist = Math.hypot(movedOrb.x - plexusClusterCenterX, movedOrb.y - plexusClusterCenterY);
+          if (dist < 110.0) {
+            movedOrb.isInCluster = true;
+            movedOrb.triggerDockWobble();
+            plexusClusterOrbs.push(movedOrb);
+            updateClusterOffsets(plexusClusterOrbs);
+            if (plexusClusterOrbs.length < occupiedOrbs.length) {
+              showToastRef.current?.(
+                isEnRef.current
+                  ? `Orb joined cluster (${plexusClusterOrbs.length}/${occupiedOrbs.length})! Push remaining to cluster!`
+                  : `Orb dem Cluster beigetreten (${plexusClusterOrbs.length}/${occupiedOrbs.length})! Schiebe restliche Orbs zum Cluster!`
+              );
+            }
+            checkPlexusFinaleTrigger(shouldBroadcast);
+          }
+        }
+      }
     };
 
     // Scratch instances for zero-allocation pointer & camera math (quality_and_performance.md)
@@ -5054,16 +5194,35 @@ export function SakuraCanvas({
         }
         if (draggedOrb) {
           hasActivelyDraggedOrb = true;
-          const targetX = mouseWorld.x + orbDragOffset.x;
-          const targetY = mouseWorld.y + orbDragOffset.y;
-          draggedOrb.dragTargetX = targetX;
-          draggedOrb.dragTargetY = targetY;
-          draggedOrb.x = targetX;
-          draggedOrb.y = targetY;
+          if (draggedOrb.isInCluster && plexusClusterOrbs.length > 0) {
+            plexusClusterCenterX = mouseWorld.x + orbDragOffset.x - draggedOrb.clusterOffsetX;
+            plexusClusterCenterY = mouseWorld.y + orbDragOffset.y - draggedOrb.clusterOffsetY;
+            plexusClusterOrbs.forEach(member => {
+              const targetX = plexusClusterCenterX + member.clusterOffsetX;
+              const targetY = plexusClusterCenterY + member.clusterOffsetY;
+              member.dragTargetX = targetX;
+              member.dragTargetY = targetY;
+              member.x = targetX;
+              member.y = targetY;
+              member.restX = targetX;
+              member.restY = targetY;
+            });
+            checkClusterProximity(draggedOrb, true);
+          } else {
+            const targetX = mouseWorld.x + orbDragOffset.x;
+            const targetY = mouseWorld.y + orbDragOffset.y;
+            draggedOrb.dragTargetX = targetX;
+            draggedOrb.dragTargetY = targetY;
+            draggedOrb.x = targetX;
+            draggedOrb.y = targetY;
+            draggedOrb.restX = targetX;
+            draggedOrb.restY = targetY;
+            checkClusterProximity(draggedOrb, true);
+          }
 
           for (let i = 0; i < floatingPlexusOrbs.length; i++) {
             const other = floatingPlexusOrbs[i];
-            if (other === draggedOrb) continue;
+            if (other === draggedOrb || (draggedOrb.isInCluster && other.isInCluster)) continue;
             const dist = Math.hypot(other.x - draggedOrb.x, other.y - draggedOrb.y);
             if (dist < 110.0) {
               other.triggerHoverWobble();
@@ -5075,8 +5234,8 @@ export function SakuraCanvas({
             lastOrbMoveBroadcastRef.current = nowMs;
             const orbMoveMsg = {
               orbId: draggedOrb.id,
-              x: targetX,
-              y: targetY,
+              x: draggedOrb.x,
+              y: draggedOrb.y,
               senderIndex: activeIdx
             };
             sendInteractionRef.current?.('PLEXUS_ORB_MOVE', orbMoveMsg);
@@ -5267,10 +5426,23 @@ export function SakuraCanvas({
           draggedOrb.hasBeenMovedByUser = true;
           draggedOrb.restX = draggedOrb.x;
           draggedOrb.restY = draggedOrb.y;
+
+          if (draggedOrb.isInCluster) {
+            plexusClusterOrbs.forEach(member => {
+              member.isDragged = false;
+              member.hasBeenPlaced = true;
+              member.hasBeenMovedByUser = true;
+              member.restX = member.x;
+              member.restY = member.y;
+            });
+          }
+
           const orbRelMsg = {
             orbId: draggedOrb.id,
             x: draggedOrb.x,
             y: draggedOrb.y,
+            clusterCenterX: plexusClusterCenterX,
+            clusterCenterY: plexusClusterCenterY,
             senderIndex: activeIdx
           };
           sendInteractionRef.current?.('PLEXUS_ORB_RELEASE', orbRelMsg);
@@ -5414,6 +5586,9 @@ export function SakuraCanvas({
       draggedOrb = null;
       draggedPlexusCluster = null;
       hasActivelyDraggedOrb = false;
+      plexusClusterOrbs = [];
+      plexusClusterCenterX = 0.0;
+      plexusClusterCenterY = 0.0;
       setPlexusAttachedCount(0);
       setPlexusOccupiedOrbsCount(0);
       setIsPlexusFinale(false);
@@ -5425,6 +5600,9 @@ export function SakuraCanvas({
         orb.isRemoteDragged = false;
         orb.hasBeenPlaced = false;
         orb.hasBeenMovedByUser = false;
+        orb.isInCluster = false;
+        orb.clusterOffsetX = 0.0;
+        orb.clusterOffsetY = 0.0;
         orb.finaleNetworkCount = 0;
         orb.inImpulse = false;
         orb.impulseCooldown = 0.0;
