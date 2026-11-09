@@ -474,19 +474,16 @@ export function ExperienceStation({
             </div>
 
             {/* Section 1: Sumi-e (History + Generated Crane & Cherry Blossom Image) */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-pink-500/30 flex flex-col sm:flex-row gap-5 items-center sm:items-start">
-              <div className="w-full sm:w-44 md:w-48 shrink-0 overflow-hidden rounded-xl border border-pink-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(255,42,157,0.2)] bg-[#f7f5f0]">
+            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-pink-500/30 flex flex-col gap-4">
+              <div className="w-full max-h-[280px] sm:max-h-[340px] overflow-hidden rounded-xl border border-pink-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(255,42,157,0.2)] bg-[#f7f5f0]">
                 <img
                   src={sumieImgSrc}
                   alt={t.artworksModal.sumieImageAlt}
-                  className="w-full h-auto object-cover block"
+                  className="w-full h-auto max-h-[280px] sm:max-h-[340px] object-cover block"
                 />
               </div>
 
-              <div className="flex flex-col gap-2.5 flex-1">
-                <span className="inline-flex items-center self-start px-3 py-1 rounded-full bg-pink-500/15 border border-pink-500/40 text-pink-200 text-[10px] font-bold tracking-widest uppercase">
-                  {t.artworksModal.sumieBadge}
-                </span>
+              <div className="flex flex-col gap-2">
                 <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
                   {t.artworksModal.sumieTitle}
                 </h4>
@@ -497,19 +494,16 @@ export function ExperienceStation({
             </div>
 
             {/* Section 2: Plexus (Visual Impact in Artworks) */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-cyan-500/30 flex flex-col sm:flex-row gap-5 items-center sm:items-start">
-              <div className="w-full sm:w-44 md:w-48 shrink-0 overflow-hidden rounded-xl border border-cyan-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(6,182,212,0.2)] bg-[#0d0914]">
+            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-cyan-500/30 flex flex-col gap-4">
+              <div className="w-full max-h-[280px] sm:max-h-[340px] overflow-hidden rounded-xl border border-cyan-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(6,182,212,0.2)] bg-[#0d0914]">
                 <img
                   src={plexusImgSrc}
                   alt={t.artworksModal.plexusTitle}
-                  className="w-full h-auto object-cover block"
+                  className="w-full h-auto max-h-[280px] sm:max-h-[340px] object-cover block"
                 />
               </div>
 
-              <div className="flex flex-col gap-2.5 flex-1">
-                <span className="inline-flex items-center self-start px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 text-[10px] font-bold tracking-widest uppercase">
-                  {t.artworksModal.plexusBadge}
-                </span>
+              <div className="flex flex-col gap-2">
                 <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
                   {t.artworksModal.plexusTitle}
                 </h4>
