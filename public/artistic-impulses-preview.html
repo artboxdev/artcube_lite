@@ -389,12 +389,12 @@
 
   <!-- Blossom Palette Reveal Preview -->
   <div id="color-palette-bar">
-    <span style="font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #ffb4dc; margin-right: 4px;">Palette:</span>
+    <span style="font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #ffb4dc; margin-right: 4px;">Sakura-Palette:</span>
     <div class="palette-circle" style="background: #ff2a9d;" title="Sakura Pink"></div>
-    <div class="palette-circle" style="background: #ef4444;" title="Crimson Red"></div>
-    <div class="palette-circle" style="background: #00f0ff;" title="Cyan Blue"></div>
-    <div class="palette-circle" style="background: #10e782;" title="Mint Green"></div>
-    <div class="palette-circle" style="background: #fbbf24;" title="Amber Gold"></div>
+    <div class="palette-circle" style="background: #ff80df;" title="Sakura Blossom"></div>
+    <div class="palette-circle" style="background: #ffb3ec;" title="Sakura Pale"></div>
+    <div class="palette-circle" style="background: #ffaae6;" title="Sakura Glow"></div>
+    <div class="palette-circle" style="background: #ff77dd;" title="Sakura Bloom"></div>
   </div>
 
   <!-- Bottom Control Dock with Trigger Buttons -->
@@ -412,11 +412,11 @@
         <span class="btn-duration">3.0s · Astbahn-Schleier</span>
       </button>
 
-      <!-- 2. 8 Farbknotenpunkte -->
+      <!-- 2. 8 Sakurablüten -->
       <button class="impulse-btn" id="btn-impulse-2" onclick="triggerImpulse2()">
-        <span class="btn-badge" style="color: #d946ef;">Sumi-E · Phase 2</span>
-        <span class="btn-title">8 Farbknoten</span>
-        <span class="btn-duration">5.0s · Sumi-E Stil & Zerfall</span>
+        <span class="btn-badge" style="color: #ff80df;">Sumi-E · Phase 2</span>
+        <span class="btn-title">8 Sakurablüten</span>
+        <span class="btn-duration">5.0s · Sakura-Pink & Sporen</span>
       </button>
 
       <!-- 3. Kreisbewegung & Zoom-In -->
@@ -426,25 +426,18 @@
         <span class="btn-duration">Interaktiv · Zoom-In</span>
       </button>
 
-      <!-- 4. Plexus Synaptic Web -->
-      <button class="impulse-btn plexus-btn" id="btn-impulse-5" onclick="triggerImpulse5()">
-        <span class="btn-badge" style="color: #00f0ff;">Plexus</span>
-        <span class="btn-title">Synaptic Web</span>
-        <span class="btn-duration">3.0s · Volumetrische Orbs</span>
-      </button>
-
-      <!-- 5. Play All Sequence -->
+      <!-- 4. Play All Sequence -->
       <button class="impulse-btn sequence-btn" id="btn-impulse-seq" onclick="triggerFullSequence()">
         <span class="btn-badge" style="color: #ffffff;">Ablauf</span>
         <span class="btn-title">Gesamt-Flow</span>
         <span class="btn-duration">Alle Sumi-E Phasen</span>
       </button>
 
-      <!-- 6. Reset -->
+      <!-- 5. Reset -->
       <button class="impulse-btn" style="border-color: rgba(255,255,255,0.15); opacity: 0.8;" onclick="resetAll()">
         <span class="btn-badge" style="color: #94a3b8;">Setup</span>
         <span class="btn-title">Zurücksetzen</span>
-        <span class="btn-duration">Ast & Orbs ausblenden</span>
+        <span class="btn-duration">Szene leeren</span>
       </button>
     </div>
   </div>
@@ -1494,14 +1487,130 @@
       veilMat.opacity = 0.0;
     }
 
-    // --- TRIGGER 2: 8 FARBKNOTENPUNKTE IM SAKURACANVAS-STIL (5.0s) ---
+    // Procedural High-Res Finished Sakura Blossom Texture (Authentic 5-Petal Flower)
+    let cachedSakuraFlowerTexture = null;
+    function getSakuraFlowerTexture() {
+      if (cachedSakuraFlowerTexture) return cachedSakuraFlowerTexture;
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      if (!ctx) return new THREE.Texture();
+
+      const cx = 128;
+      const cy = 128;
+
+      // Soft ambient glow aura in Sakura Pink
+      const aura = ctx.createRadialGradient(cx, cy, 10, cx, cy, 122);
+      aura.addColorStop(0, 'rgba(255, 181, 220, 0.45)');
+      aura.addColorStop(0.45, 'rgba(255, 128, 223, 0.20)');
+      aura.addColorStop(1, 'rgba(255, 42, 157, 0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 122, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 5 Distinct Sakura Petals with classic notched tip
+      const numPetals = 5;
+      for (let i = 0; i < numPetals; i++) {
+        const angle = (i * 2 * Math.PI) / numPetals - Math.PI / 2;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        ctx.shadowColor = 'rgba(255, 42, 157, 0.35)';
+        ctx.shadowBlur = 10;
+
+        const grad = ctx.createRadialGradient(0, 0, 8, 0, -56, 68);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.22, '#fff0f8');
+        grad.addColorStop(0.58, '#ffb5dc');
+        grad.addColorStop(0.88, '#ff80df');
+        grad.addColorStop(1.0, '#ff4da6');
+        ctx.fillStyle = grad;
+
+        // Sakura petal outline with tip cleft (notch)
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(24, -18, 38, -50, 22, -74);
+        // Notched cleft at apex
+        ctx.bezierCurveTo(14, -79, 6, -72, 0, -67);
+        ctx.bezierCurveTo(-6, -72, -14, -79, -22, -74);
+        ctx.bezierCurveTo(-38, -50, -24, -18, 0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Delicate central vein
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.quadraticCurveTo(2, -34, 0, -63);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // Blossom Heart & Stamens (Pistils)
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 24);
+      coreGrad.addColorStop(0, '#ffffff');
+      coreGrad.addColorStop(0.5, '#ffe1f0');
+      coreGrad.addColorStop(1, 'rgba(255, 105, 180, 0)');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Stamens radiating outward
+      const stamenCount = 15;
+      for (let s = 0; s < stamenCount; s++) {
+        const sAngle = (s * 2 * Math.PI) / stamenCount + (s % 2) * 0.15;
+        const sLen = 14 + (s % 3) * 5;
+        const endX = Math.cos(sAngle) * sLen;
+        const endY = Math.sin(sAngle) * sLen;
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ff69b4';
+        ctx.beginPath();
+        ctx.arc(endX, endY, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(endX, endY, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Deep pink center
+      ctx.fillStyle = '#ff2a9d';
+      ctx.beginPath();
+      ctx.arc(0, 0, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      cachedSakuraFlowerTexture = new THREE.CanvasTexture(c);
+      cachedSakuraFlowerTexture.needsUpdate = true;
+      return cachedSakuraFlowerTexture;
+    }
+
+    // --- TRIGGER 2: 8 SAKURABLÜTEN IM SUMI-E STIL (5.0s) ---
     function triggerImpulse2() {
       setActiveButton('btn-impulse-2');
       currentActiveImpulse = 'SPORES';
       impulseTime = 0.0;
       impulseDuration = 5.0; // 5 Sekunden Laufzeit
-      telemetryMode.innerText = 'Impuls 2: 8 Farbknoten';
-      infoText.innerText = '8 sakurafarbene Knotenpunkte (authentischer SakuraCanvas-Stil mit Guide-Lines) pulsieren 5s lang und zerfallen in Paletten-Farben.';
+      telemetryMode.innerText = 'Impuls 2: 8 Sakurablüten';
+      infoText.innerText = '8 fertig gezeichnete Sakurablüten erscheinen entlang des Astes und lösen sich in zarte Sakurapink-Sporen auf.';
       drawingHint.style.display = 'none';
 
       // Ast einblenden, Orbs ausblenden
@@ -1521,74 +1630,54 @@
       sporeDust3D = [];
 
       const curvesPool = [
-        { c: trunkCurve, t: 0.22, angle: 26 },
-        { c: trunkCurve, t: 0.42, angle: -24 },
-        { c: trunkCurve, t: 0.64, angle: 28 },
-        { c: trunkCurve, t: 0.85, angle: -22 },
-        { c: branchCurve1, t: 0.35, angle: 30 },
-        { c: branchCurve1, t: 0.78, angle: -28 },
-        { c: branchCurve2, t: 0.38, angle: 25 },
-        { c: branchCurve2, t: 0.82, angle: -26 }
+        { c: trunkCurve, t: 0.22 },
+        { c: trunkCurve, t: 0.42 },
+        { c: trunkCurve, t: 0.64 },
+        { c: trunkCurve, t: 0.85 },
+        { c: branchCurve1, t: 0.35 },
+        { c: branchCurve1, t: 0.78 },
+        { c: branchCurve2, t: 0.38 },
+        { c: branchCurve2, t: 0.82 }
       ];
 
-      const paletteColors = [
+      // Reine Sakurapink-Nuancen aus SakuraCanvas
+      const sakuraPinkShades = [
+        new THREE.Color(0xff80df),
         new THREE.Color(0xff2a9d),
-        new THREE.Color(0xef4444),
-        new THREE.Color(0x00f0ff),
-        new THREE.Color(0x10e782),
-        new THREE.Color(0xfbbf24)
+        new THREE.Color(0xffb5dc),
+        new THREE.Color(0xffaae6),
+        new THREE.Color(0xff77dd)
       ];
+
+      const blossomTex = getSakuraFlowerTexture();
 
       for (let i = 0; i < 8; i++) {
         const def = curvesPool[i];
         const pt = def.c.getPoint(def.t);
-        const col = paletteColors[i % paletteColors.length];
+        const col = sakuraPinkShades[i % sakuraPinkShades.length];
 
-        // Authentic SakuraCanvas OrbNode Plane (planeSize = 2.2)
-        const nodeGeom = new THREE.PlaneGeometry(2.2, 2.2);
-        const nodeMat = new THREE.ShaderMaterial({
-          vertexShader: orbMeshVertexShader,
-          fragmentShader: sakuraOrbFragmentShader,
-          uniforms: {
-            uAlpha: { value: 0.0 },
-            uTime: { value: 0.0 },
-            uColor: { value: new THREE.Color(0xffb5dc) }
-          },
+        // Fertig gezeichnete Sakurablüte (5-Blütenblatt Quad)
+        const nodeGeom = new THREE.PlaneGeometry(2.35, 2.35);
+        const nodeMat = new THREE.MeshBasicMaterial({
+          map: blossomTex,
+          color: col,
           transparent: true,
-          depthWrite: false
+          opacity: 0.0,
+          depthWrite: false,
+          side: THREE.DoubleSide
         });
         const nodeMesh = new THREE.Mesh(nodeGeom, nodeMat);
+        const randomRot = Math.random() * Math.PI * 2;
+        nodeMesh.rotation.z = randomRot;
         nodeMesh.position.set(pt.x, pt.y, pt.z + 0.15);
         sumiNodeGroup.add(nodeMesh);
 
-        // Dashed Guide Direction Line (SakuraCanvas OrbNode style)
-        const lineMat = new THREE.LineDashedMaterial({
-          color: 0xffffff,
-          dashSize: 0.22,
-          gapSize: 0.12,
-          transparent: true,
-          opacity: 0.0,
-          depthWrite: false
-        });
-
-        const angleRad = THREE.MathUtils.degToRad(def.angle);
-        const guideDir = new THREE.Vector3(Math.cos(angleRad), Math.sin(angleRad), 0).normalize();
-
-        const lineGeom = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3().copy(guideDir).multiplyScalar(0.95)
-        ]);
-
-        const guideLine = new THREE.Line(lineGeom, lineMat);
-        guideLine.computeLineDistances();
-        nodeMesh.add(guideLine);
-
         sumiOrbNodes.push({
           nodeMesh: nodeMesh,
-          guideLine: guideLine,
           basePt: pt.clone(),
           pos: pt.clone(),
           color: col,
+          baseRotation: randomRot,
           bornTime: 0.1 * i,
           hasDispersed: false,
           isExploding: false,
@@ -1942,30 +2031,26 @@
           veilGeom.attributes.position.needsUpdate = true;
         }
 
-        // 2. 8 FARBKNOTEN (5.0s · SAKURACANVAS STIL & SPORENZERFALL)
+        // 2. 8 SAKURABLÜTEN (5.0s · SAKURA-PINK & SPORENZERFALL)
         if (currentActiveImpulse === 'SPORES') {
           const swayTime = now * 0.001;
 
           sumiOrbNodes.forEach(node => {
-            node.nodeMesh.material.uniforms.uTime.value = impulseTime;
-
-            // Authentic wind sway matching SakuraCanvas
+            // Authentic wind sway matching SakuraCanvas branches
             const normX = Math.max(0.0, Math.min(1.0, (node.basePt.x + 11.5) / 20.0));
             const mainSway = Math.sin(swayTime * 1.25) * 0.38;
             const subSway = Math.sin(swayTime * 0.60) * 0.14;
             node.nodeMesh.position.y = node.basePt.y + (mainSway + subSway) * normX;
 
             if (impulseTime < 2.0) {
-              // Phase 1: Appear, gently breathe and pulse with dashed guide lines (0.0s - 2.0s)
+              // Phase 1: Erscheinen, sanftes Atmen und organische Drehung (0.0s - 2.0s)
               const appearProg = Math.min(1.0, impulseTime / 0.8);
-              node.nodeMesh.material.uniforms.uAlpha.value = appearProg * 0.98;
-              if (node.guideLine) {
-                node.guideLine.material.opacity = appearProg * 0.75;
-              }
-              const pulse = 1.0 + Math.sin(impulseTime * 4.0) * 0.08;
+              node.nodeMesh.material.opacity = appearProg * 0.98;
+              const pulse = 1.0 + Math.sin(impulseTime * 3.5) * 0.08;
               node.nodeMesh.scale.setScalar(pulse);
+              node.nodeMesh.rotation.z = node.baseRotation + Math.sin(impulseTime * 1.5) * 0.06;
             } else if (!node.hasDispersed) {
-              // Phase 2: Explode and dissolve into palette-colored spores (2.0s - 3.6s)
+              // Phase 2: Blüte expandiert und löst sich in reine Sakurapink-Sporen auf (2.0s - 3.6s)
               if (!node.isExploding) {
                 node.isExploding = true;
                 node.explosionTimer = 0.0;
@@ -1973,25 +2058,31 @@
               node.explosionTimer += delta;
               const expT = Math.min(1.0, node.explosionTimer / 0.45);
               const easeOut = 1.0 - Math.pow(1.0 - expT, 3.0);
-              node.nodeMesh.scale.setScalar(1.0 + easeOut * 2.2);
-              node.nodeMesh.material.uniforms.uAlpha.value = (1.0 - expT) * 0.95;
-              if (node.guideLine) {
-                node.guideLine.material.opacity = (1.0 - expT) * 0.75;
-              }
+              node.nodeMesh.scale.setScalar(1.0 + easeOut * 1.9);
+              node.nodeMesh.material.opacity = (1.0 - expT) * 0.95;
 
               if (expT >= 1.0) {
                 node.hasDispersed = true;
                 node.nodeMesh.visible = false;
 
-                // Spawn 32 fine particles in this node's palette color
+                // Spawn 32 feine Partikel ausschließlich in Sakurapink
                 const dustGeom = new THREE.SphereGeometry(0.09, 8, 8);
+                const sakuraSporeColors = [
+                  new THREE.Color(0xff80df),
+                  new THREE.Color(0xff2a9d),
+                  new THREE.Color(0xffb5dc),
+                  new THREE.Color(0xffaae6),
+                  new THREE.Color(0xff77dd)
+                ];
+
                 for (let d = 0; d < 32; d++) {
                   const vel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 3.8,
+                    (Math.random() - 0.5) * 3.6,
                     0.4 + Math.random() * 3.2,
-                    (Math.random() - 0.5) * 3.2
+                    (Math.random() - 0.5) * 3.0
                   );
-                  const dMat = new THREE.MeshBasicMaterial({ color: node.color, transparent: true, opacity: 0.95 });
+                  const pCol = sakuraSporeColors[Math.floor(Math.random() * sakuraSporeColors.length)];
+                  const dMat = new THREE.MeshBasicMaterial({ color: pCol, transparent: true, opacity: 0.95 });
                   const dMesh = new THREE.Mesh(dustGeom, dMat);
                   dMesh.position.copy(node.nodeMesh.position);
                   branchGroup.add(dMesh);
@@ -2007,7 +2098,7 @@
             }
           });
 
-          // Phase 3: Palette reveal at 3.6s
+          // Phase 3: Palette reveal bei 3.6s
           if (impulseTime > 3.6) {
             colorPaletteBar.classList.add('visible');
           }
