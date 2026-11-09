@@ -236,6 +236,80 @@
     .toast.show {
       opacity: 1;
     }
+
+    /* Spawn Modus Selector Bar */
+    .spawn-style-bar {
+      position: absolute;
+      top: 118px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      z-index: 10;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(15, 8, 24, 0.90);
+      border: 1px solid rgba(255, 42, 157, 0.45);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(255, 42, 157, 0.2);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      max-width: 95vw;
+    }
+
+    .style-bar-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ff80df;
+      margin-right: 4px;
+      text-transform: uppercase;
+    }
+
+    .style-pill {
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      color: #e0d0f0;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .style-pill:hover {
+      background: rgba(255, 42, 157, 0.22);
+      border-color: rgba(255, 42, 157, 0.6);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .style-pill.active {
+      background: linear-gradient(135deg, #ff2a9d, #9b00e8);
+      border-color: #ff80df;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(255, 42, 157, 0.7);
+    }
+
+    .style-pill.sakura-toggle {
+      border-color: rgba(0, 240, 255, 0.45);
+      background: rgba(0, 240, 255, 0.12);
+      color: #00f0ff;
+      margin-left: 6px;
+    }
+
+    .style-pill.sakura-toggle.active {
+      background: linear-gradient(135deg, #00f0ff, #0088ff);
+      border-color: #00f0ff;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.7);
+    }
   </style>
 </head>
 <body>
@@ -263,13 +337,25 @@
     Halte gedrückt (1.5s), um ein stark flackerndes Sakura-Netzwerk zu erschaffen!
   </div>
 
+  <!-- Spawn-Modus: 6 Netzwerk-Stile -->
+  <div class="spawn-style-bar" id="spawn-style-bar">
+    <span class="style-bar-label">SPAWN-MODUS:</span>
+    <button class="style-pill active" data-style="1">1. Electric Arcs</button>
+    <button class="style-pill" data-style="2">2. Chaotic Vortex</button>
+    <button class="style-pill" data-style="3">3. Neural Synapse</button>
+    <button class="style-pill" data-style="4">4. Quantum Glitch</button>
+    <button class="style-pill" data-style="5">5. Solar Flare</button>
+    <button class="style-pill" data-style="6">6. Sakura Drift</button>
+    <button class="style-pill sakura-toggle" id="btn-toggle-continuous">Dauertest: AUS</button>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
 
   <!-- Bottom Control Bar -->
   <footer class="bottom-bar">
     <button class="action-btn sakura" id="btn-hold-demo">
-      1. Hold-Test (Sakura-Netzwerk 1.5s)
+      1. Hold-Test (Aktiver Stil 1.5s)
     </button>
     <button class="action-btn" id="btn-dock-demo">
       2. Docking-Test (2.0s Netzwerk)
@@ -278,7 +364,7 @@
       3. Alle 6 andocken
     </button>
     <button class="action-btn gold" id="btn-collide-demo">
-      4. Orbs zusammenschieben (Auto-Drift & Finale)
+      4. Orbs zusammenschieben (Flock-Drift & Netzwerk)
     </button>
     <button class="action-btn" id="btn-finale-direct">
       5. Direkt 10s-Finale
@@ -636,6 +722,17 @@
         this.inImpulse = false;
         this.impulseCooldown = 0.0;
 
+        // Non-overlapping formation offsets around centroid (Requirement 2)
+        const formationOffsets = [
+          { x: -58.0, y: 58.0 },  // Pink (top-left)
+          { x: 58.0, y: 58.0 },   // Blue (top-right)
+          { x: -58.0, y: -58.0 }, // Yellow (bottom-left)
+          { x: 58.0, y: -58.0 }   // Green (bottom-right)
+        ];
+        const fOffset = formationOffsets[this.orbIndex] || { x: 0, y: 0 };
+        this.formationOffsetX = fOffset.x;
+        this.formationOffsetY = fOffset.y;
+
         // Meshes
         const ORB_RADIUS = 24.0;
         const geom = new THREE.SphereGeometry(ORB_RADIUS, 48, 48);
@@ -754,10 +851,14 @@
           this.y += this.finaleVy * delta;
           this.finaleVx *= Math.max(0.0, 1.0 - delta * 2.2);
           this.finaleVy *= Math.max(0.0, 1.0 - delta * 2.2);
-        } else if (isConvergenceActive) {
-          // Automatischer Center-Drift (lerp to center)
-          this.x = THREE.MathUtils.lerp(this.x, 0.0, delta * 3.5);
-          this.y = THREE.MathUtils.lerp(this.y, 0.0, delta * 3.5);
+        } else if (isFormationActive) {
+          // Synchronous Flocking Formation (Orbs liegen nicht übereinander, sondern schweben im Verbund!)
+          const breath = Math.sin(totalTime * 2.2 + this.orbIndex * 1.5) * 5.0;
+          const targetX = flockCenterX + this.formationOffsetX + Math.cos(totalTime * 1.5 + this.phase) * breath;
+          const targetY = flockCenterY + this.formationOffsetY + Math.sin(totalTime * 1.5 + this.phase) * breath;
+          this.x = THREE.MathUtils.lerp(this.x, targetX, delta * 3.2);
+          this.y = THREE.MathUtils.lerp(this.y, targetY, delta * 3.2);
+          this.z = Math.sin(totalTime * 1.8 + this.phase) * 6.0;
         } else if (this.isDragged) {
           // Follow pointer
           this.x = mouseWorld.x;
@@ -903,6 +1004,14 @@
     let holdOrigin = { x: 0, y: 0 };
     let mouseWorld = new THREE.Vector3(0, 0, 0);
 
+    // Spawn-Modus & Formation State (Requirement 1 & 2)
+    let currentSpawnStyle = 1;
+    let isContinuousTestActive = false;
+    let isFormationActive = false;
+    let flockAngle = 0.0;
+    let flockCenterX = 0.0;
+    let flockCenterY = 0.0;
+
     // Free floating or dragging plexus clusters
     const activeClusters = [];
     let draggedCluster = null;
@@ -940,9 +1049,9 @@
     }
 
     // ==========================================
-    // 6. WILD FLICKERING SAKURA HOLD NETWORK (1.5s)
+    // 6. SPAWN-MODUS: 6 UNREGELMÄSSIGE NETZWERK-STILE
     // ==========================================
-    // Swirling inner nucleus
+    // Basis-Arrays für Stil 1
     const holdNetworkCore = [];
     const CORE_NODE_COUNT = 24;
     for (let i = 0; i < CORE_NODE_COUNT; i++) {
@@ -957,7 +1066,6 @@
       });
     }
 
-    // Wild outward lightning tendrils (12 branches reaching up to 175px into space)
     const holdTendrilBranches = [];
     const NUM_TENDRILS = 12;
     for (let b = 0; b < NUM_TENDRILS; b++) {
@@ -965,7 +1073,6 @@
       const nodes = [];
       const segCount = 4;
       for (let s = 1; s <= segCount; s++) {
-        // Progressive distance reaching far into outer space
         const segR = 28.0 + s * 34.0 + (Math.random() - 0.5) * 14.0;
         nodes.push({
           angleOffset: (Math.random() - 0.5) * 0.28,
@@ -982,6 +1089,227 @@
         spinSpeed: (b % 2 === 0 ? 1 : -1) * (0.65 + Math.random() * 0.75),
         nodes
       });
+    }
+
+    // Generator-Engine für alle 6 Stile (mit stark unregelmäßiger Bewegung um den Zeiger)
+    function populateHoldNetwork(delta, totalTime, holdIntensity, originX, originY) {
+      // 1. Unregelmäßige taumelnde Drift des Brennpunkts um den Cursor
+      const driftX = Math.sin(totalTime * 3.4 + currentSpawnStyle * 1.7) * 18.0 
+                   + Math.sin(totalTime * 8.9) * 8.0 
+                   + Math.cos(totalTime * 17.3) * 3.5;
+      const driftY = Math.cos(totalTime * 4.1 + currentSpawnStyle * 1.3) * 18.0 
+                   + Math.sin(totalTime * 7.7) * 8.0 
+                   + Math.sin(totalTime * 19.1) * 3.5;
+
+      const cX = originX + driftX * (0.35 + 0.65 * holdIntensity);
+      const cY = originY + driftY * (0.35 + 0.65 * holdIntensity);
+
+      // Zentraler leuchtender Funke
+      if (activeNodeCount < MAX_NODES) {
+        const cIdx = activeNodeCount++;
+        worldX[cIdx] = cX;
+        worldY[cIdx] = cY;
+        worldZ[cIdx] = 0.0;
+        worldR[cIdx] = 1.0;
+        worldG[cIdx] = 0.92;
+        worldB[cIdx] = 0.98;
+        worldS[cIdx] = (24.0 + Math.sin(totalTime * 22.0) * 6.0) * (0.4 + 0.6 * holdIntensity);
+        worldGrp[cIdx] = 999;
+        worldAlpha[cIdx] = holdIntensity;
+      }
+
+      if (currentSpawnStyle === 1) {
+        // ==========================================
+        // STIL 1: ELECTRIC ARCS & TENDRILS (Gezackte Hochspannungs-Entladungen)
+        // ==========================================
+        for (let i = 0; i < holdNetworkCore.length; i++) {
+          if (activeNodeCount >= MAX_NODES) break;
+          const cn = holdNetworkCore[i];
+          cn.angle += cn.speed * delta;
+          const r = cn.baseR * (0.35 + 0.65 * holdIntensity);
+          const nx = cX + Math.cos(cn.angle) * r;
+          const ny = cY + Math.sin(cn.angle) * r;
+          const nz = cn.z * holdIntensity;
+
+          const nIdx = activeNodeCount++;
+          worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+          worldR[nIdx] = cn.color.r; worldG[nIdx] = cn.color.g; worldB[nIdx] = cn.color.b;
+          worldS[nIdx] = (15.0 + Math.random() * 8.0) * (0.5 + 0.5 * holdIntensity);
+          worldGrp[nIdx] = 999;
+          worldAlpha[nIdx] = holdIntensity;
+        }
+
+        for (let b = 0; b < holdTendrilBranches.length; b++) {
+          const br = holdTendrilBranches[b];
+          br.baseAngle += br.spinSpeed * delta;
+          for (let s = 0; s < br.nodes.length; s++) {
+            if (activeNodeCount >= MAX_NODES) break;
+            const tn = br.nodes[s];
+            const whip = Math.sin(totalTime * tn.whipFreq + tn.whipPhase) * tn.whipAmp;
+            const curAng = br.baseAngle + tn.angleOffset + (whip * 0.018);
+            const curR = (tn.baseR + whip * 0.45) * (0.32 + 0.68 * Math.pow(holdIntensity, 0.55));
+
+            const nx = cX + Math.cos(curAng) * curR;
+            const ny = cY + Math.sin(curAng) * curR;
+            const nz = tn.z * holdIntensity;
+
+            const nIdx = activeNodeCount++;
+            worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+            worldR[nIdx] = tn.color.r; worldG[nIdx] = tn.color.g; worldB[nIdx] = tn.color.b;
+            worldS[nIdx] = (13.0 + (s === br.nodes.length - 1 ? 12.0 : 4.0)) * (0.4 + 0.6 * holdIntensity);
+            worldGrp[nIdx] = 999;
+            worldAlpha[nIdx] = holdIntensity;
+          }
+        }
+      } else if (currentSpawnStyle === 2) {
+        // ==========================================
+        // STIL 2: CHAOTIC VORTEX SWARM (Asymmetrischer Spiral-Wirbel)
+        // ==========================================
+        const numVortexNodes = 58;
+        for (let i = 0; i < numVortexNodes; i++) {
+          if (activeNodeCount >= MAX_NODES) break;
+          const arm = i % 4;
+          const armOffset = (arm / 4) * Math.PI * 2;
+          const tRel = (i / numVortexNodes);
+          const spin = totalTime * (2.2 + arm * 0.4) + tRel * 14.0 + armOffset;
+          // Unregelmäßiger, eiförmig verzerrter Spiralradius
+          const eccentric = 1.0 + 0.45 * Math.sin(spin * 2.0 + totalTime * 3.0);
+          const r = (14.0 + tRel * 160.0 * eccentric) * (0.3 + 0.7 * holdIntensity);
+          const tiltX = Math.cos(totalTime * 1.5) * 0.25;
+          const tiltY = Math.sin(totalTime * 1.8) * 0.25;
+
+          const nx = cX + Math.cos(spin) * r * (1.0 + tiltX);
+          const ny = cY + Math.sin(spin) * r * (0.85 + tiltY);
+          const nz = Math.sin(spin * 3.0 + i) * 22.0 * holdIntensity;
+
+          const col = SAKURA_HOLD_PALETTE[i % SAKURA_HOLD_PALETTE.length];
+          const nIdx = activeNodeCount++;
+          worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+          worldR[nIdx] = col.r; worldG[nIdx] = col.g; worldB[nIdx] = col.b;
+          worldS[nIdx] = (14.0 + (1.0 - tRel) * 12.0) * (0.5 + 0.5 * holdIntensity);
+          worldGrp[nIdx] = 999;
+          worldAlpha[nIdx] = holdIntensity;
+        }
+      } else if (currentSpawnStyle === 3) {
+        // ==========================================
+        // STIL 3: NEURAL SYNAPSE WEB (Organische Dendriten-Verästelung)
+        // ==========================================
+        const numSynapses = 54;
+        const pulseWave = (totalTime * 3.5) % (Math.PI * 2);
+        for (let i = 0; i < numSynapses; i++) {
+          if (activeNodeCount >= MAX_NODES) break;
+          const trunk = Math.floor(i / 9);
+          const trunkAngle = (trunk / 6) * Math.PI * 2 + Math.sin(totalTime * 2.0 + trunk) * 0.25;
+          const step = (i % 9) + 1;
+          const baseDist = step * 18.0;
+          const twitch = Math.sin(totalTime * 18.0 + i * 2.7) * (step > 4 ? 12.0 : 4.0);
+          const branchCurv = Math.cos(step * 0.8 + totalTime * 2.0) * (step * 3.5);
+
+          const r = (baseDist + twitch) * (0.35 + 0.65 * holdIntensity);
+          const a = trunkAngle + (branchCurv * 0.02);
+          const nx = cX + Math.cos(a) * r;
+          const ny = cY + Math.sin(a) * r;
+          const nz = Math.sin(totalTime * 4.0 + step) * 16.0;
+
+          const isFiring = Math.abs(Math.sin(pulseWave - step * 0.45)) > 0.88;
+          const col = isFiring ? { r: 1.0, g: 0.9, b: 1.0 } : SAKURA_HOLD_PALETTE[i % SAKURA_HOLD_PALETTE.length];
+
+          const nIdx = activeNodeCount++;
+          worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+          worldR[nIdx] = col.r; worldG[nIdx] = col.g; worldB[nIdx] = col.b;
+          worldS[nIdx] = (isFiring ? 22.0 : 13.0) * (0.4 + 0.6 * holdIntensity);
+          worldGrp[nIdx] = 999;
+          worldAlpha[nIdx] = holdIntensity;
+        }
+      } else if (currentSpawnStyle === 4) {
+        // ==========================================
+        // STIL 4: QUANTUM GLITCH & FRACTURE (Fraktale Gitter-Sprünge)
+        // ==========================================
+        const numGlitchNodes = 52;
+        const glitchStepTime = Math.floor(totalTime * 7.5);
+        for (let i = 0; i < numGlitchNodes; i++) {
+          if (activeNodeCount >= MAX_NODES) break;
+          const seed = (i * 127.3 + glitchStepTime * 43.1) % 1000.0;
+          const rawAngle = ((Math.floor(seed % 8)) / 8.0) * Math.PI * 2;
+          const rawDist = (20.0 + ((seed * 7.1) % 150.0)) * (0.3 + 0.7 * holdIntensity);
+          const jitterX = (Math.sin(totalTime * 35.0 + i) > 0.6 ? 1 : -1) * 8.0;
+          const jitterY = (Math.cos(totalTime * 40.0 + i * 1.5) > 0.6 ? 1 : -1) * 8.0;
+
+          const nx = cX + Math.cos(rawAngle) * rawDist + jitterX;
+          const ny = cY + Math.sin(rawAngle) * rawDist + jitterY;
+          const nz = ((seed % 30) - 15.0) * holdIntensity;
+
+          const col = SAKURA_HOLD_PALETTE[i % SAKURA_HOLD_PALETTE.length];
+          const nIdx = activeNodeCount++;
+          worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+          worldR[nIdx] = col.r; worldG[nIdx] = col.g; worldB[nIdx] = col.b;
+          worldS[nIdx] = (16.0 + (i % 3 === 0 ? 8.0 : 0.0)) * (0.4 + 0.6 * holdIntensity);
+          worldGrp[nIdx] = 999;
+          worldAlpha[nIdx] = holdIntensity;
+        }
+      } else if (currentSpawnStyle === 5) {
+        // ==========================================
+        // STIL 5: SOLAR FLARE SPICULES (Eruptive Plasma-Schlingen)
+        // ==========================================
+        const numLoops = 9;
+        const nodesPerLoop = 6;
+        for (let l = 0; l < numLoops; l++) {
+          const loopBaseAngle = (l / numLoops) * Math.PI * 2 + Math.sin(totalTime * 1.2 + l) * 0.4;
+          const isErupting = (Math.floor(totalTime * 1.5 + l * 0.7) % numLoops === l);
+          const maxLoopR = (isErupting ? 175.0 : 85.0 + Math.sin(totalTime * 5.0 + l) * 35.0) * (0.35 + 0.65 * holdIntensity);
+          const loopSpanAngle = 0.55 + Math.sin(totalTime * 3.0 + l) * 0.2;
+
+          for (let s = 0; s < nodesPerLoop; s++) {
+            if (activeNodeCount >= MAX_NODES) break;
+            const u = s / (nodesPerLoop - 1);
+            const curR = 15.0 + Math.sin(u * Math.PI) * maxLoopR;
+            const curA = loopBaseAngle + (u - 0.5) * loopSpanAngle;
+
+            const nx = cX + Math.cos(curA) * curR;
+            const ny = cY + Math.sin(curA) * curR;
+            const nz = Math.sin(u * Math.PI * 2.0 + totalTime * 8.0) * 20.0 * holdIntensity;
+
+            const col = isErupting ? { r: 1.0, g: 0.35, b: 0.85 } : SAKURA_HOLD_PALETTE[(l + s) % SAKURA_HOLD_PALETTE.length];
+            const nIdx = activeNodeCount++;
+            worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+            worldR[nIdx] = col.r; worldG[nIdx] = col.g; worldB[nIdx] = col.b;
+            worldS[nIdx] = (isErupting ? 18.0 : 13.0) * (0.5 + 0.5 * holdIntensity);
+            worldGrp[nIdx] = 999;
+            worldAlpha[nIdx] = holdIntensity;
+          }
+        }
+      } else if (currentSpawnStyle === 6) {
+        // ==========================================
+        // STIL 6: SAKURA BLOSSOM DRIFT (Organische Blütenblatt-Konstellation)
+        // ==========================================
+        const numPetals = 5;
+        const nodesPerPetal = 10;
+        for (let p = 0; p < numPetals; p++) {
+          const petalBaseAngle = (p / numPetals) * Math.PI * 2 + totalTime * 0.65;
+          const petalWobble = Math.sin(totalTime * 4.0 + p * 1.6) * 0.3;
+
+          for (let n = 0; n < nodesPerPetal; n++) {
+            if (activeNodeCount >= MAX_NODES) break;
+            const u = n / (nodesPerPetal - 1);
+            const r = (20.0 + u * 135.0) * (0.35 + 0.65 * holdIntensity);
+            const lateral = Math.sin(u * Math.PI) * 45.0 * (1.0 + petalWobble);
+            const a = petalBaseAngle + (lateral / Math.max(10.0, r));
+            const flutter = Math.sin(totalTime * 6.0 + p * 1.5 + u * 3.0) * 25.0;
+
+            const nx = cX + Math.cos(a) * r;
+            const ny = cY + Math.sin(a) * r;
+            const nz = flutter * holdIntensity;
+
+            const col = SAKURA_HOLD_PALETTE[(p + n) % SAKURA_HOLD_PALETTE.length];
+            const nIdx = activeNodeCount++;
+            worldX[nIdx] = nx; worldY[nIdx] = ny; worldZ[nIdx] = nz;
+            worldR[nIdx] = col.r; worldG[nIdx] = col.g; worldB[nIdx] = col.b;
+            worldS[nIdx] = (12.0 + Math.sin(u * Math.PI) * 8.0) * (0.4 + 0.6 * holdIntensity);
+            worldGrp[nIdx] = 999;
+            worldAlpha[nIdx] = holdIntensity;
+          }
+        }
+      }
     }
 
     // ==========================================
@@ -1031,17 +1359,14 @@
     }
 
     // ==========================================
-    // 8. NEW FEATURE 3: PRE-FINALE COLLISION & AUTO-CENTER-DRIFT
+    // 8. PRE-FINALE FLOCKING FORMATION & INTERCONNECTED NETWORKS (Requirement 2)
     // ==========================================
-    let isPreFinaleUnlocked = false;
-    let isConvergenceActive = false;
-    let convergenceTimer = 0.0;
     let isFinaleActive = false;
     let finaleStartTime = 0.0;
     const PLEXUS_FINALE_DURATION = 10.0;
 
     function checkPreFinaleProximity() {
-      if (isConvergenceActive || isFinaleActive) return;
+      if (isFormationActive || isFinaleActive) return;
       if (totalAttachedPlexus < 6) return;
 
       const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
@@ -1053,18 +1378,18 @@
       cx /= occupied.length;
       cy /= occupied.length;
 
-      // Wenn alle belegten Orbs nah am gemeinsamen Schwerpunkt sind (< 85 Einheiten)
+      // Wenn alle belegten Orbs zusammengeschoben wurden (< 135 Einheiten)
       const maxDistToCentroid = Math.max(...occupied.map(o => Math.hypot(o.x - cx, o.y - cy)));
 
-      if (maxDistToCentroid < 85.0) {
-        // Trigger Convergence!
-        isConvergenceActive = true;
-        convergenceTimer = 0.0;
+      if (maxDistToCentroid < 135.0) {
+        // Trigger Formation: Nicht übereinander, sondern über Netzwerke verbunden und synchron schwebend!
+        isFormationActive = true;
+        flockAngle = 0.0;
         bgUniforms.uRippleActive.value = 1.0;
         bgUniforms.uRippleTime.value = 0.0;
         promptBanner.className = 'prompt-banner finale';
-        promptBanner.textContent = 'Orbs kollidieren! Automatischer Drift in die Mitte...';
-        showToastMsg('Kollision erfolgreich! Orbs driften in das Zentrum...');
+        promptBanner.textContent = 'Orbs über Netzwerke verbunden — synchroner Schwebeflug!';
+        showToastMsg('Netzwerk-Verbund aktiv: Orbs schweben synchron!');
       }
     }
 
@@ -1138,7 +1463,7 @@
     function startPlexusFinale() {
       if (isFinaleActive) return;
       isFinaleActive = true;
-      isConvergenceActive = false;
+      isFormationActive = false;
       finaleStartTime = performance.now() * 0.001;
       activeImpulses.length = 0;
       floatingOrbs.forEach(o => { o.finaleNetworkCount = 0; o.inImpulse = false; });
@@ -1164,13 +1489,13 @@
     }
 
     window.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.bottom-bar') || e.target.closest('.top-header')) return;
+      if (e.target.closest('.bottom-bar') || e.target.closest('.top-header') || e.target.closest('.spawn-style-bar')) return;
       isMouseDown = true;
       isHoldCharging = false;
       updatePointerWorld(e.clientX, e.clientY);
 
       // Check if clicking an Orb (in Pre-Finale)
-      if (totalAttachedPlexus >= 6 && !isFinaleActive && !isConvergenceActive) {
+      if (totalAttachedPlexus >= 6 && !isFinaleActive && !isFormationActive) {
         for (let o of floatingOrbs) {
           if (Math.hypot(o.x - mouseWorld.x, o.y - mouseWorld.y) < 45.0) {
             draggedOrb = o;
@@ -1348,7 +1673,7 @@
     });
 
     document.getElementById('btn-collide-demo').addEventListener('click', () => {
-      // Ensure orbs are occupied
+      // Ensure all 4 orbs are occupied
       if (totalAttachedPlexus < 6) {
         floatingOrbs.forEach(o => { o.attachedPlexusCount = 0; o.attachedNodes = []; });
         floatingOrbs[0].attachCluster(null);
@@ -1358,18 +1683,23 @@
         floatingOrbs[2].attachCluster(null);
         floatingOrbs[3].attachCluster(null);
         totalAttachedPlexus = 6;
+        floatingOrbs.forEach(o => o.triggerDockWobble());
       }
 
-      // Smoothly push all orbs into collision zone
+      // Smoothly activate flocking formation with networks connected
+      isFormationActive = true;
+      flockAngle = 0.0;
       floatingOrbs.forEach(o => {
         o.isDragged = false;
-        o.restX = (Math.random() - 0.5) * 40.0;
-        o.restY = (Math.random() - 0.5) * 40.0;
-        o.x = o.restX;
-        o.y = o.restY;
+        o.hasBeenPlaced = false;
+        o.triggerDockWobble();
       });
 
-      checkPreFinaleProximity();
+      bgUniforms.uRippleActive.value = 1.0;
+      bgUniforms.uRippleTime.value = 0.0;
+      promptBanner.className = 'prompt-banner finale';
+      promptBanner.textContent = 'Orbs über Netzwerke verbunden — synchroner Schwebeflug!';
+      showToastMsg('Netzwerk-Verbund aktiv: Orbs schweben synchron!');
     });
 
     document.getElementById('btn-finale-direct').addEventListener('click', () => {
@@ -1389,8 +1719,13 @@
     document.getElementById('btn-reset').addEventListener('click', () => {
       totalAttachedPlexus = 0;
       isFinaleActive = false;
-      isConvergenceActive = false;
-      convergenceTimer = 0.0;
+      isFormationActive = false;
+      isContinuousTestActive = false;
+      const cBtn = document.getElementById('btn-toggle-continuous');
+      if (cBtn) {
+        cBtn.classList.remove('active');
+        cBtn.textContent = 'Dauertest: AUS';
+      }
       activeImpulses.length = 0;
       activeDockingNetworks.length = 0;
       activeClusters.length = 0;
@@ -1410,6 +1745,41 @@
       promptBanner.textContent = 'Halte gedrückt (1.5s), um ein stark flackerndes Sakura-Netzwerk zu erschaffen!';
       showToastMsg('Szene zurückgesetzt.');
     });
+
+    // Spawn-Modus UI Listener (Requirement 1)
+    const stylePills = document.querySelectorAll('.style-pill[data-style]');
+    stylePills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        stylePills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentSpawnStyle = parseInt(pill.dataset.style, 10);
+        const styleNames = [
+          '1. Electric Arcs',
+          '2. Chaotic Vortex',
+          '3. Neural Synapse',
+          '4. Quantum Glitch',
+          '5. Solar Flare',
+          '6. Sakura Drift'
+        ];
+        showToastMsg(`Spawn-Stil ${currentSpawnStyle}: ${styleNames[currentSpawnStyle - 1]}`);
+      });
+    });
+
+    const btnToggleContinuous = document.getElementById('btn-toggle-continuous');
+    if (btnToggleContinuous) {
+      btnToggleContinuous.addEventListener('click', () => {
+        isContinuousTestActive = !isContinuousTestActive;
+        if (isContinuousTestActive) {
+          btnToggleContinuous.classList.add('active');
+          btnToggleContinuous.textContent = 'Dauertest: AN';
+          showToastMsg('Dauertest AN: Unregelmäßige Struktur aktiv!');
+        } else {
+          btnToggleContinuous.classList.remove('active');
+          btnToggleContinuous.textContent = 'Dauertest: AUS';
+          showToastMsg('Dauertest AUS.');
+        }
+      });
+    }
 
     // ==========================================
     // 12. MAIN RENDER LOOP
@@ -1447,13 +1817,11 @@
       const targetDim = isFinaleActive ? 0.45 : 1.0;
       bgUniforms.uBgDim.value = THREE.MathUtils.lerp(bgUniforms.uBgDim.value, targetDim, delta * 2.0);
 
-      // Auto-Center-Drift Handler
-      if (isConvergenceActive) {
-        convergenceTimer += delta;
-        if (convergenceTimer >= 1.2) {
-          isConvergenceActive = false;
-          startPlexusFinale();
-        }
+      // Flocking Formation Drift
+      if (isFormationActive) {
+        flockAngle += delta * 0.45;
+        flockCenterX = Math.sin(flockAngle) * 75.0 + Math.sin(flockAngle * 2.1) * 22.0;
+        flockCenterY = Math.cos(flockAngle * 0.75) * 45.0 + Math.cos(flockAngle * 1.8) * 16.0;
       }
 
       // Finale 10s Timer
@@ -1480,78 +1848,21 @@
       // ==========================================
       activeNodeCount = 0;
 
-      // 1. Wild Flickering Sakura Hold Network (Requirement 1 & 2)
-      if (isHoldCharging && !draggedCluster && !draggedOrb && holdTimer < HOLD_THRESHOLD) {
-        holdTimer += delta;
-        const holdProgress = Math.min(1.0, holdTimer / HOLD_THRESHOLD);
-        holdCircle.setAttribute('stroke-dashoffset', `${201 * (1.0 - holdProgress)}`);
-
-        const holdIntensity = Math.pow(holdProgress, 0.72);
-
-        // Core central spark
-        if (activeNodeCount < MAX_NODES) {
-          const cIdx = activeNodeCount++;
-          worldX[cIdx] = holdOrigin.x;
-          worldY[cIdx] = holdOrigin.y;
-          worldZ[cIdx] = 0.0;
-          worldR[cIdx] = 1.0;
-          worldG[cIdx] = 0.88;
-          worldB[cIdx] = 0.98;
-          worldS[cIdx] = 26.0 * (0.3 + 0.7 * holdIntensity);
-          worldGrp[cIdx] = 999;
-          worldAlpha[cIdx] = holdIntensity;
+      // 1. Hold-Down or Continuous Test Sakura Network (6 Spawn Styles - Requirement 1)
+      const isHoldActive = (isHoldCharging && !draggedCluster && !draggedOrb && holdTimer < HOLD_THRESHOLD);
+      if (isHoldActive || isContinuousTestActive) {
+        if (isHoldActive) {
+          holdTimer += delta;
+          const holdProgress = Math.min(1.0, holdTimer / HOLD_THRESHOLD);
+          holdCircle.setAttribute('stroke-dashoffset', `${201 * (1.0 - holdProgress)}`);
         }
 
-        // Swirling inner nucleus nodes
-        for (let i = 0; i < holdNetworkCore.length; i++) {
-          if (activeNodeCount >= MAX_NODES) break;
-          const cn = holdNetworkCore[i];
-          cn.angle += cn.speed * delta;
-          const r = cn.baseR * (0.35 + 0.65 * holdIntensity);
-          const nx = holdOrigin.x + Math.cos(cn.angle) * r;
-          const ny = holdOrigin.y + Math.sin(cn.angle) * r;
-          const nz = cn.z * holdIntensity;
+        const effectiveProgress = isContinuousTestActive ? 1.0 : Math.min(1.0, holdTimer / HOLD_THRESHOLD);
+        const holdIntensity = Math.pow(effectiveProgress, 0.72);
+        const originX = isContinuousTestActive ? 0.0 : holdOrigin.x;
+        const originY = isContinuousTestActive ? 0.0 : holdOrigin.y;
 
-          const nIdx = activeNodeCount++;
-          worldX[nIdx] = nx;
-          worldY[nIdx] = ny;
-          worldZ[nIdx] = nz;
-          worldR[nIdx] = cn.color.r;
-          worldG[nIdx] = cn.color.g;
-          worldB[nIdx] = cn.color.b;
-          worldS[nIdx] = (15.0 + Math.random() * 10.0) * (0.5 + 0.5 * holdIntensity);
-          worldGrp[nIdx] = 999;
-          worldAlpha[nIdx] = holdIntensity;
-        }
-
-        // Wild outward tendril streamers reaching far into space
-        for (let b = 0; b < holdTendrilBranches.length; b++) {
-          const br = holdTendrilBranches[b];
-          br.baseAngle += br.spinSpeed * delta;
-
-          for (let s = 0; s < br.nodes.length; s++) {
-            if (activeNodeCount >= MAX_NODES) break;
-            const tn = br.nodes[s];
-            const whip = Math.sin(totalTime * tn.whipFreq + tn.whipPhase) * tn.whipAmp;
-            const curAng = br.baseAngle + tn.angleOffset + (whip * 0.015);
-            const curR = (tn.baseR + whip * 0.45) * (0.32 + 0.68 * Math.pow(holdIntensity, 0.55));
-
-            const nx = holdOrigin.x + Math.cos(curAng) * curR;
-            const ny = holdOrigin.y + Math.sin(curAng) * curR;
-            const nz = tn.z * holdIntensity;
-
-            const nIdx = activeNodeCount++;
-            worldX[nIdx] = nx;
-            worldY[nIdx] = ny;
-            worldZ[nIdx] = nz;
-            worldR[nIdx] = tn.color.r;
-            worldG[nIdx] = tn.color.g;
-            worldB[nIdx] = tn.color.b;
-            worldS[nIdx] = (13.0 + (s === br.nodes.length - 1 ? 12.0 : 4.0)) * (0.4 + 0.6 * holdIntensity);
-            worldGrp[nIdx] = 999;
-            worldAlpha[nIdx] = holdIntensity;
-          }
-        }
+        populateHoldNetwork(delta, totalTime, holdIntensity, originX, originY);
       }
 
       // 1b. Attached Plexus Satellites orbiting Orbs (Requirement 3)
@@ -1811,8 +2122,19 @@
         for (let j = i + 1; j < activeNodeCount; j++) {
           if (lineVertIdx >= maxLineVerts) break;
           if (nodeLinks[i] >= 4) break;
-          if (worldGrp[j] !== grp1) continue; // Only within the same network group
           if (nodeLinks[j] >= 4) continue;
+
+          const grp2 = worldGrp[j];
+          let canConnect = (grp2 === grp1);
+          let isInterOrbBridge = false;
+
+          // INTER-ORB BRIDGE LINES: When orbs are in formation or docked in proximity (Requirement 2)
+          if (!canConnect && grp1 >= 500 && grp1 < 600 && grp2 >= 500 && grp2 < 600) {
+            canConnect = true;
+            isInterOrbBridge = true;
+          }
+
+          if (!canConnect) continue;
 
           const dx = worldX[j] - x1;
           const dy = worldY[j] - y1;
@@ -1820,8 +2142,15 @@
           const distSq = dx * dx + dy * dy + dz * dz;
 
           let cutoff = 88.0;
-          if (grp1 === 999) {
-            cutoff = 76.0; // Wild hold network tendrils
+          if (isInterOrbBridge) {
+            cutoff = 120.0; // Inter-orb connecting bridge filaments
+          } else if (grp1 === 999) {
+            if (currentSpawnStyle === 1) cutoff = 78.0;
+            else if (currentSpawnStyle === 2) cutoff = 72.0;
+            else if (currentSpawnStyle === 3) cutoff = 84.0;
+            else if (currentSpawnStyle === 4) cutoff = 68.0;
+            else if (currentSpawnStyle === 5) cutoff = 76.0;
+            else if (currentSpawnStyle === 6) cutoff = 72.0;
           } else if (grp1 >= 500 && grp1 < 600) {
             cutoff = 68.0; // Orb attached satellite shells
           } else if (grp1 >= 800 && grp1 < 900) {
@@ -1849,7 +2178,7 @@
               nodeLinks[i]++;
               nodeLinks[j]++;
 
-              const lAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.35 * fMul) * a1;
+              const lAlpha = Math.min(1.0, Math.pow(opacity, isInterOrbBridge ? 0.45 : 0.55) * 1.35 * fMul) * a1;
               const r2 = worldR[j], g2 = worldG[j], b2 = worldB[j];
 
               // Vertex 1
@@ -1886,7 +2215,8 @@
       // Telemetry update
       let stateLabel = 'IDLE';
       if (isFinaleActive) stateLabel = `FINALE (${finaleAge.toFixed(1)}s)`;
-      else if (isConvergenceActive) stateLabel = 'CONVERGENCE (DRIFT)';
+      else if (isFormationActive) stateLabel = 'FORMATION (SCHWEBEND)';
+      else if (isContinuousTestActive) stateLabel = `DAUERTEST STIL ${currentSpawnStyle}`;
       else if (isHoldCharging) stateLabel = `HOLD (${holdTimer.toFixed(1)}s)`;
       else if (draggedCluster) stateLabel = 'DRAGGING PLEXUS';
       else if (draggedOrb) stateLabel = 'DRAGGING ORB';
