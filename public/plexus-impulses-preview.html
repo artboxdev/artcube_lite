@@ -1930,43 +1930,46 @@
           if (distSq < cutoff * cutoff) {
             const distance = Math.sqrt(distSq);
             const opacity = 1.0 - distance / cutoff;
-            if (opacity > 0.01) {
-              // DualSlider 1:1 High-Frequency Flicker
-              const seed = (i * 137.5 + j * 269.3) % 1000.0;
-              const fA = Math.sin(totalTime * 14.0 + seed);
-              const fB = Math.cos(totalTime * 25.0 + seed * 1.7);
-              const fNoise = fA * 0.6 + fB * 0.4;
+            if (opacity <= 0.15) continue;
 
-              let fMul = 1.0;
-              if (fNoise < -0.32) {
-                fMul = (fNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35;
-              } else if (fNoise > 0.68) {
-                fMul = 1.75; // Sharp bright filament burst!
-              }
-              if (fMul <= 0.02) continue;
+            // DualSlider 1:1 High-Frequency Flicker
+            const seed = (i * 137.5 + j * 269.3) % 1000.0;
+            const fA = Math.sin(totalTime * 14.0 + seed);
+            const fB = Math.cos(totalTime * 25.0 + seed * 1.7);
+            const fNoise = fA * 0.6 + fB * 0.4;
 
-              nodeLinks[i]++;
-              nodeLinks[j]++;
-
-              const lAlpha = Math.min(1.0, Math.pow(opacity, isInterOrbBridge ? 0.45 : 0.55) * 1.35 * fMul) * a1;
-              const r2 = worldR[j], g2 = worldG[j], b2 = worldB[j];
-
-              // Vertex 1
-              linePos[lineVertIdx++] = x1;
-              linePos[lineVertIdx++] = y1;
-              linePos[lineVertIdx++] = z1;
-              lineCol[lineColIdx++] = r1 * lAlpha;
-              lineCol[lineColIdx++] = g1 * lAlpha;
-              lineCol[lineColIdx++] = b1 * lAlpha;
-
-              // Vertex 2
-              linePos[lineVertIdx++] = worldX[j];
-              linePos[lineVertIdx++] = worldY[j];
-              linePos[lineVertIdx++] = worldZ[j];
-              lineCol[lineColIdx++] = r2 * lAlpha;
-              lineCol[lineColIdx++] = g2 * lAlpha;
-              lineCol[lineColIdx++] = b2 * lAlpha;
+            // Lösung 1: Harter Cutoff im Flackertal verhindert graue Linienreste (Linie wird gar nicht erst gezeichnet)
+            if (fNoise < -0.15) continue;
+            let fMul = 1.0;
+            if (fNoise > 0.60) {
+              fMul = 1.75; // Sharp bright filament burst!
             }
+
+            const lAlpha = Math.min(1.0, Math.pow(opacity, isInterOrbBridge ? 0.45 : 0.55) * 1.35 * fMul) * a1;
+            if (lAlpha < 0.28) continue;
+
+            nodeLinks[i]++;
+            nodeLinks[j]++;
+
+            // Farbsättigung erhalten, damit niemals abgedunkeltes Grau durch NormalBlending entsteht
+            const colMul = Math.max(0.85, Math.min(1.2, lAlpha * 1.15));
+            const r2 = worldR[j], g2 = worldG[j], b2 = worldB[j];
+
+            // Vertex 1
+            linePos[lineVertIdx++] = x1;
+            linePos[lineVertIdx++] = y1;
+            linePos[lineVertIdx++] = z1;
+            lineCol[lineColIdx++] = r1 * colMul;
+            lineCol[lineColIdx++] = g1 * colMul;
+            lineCol[lineColIdx++] = b1 * colMul;
+
+            // Vertex 2
+            linePos[lineVertIdx++] = worldX[j];
+            linePos[lineVertIdx++] = worldY[j];
+            linePos[lineVertIdx++] = worldZ[j];
+            lineCol[lineColIdx++] = r2 * colMul;
+            lineCol[lineColIdx++] = g2 * colMul;
+            lineCol[lineColIdx++] = b2 * colMul;
           }
         }
       }

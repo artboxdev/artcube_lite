@@ -6319,91 +6319,94 @@ export function SakuraCanvas({
               if (distSq < cutoff * cutoff) {
                 const distance = Math.sqrt(distSq);
                 const opacity = 1.0 - distance / cutoff;
-                if (opacity > 0.01) {
-                  // DualSlider 1:1 Flickering Noise (50% visuell verlangsamt für ruhigeren, harmonischeren Buildup)
-                  const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
-                  const flickerA = Math.sin(totalAnimTime * 7.0 + lineSeed);
-                  const flickerB = Math.cos(totalAnimTime * 12.5 + lineSeed * 1.7);
-                  const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
+                if (opacity <= 0.15) continue;
 
-                  let flickerMul = 1.0;
-                  if (flickerNoise < -0.32) {
-                    flickerMul = (flickerNoise + 0.32) * -3.0 > 0.4 ? 0.0 : 0.35;
-                  } else if (flickerNoise > 0.68) {
-                    flickerMul = 1.65;
-                  }
-                  if (flickerMul <= 0.02) continue;
+                // DualSlider 1:1 Flickering Noise (50% visuell verlangsamt für ruhigeren, harmonischeren Buildup)
+                const lineSeed = (i * 137.5 + j * 269.3) % 1000.0;
+                const flickerA = Math.sin(totalAnimTime * 7.0 + lineSeed);
+                const flickerB = Math.cos(totalAnimTime * 12.5 + lineSeed * 1.7);
+                const flickerNoise = flickerA * 0.6 + flickerB * 0.4;
 
-                  nodeLinkCounts[i]++;
-                  nodeLinkCounts[j]++;
+                // Lösung 1: Harter Cutoff im Flackertal verhindert graue Linienreste (Linie wird gar nicht erst in den Buffer geschrieben)
+                if (flickerNoise < -0.15) continue;
+                let flickerMul = 1.0;
+                if (flickerNoise > 0.60) {
+                  flickerMul = 1.65;
+                }
 
-                  const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.25 * flickerMul);
-                  const effectiveAlpha = lineAlpha * nodeAlphaA;
-                  const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
+                const lineAlpha = Math.min(1.0, Math.pow(opacity, 0.55) * 1.25 * flickerMul);
+                const effectiveAlpha = lineAlpha * nodeAlphaA;
+                if (effectiveAlpha < 0.28) continue;
 
-                  // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
-                  const minWhiteA = Math.min(ar, Math.min(ag, ab));
-                  const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
-                  const lAg = Math.max(0.0, ag - minWhiteA * 0.85);
-                  const lAb = Math.max(0.0, ab - minWhiteA * 0.85);
+                nodeLinkCounts[i]++;
+                nodeLinkCounts[j]++;
 
-                  const minWhiteB = Math.min(r2, Math.min(g2, b2));
-                  const lR2 = Math.max(0.0, r2 - minWhiteB * 0.85);
-                  const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
-                  const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
+                // Farbsättigung erhalten, damit niemals abgedunkeltes Grau durch NormalBlending entsteht
+                const colMul = Math.max(0.85, Math.min(1.2, effectiveAlpha * 1.15));
+                const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
 
-                  const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
-                  const perpX = (-dy / pLen) * 0.85;
-                  const perpY = (dx / pLen) * 0.85;
+                // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
+                const minWhiteA = Math.min(ar, Math.min(ag, ab));
+                const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
+                const lAg = Math.max(0.0, ag - minWhiteA * 0.85);
+                const lAb = Math.max(0.0, ab - minWhiteA * 0.85);
 
-                  // 1. Center Line (mit flüssiger Ein- und Ausblendung)
-                  linePositions[lineVertexIdx++] = x1;
-                  linePositions[lineVertexIdx++] = y1;
+                const minWhiteB = Math.min(r2, Math.min(g2, b2));
+                const lR2 = Math.max(0.0, r2 - minWhiteB * 0.85);
+                const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
+                const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
+
+                const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
+                const perpX = (-dy / pLen) * 0.85;
+                const perpY = (dx / pLen) * 0.85;
+
+                // 1. Center Line
+                linePositions[lineVertexIdx++] = x1;
+                linePositions[lineVertexIdx++] = y1;
+                linePositions[lineVertexIdx++] = z1;
+                linePositions[lineVertexIdx++] = x2;
+                linePositions[lineVertexIdx++] = y2;
+                linePositions[lineVertexIdx++] = z2;
+
+                lineColors[lineColorIdx++] = lAr * colMul;
+                lineColors[lineColorIdx++] = lAg * colMul;
+                lineColors[lineColorIdx++] = lAb * colMul;
+                lineColors[lineColorIdx++] = lR2 * colMul;
+                lineColors[lineColorIdx++] = lG2 * colMul;
+                lineColors[lineColorIdx++] = lB2 * colMul;
+
+                // 2. Positive Perpendicular Filament
+                if (lineVertexIdx < maxLineVertices) {
+                  linePositions[lineVertexIdx++] = x1 + perpX;
+                  linePositions[lineVertexIdx++] = y1 + perpY;
                   linePositions[lineVertexIdx++] = z1;
-                  linePositions[lineVertexIdx++] = x2;
-                  linePositions[lineVertexIdx++] = y2;
+                  linePositions[lineVertexIdx++] = x2 + perpX;
+                  linePositions[lineVertexIdx++] = y2 + perpY;
                   linePositions[lineVertexIdx++] = z2;
 
-                  lineColors[lineColorIdx++] = lAr * effectiveAlpha;
-                  lineColors[lineColorIdx++] = lAg * effectiveAlpha;
-                  lineColors[lineColorIdx++] = lAb * effectiveAlpha;
-                  lineColors[lineColorIdx++] = lR2 * effectiveAlpha;
-                  lineColors[lineColorIdx++] = lG2 * effectiveAlpha;
-                  lineColors[lineColorIdx++] = lB2 * effectiveAlpha;
+                  lineColors[lineColorIdx++] = lAr * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lAg * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lAb * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lR2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lG2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lB2 * 0.95 * colMul;
+                }
 
-                  // 2. Positive Perpendicular Filament
-                  if (lineVertexIdx < maxLineVertices) {
-                    linePositions[lineVertexIdx++] = x1 + perpX;
-                    linePositions[lineVertexIdx++] = y1 + perpY;
-                    linePositions[lineVertexIdx++] = z1;
-                    linePositions[lineVertexIdx++] = x2 + perpX;
-                    linePositions[lineVertexIdx++] = y2 + perpY;
-                    linePositions[lineVertexIdx++] = z2;
+                // 3. Negative Perpendicular Filament
+                if (lineVertexIdx < maxLineVertices) {
+                  linePositions[lineVertexIdx++] = x1 - perpX;
+                  linePositions[lineVertexIdx++] = y1 - perpY;
+                  linePositions[lineVertexIdx++] = z1;
+                  linePositions[lineVertexIdx++] = x2 - perpX;
+                  linePositions[lineVertexIdx++] = y2 - perpY;
+                  linePositions[lineVertexIdx++] = z2;
 
-                    lineColors[lineColorIdx++] = lAr * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lAg * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lAb * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lR2 * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lG2 * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lB2 * 0.95 * effectiveAlpha;
-                  }
-
-                  // 3. Negative Perpendicular Filament
-                  if (lineVertexIdx < maxLineVertices) {
-                    linePositions[lineVertexIdx++] = x1 - perpX;
-                    linePositions[lineVertexIdx++] = y1 - perpY;
-                    linePositions[lineVertexIdx++] = z1;
-                    linePositions[lineVertexIdx++] = x2 - perpX;
-                    linePositions[lineVertexIdx++] = y2 - perpY;
-                    linePositions[lineVertexIdx++] = z2;
-
-                    lineColors[lineColorIdx++] = lAr * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lAg * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lAb * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lR2 * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lG2 * 0.95 * effectiveAlpha;
-                    lineColors[lineColorIdx++] = lB2 * 0.95 * effectiveAlpha;
-                  }
+                  lineColors[lineColorIdx++] = lAr * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lAg * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lAb * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lR2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lG2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = lB2 * 0.95 * colMul;
                 }
               }
             }
@@ -6643,11 +6646,18 @@ export function SakuraCanvas({
               const d2 = dx * dx + dy * dy + dz * dz;
               if (d2 >= maxDistCutoff2) continue;
 
+              const dist = Math.sqrt(d2);
+              const opacity = 1.0 - dist / 85.0;
+              if (opacity <= 0.15) continue;
+
+              const effAlpha = Math.pow(opacity * 0.92, 0.72) * 1.15;
+              if (effAlpha < 0.28) continue;
+
               nodeConnCounts[i]++;
               nodeConnCounts[j]++;
 
-              const dist = Math.sqrt(d2);
-              const alpha = (1.0 - dist / 85.0) * 0.92;
+              // Farbsättigung erhalten, damit niemals abgedunkeltes Grau durch NormalBlending entsteht
+              const colMul = Math.max(0.85, Math.min(1.2, effAlpha * 1.15));
 
               linePositions[lineVertexIdx++] = ax;
               linePositions[lineVertexIdx++] = ay;
@@ -6657,7 +6667,6 @@ export function SakuraCanvas({
               linePositions[lineVertexIdx++] = worldNodeY[j];
               linePositions[lineVertexIdx++] = worldNodeZ[j];
 
-              const effAlpha = Math.pow(alpha, 0.72) * 1.15;
               // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
               const minWhiteA = Math.min(ar, Math.min(ag, ab));
               const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
@@ -6670,13 +6679,13 @@ export function SakuraCanvas({
               const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
               const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
 
-              lineColors[lineColorIdx++] = lAr * effAlpha;
-              lineColors[lineColorIdx++] = lAg * effAlpha;
-              lineColors[lineColorIdx++] = lAb * effAlpha;
+              lineColors[lineColorIdx++] = lAr * colMul;
+              lineColors[lineColorIdx++] = lAg * colMul;
+              lineColors[lineColorIdx++] = lAb * colMul;
 
-              lineColors[lineColorIdx++] = lR2 * effAlpha;
-              lineColors[lineColorIdx++] = lG2 * effAlpha;
-              lineColors[lineColorIdx++] = lB2 * effAlpha;
+              lineColors[lineColorIdx++] = lR2 * colMul;
+              lineColors[lineColorIdx++] = lG2 * colMul;
+              lineColors[lineColorIdx++] = lB2 * colMul;
             }
           }
 
