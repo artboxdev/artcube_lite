@@ -4362,12 +4362,29 @@ export function SakuraCanvas({
       boundX: number;
       boundY: number;
       boundZ: number;
+      shapeType = 0;
+      tiltEuler = { x: 0.35, y: 0.0, z: 0.25 };
+      totalParticles = 100;
 
-      constructor(opts: FinaleMeshOpts, boundX?: number, boundY?: number, boundZ?: number, palette?: { r: number; g: number; b: number }[], originPos?: { x: number; y: number; z: number } | null, particleIndex = 0) {
+      constructor(
+        opts: FinaleMeshOpts,
+        boundX?: number,
+        boundY?: number,
+        boundZ?: number,
+        palette?: { r: number; g: number; b: number }[],
+        originPos?: { x: number; y: number; z: number } | null,
+        particleIndex = 0,
+        totalParticles = 100,
+        shapeType = 0,
+        tiltEuler = { x: 0.35, y: 0.0, z: 0.25 }
+      ) {
         this.boundX = boundX || FINALE_MESH_OPTS.boundX;
         this.boundY = boundY || FINALE_MESH_OPTS.boundY;
         this.boundZ = boundZ || FINALE_MESH_OPTS.boundZ;
         this.particleIndex = particleIndex;
+        this.totalParticles = totalParticles;
+        this.shapeType = shapeType;
+        this.tiltEuler = tiltEuler;
         this.originX = originPos ? (originPos.x + (Math.random() - 0.5) * 14.0) : (Math.random() - 0.5) * 40;
         this.originY = originPos ? (originPos.y + (Math.random() - 0.5) * 14.0) : (Math.random() - 0.5) * 30;
         this.originZ = originPos ? (originPos.z + (Math.random() - 0.5) * 10.0) : 0;
@@ -4383,11 +4400,44 @@ export function SakuraCanvas({
 
       reset(opts: FinaleMeshOpts, palette?: { r: number; g: number; b: number }[]) {
         const opt = opts || FINALE_MESH_OPTS;
-        const angle = Math.random() * Math.PI * 2;
-        const rFrac = Math.sqrt(Math.random());
-        this.x = Math.cos(angle) * this.boundX * 0.90 * rFrac;
-        this.y = Math.sin(angle) * this.boundY * 0.90 * rFrac;
-        this.z = (Math.random() - 0.5) * 2.0 * this.boundZ;
+        const p = this.particleIndex;
+        const tFrac = p / Math.max(1, this.totalParticles);
+
+        if (this.shapeType === 0) {
+          // Archetype 0: Helix / Spiral Vortex (Doppelhelix mit ausgeprägter 3D-Tiefe)
+          const strand = (p % 2 === 0) ? 0 : Math.PI;
+          const theta = tFrac * Math.PI * 4.0 + strand;
+          const r = (32.0 + 38.0 * Math.sin(tFrac * Math.PI)) * (0.8 + 0.35 * Math.random());
+          this.x = Math.cos(theta) * r * 1.4;
+          this.y = (tFrac - 0.5) * this.boundY * 1.85 + (Math.random() - 0.5) * 14.0;
+          this.z = Math.sin(theta) * r * 1.5 + (Math.random() - 0.5) * 25.0;
+        } else if (this.shapeType === 1) {
+          // Archetype 1: Stellated 3D Nebula / Sphärisches Sternennetzwerk (starke Z-Volumenstreuung)
+          const phi = Math.acos(Math.max(-1.0, Math.min(1.0, 2.0 * Math.random() - 1.0)));
+          const theta = Math.random() * Math.PI * 2.0;
+          const lobes = 1.0 + 0.40 * Math.sin(theta * 3.0) * Math.sin(phi * 4.0);
+          const r = (this.boundZ * 0.70 + this.boundX * 0.35 * Math.sqrt(Math.random())) * lobes;
+          this.x = Math.sin(phi) * Math.cos(theta) * r * 1.25;
+          this.y = Math.sin(phi) * Math.sin(theta) * r * 0.95;
+          this.z = Math.cos(phi) * r * 1.40;
+        } else if (this.shapeType === 2) {
+          // Archetype 2: Torus Vortex / Möbius-Schleife (windet sich räumlich vor und hinter die Orbs)
+          const u = tFrac * Math.PI * 2.0 + (Math.random() - 0.5) * 0.35;
+          const v = Math.random() * Math.PI * 2.0;
+          const majorR = 80.0 + Math.sin(u * 2.0) * 15.0;
+          const tubeR = 34.0 + 8.0 * Math.cos(u * 3.0);
+          this.x = (majorR + tubeR * Math.cos(v)) * Math.cos(u) * 1.20;
+          this.y = (majorR + tubeR * Math.cos(v)) * Math.sin(u) * 0.85;
+          this.z = tubeR * Math.sin(v) * 2.40;
+        } else {
+          // Archetype 3: Hyperbolic Hourglass / Astroid-Konstellation (Sanduhr mit tiefen 3D-Bögen)
+          const t = (tFrac - 0.5) * 2.0;
+          const waist = 25.0 + 75.0 * (t * t);
+          const ang = Math.random() * Math.PI * 2.0;
+          this.x = t * this.boundX * 1.05;
+          this.y = Math.sin(ang) * waist;
+          this.z = Math.cos(ang) * waist * 1.45 + (Math.random() - 0.5) * 20.0;
+        }
 
         this.renderX = this.originX;
         this.renderY = this.originY;
@@ -4395,12 +4445,12 @@ export function SakuraCanvas({
 
         this.speed = opt.defaultSpeed + Math.random() * opt.variantSpeed;
         this.directionAngle = Math.random() * Math.PI * 2;
-        this.pitchAngle = (Math.random() - 0.5) * Math.PI * 0.7;
+        this.pitchAngle = (Math.random() - 0.5) * Math.PI * 0.85;
 
         this.vector = {
           x: Math.cos(this.directionAngle) * Math.cos(this.pitchAngle) * this.speed,
           y: Math.sin(this.directionAngle) * Math.cos(this.pitchAngle) * this.speed,
-          z: Math.sin(this.pitchAngle) * this.speed * 0.6
+          z: Math.sin(this.pitchAngle) * this.speed * 0.95
         };
 
         this.radius = opt.defaultRadius + Math.random() * opt.variantRadius;
@@ -4409,7 +4459,7 @@ export function SakuraCanvas({
         this.rotSpeed = (Math.random() - 0.5) * 2.0;
       }
 
-      update(delta: number, transitionProgress = 1.0, finaleAge = 0.0, totalTime = 0.0, centerX = 0.0, centerY = 0.0) {
+      update(delta: number, transitionProgress = 1.0, finaleAge = 0.0, totalTime = 0.0, centerX = 0.0, centerY = 0.0, centerZ = 0.0) {
         const dt60 = Math.min(2.0, delta * 60.0);
         this.border();
         this.x += this.vector.x * dt60;
@@ -4430,42 +4480,46 @@ export function SakuraCanvas({
           const filamentWaveEnvelope = Math.sin(particleProg * Math.PI);
           waveX = Math.sin(totalTime * this.curlSpeed + this.curlPhase + particleProg * 6.28) * this.strandAmp * filamentWaveEnvelope;
           waveY = Math.cos(totalTime * (this.curlSpeed * 0.85) + this.curlPhase * 1.3 + particleProg * 5.5) * (this.strandAmp * 0.8) * filamentWaveEnvelope;
-          waveZ = Math.sin(totalTime * (this.curlSpeed * 1.2) + this.curlPhase * 2.1 + particleProg * 7.0) * (this.strandAmp * 0.6) * filamentWaveEnvelope;
+          waveZ = Math.sin(totalTime * (this.curlSpeed * 1.2) + this.curlPhase * 2.1 + particleProg * 7.0) * (this.strandAmp * 1.1) * filamentWaveEnvelope;
         }
 
         const baseX = THREE.MathUtils.lerp(this.originX, this.x, easeProg) + waveX;
         const baseY = THREE.MathUtils.lerp(this.originY, this.y, easeProg) + waveY;
         const baseZ = THREE.MathUtils.lerp(this.originZ, this.z, easeProg) + waveZ;
 
-        // 2. Moderate whole-network 3D rotation around its own central Y-axis (and subtle vertical tilt) - 50% verlangsamt
-        const netRotY = finaleAge * 0.12;
-        const netTiltX = Math.sin(finaleAge * 0.16) * 0.08;
+        // 2. Volle räumliche 3D-Orientierung mit individuellem Raum-Kippwinkel (niemals flach)
+        const rotY = this.tiltEuler.y + finaleAge * 0.15;
+        const rotX = this.tiltEuler.x + Math.sin(finaleAge * 0.18 + this.tiltEuler.y) * 0.22;
+        const rotZ = this.tiltEuler.z + Math.cos(finaleAge * 0.14) * 0.15;
 
-        const cosY = Math.cos(netRotY);
-        const sinY = Math.sin(netRotY);
-        const rx = baseX * cosY - baseZ * sinY;
-        const rz1 = baseX * sinY + baseZ * cosY;
+        // Drehung um Y-Achse
+        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        const x1 = baseX * cosY - baseZ * sinY;
+        const z1 = baseX * sinY + baseZ * cosY;
 
-        const cosX = Math.cos(netTiltX);
-        const sinX = Math.sin(netTiltX);
-        const ry = baseY * cosX - rz1 * sinX;
-        const rz = baseY * sinX + rz1 * cosX;
+        // Drehung um X-Achse
+        const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+        const y2 = baseY * cosX - z1 * sinX;
+        const z2 = baseY * sinX + z1 * cosX;
+
+        // Drehung um Z-Achse
+        const cosZ = Math.cos(rotZ), sinZ = Math.sin(rotZ);
+        const rx = x1 * cosZ - y2 * sinZ;
+        const ry = x1 * sinZ + y2 * cosZ;
+        const rz = z2;
 
         this.renderX = centerX + rx;
         this.renderY = centerY + ry;
-        this.renderZ = rz;
+        this.renderZ = centerZ + rz;
       }
 
       border() {
-        const normY = this.y / this.boundY;
-        const currentBoundX = this.boundX * Math.sqrt(Math.max(0.12, 1.0 - normY * normY * 0.72));
-
-        if (this.x >= currentBoundX) {
+        if (this.x >= this.boundX) {
           this.vector.x = -Math.abs(this.vector.x);
-          this.x = currentBoundX;
-        } else if (this.x <= -currentBoundX) {
+          this.x = this.boundX;
+        } else if (this.x <= -this.boundX) {
           this.vector.x = Math.abs(this.vector.x);
-          this.x = -currentBoundX;
+          this.x = -this.boundX;
         }
 
         if (this.y >= this.boundY) {
@@ -4511,7 +4565,7 @@ export function SakuraCanvas({
       for (let i = 0; i < FINALE_MESH_OPTS.particleAmount; i++) {
         const pal = palettes[i % palettes.length];
         const origin = activeOrbPositions && activeOrbPositions.length > 0 ? activeOrbPositions[i % activeOrbPositions.length] : null;
-        finaleParticles.push(new FinaleMeshParticle(FINALE_MESH_OPTS, FINALE_MESH_OPTS.boundX, FINALE_MESH_OPTS.boundY, FINALE_MESH_OPTS.boundZ, pal, origin, i));
+        finaleParticles.push(new FinaleMeshParticle(FINALE_MESH_OPTS, FINALE_MESH_OPTS.boundX, FINALE_MESH_OPTS.boundY, 110.0, pal, origin, i, FINALE_MESH_OPTS.particleAmount, i % 4));
       }
     };
 
@@ -5112,13 +5166,16 @@ export function SakuraCanvas({
           }
         }
 
-        // 3. If neither, start hold-down creation (only if fewer than 6 plexus in round!)
+        // 3. If neither, start hold-down creation (only if fewer than 6 plexus in round and artwork NOT in finale / completed!)
         const totalPlexusInRound = totalAttachedPlexusCount + activePlexusClusters.length;
-        if (!draggedPlexusCluster && totalPlexusInRound < 6) {
+        if (!isPlexusFinaleActive && !isPlexusCompleted && !draggedPlexusCluster && totalPlexusInRound < 6) {
           plexusHoldTime = 0.0;
           activeHoldNodes = generateRandomPlexusHoldNodes();
           plexusOriginX = mouseWorld.x;
           plexusOriginY = mouseWorld.y;
+        } else {
+          plexusHoldTime = 0.0;
+          activeHoldNodes = [];
         }
       }
     };
@@ -5213,7 +5270,7 @@ export function SakuraCanvas({
             );
           }
         } else {
-          if (plexusHoldTime >= 1.5) {
+          if (!isPlexusFinaleActive && !isPlexusCompleted && plexusHoldTime >= 1.5 && activeHoldNodes.length > 0) {
             const newCluster = createDriftingPlexusCluster(plexusOriginX, plexusOriginY, 0.0, activeHoldNodes);
             const createMsg = {
               id: newCluster.id,
@@ -5228,6 +5285,8 @@ export function SakuraCanvas({
             sendInteractionRef.current?.('PLEXUS_CLUSTER_CREATE', createMsg);
             channelRef.current?.postMessage({ type: 'PLEXUS_CLUSTER_CREATE', ...createMsg });
           }
+          plexusHoldTime = 0.0;
+          activeHoldNodes = [];
         }
       }
       isMouseDown = false;
@@ -5944,9 +6003,13 @@ export function SakuraCanvas({
               }
             }
           } else {
-            plexusHoldTime += delta;
-            plexusOriginX = mouseWorld.x;
-            plexusOriginY = mouseWorld.y;
+            if (!isPlexusFinaleActive && !isPlexusCompleted && (totalAttachedPlexusCount + activePlexusClusters.length) < 6) {
+              plexusHoldTime += delta;
+              plexusOriginX = mouseWorld.x;
+              plexusOriginY = mouseWorld.y;
+            } else {
+              plexusHoldTime = 0.0;
+            }
           }
         }
 
@@ -6140,6 +6203,17 @@ export function SakuraCanvas({
                       const palB = SATURATED_PLEXUS_PALETTES[orbB.id] || PALETTE_RGB_CACHE[orbB.id];
                       const particles: FinaleMeshParticle[] = [];
 
+                      // Hohe Formenvielfalt: Archetypen wechseln je Runde und Impuls (nie komplett flach)
+                      const shapeType = (r + activeImpulses.length) % 4;
+                      const tiltEuler = {
+                        x: 0.35 + ((r * 2 + activeImpulses.length) % 3) * 0.20,
+                        y: (r * 1.57 + activeImpulses.length * 0.9) % (Math.PI * 2),
+                        z: (r % 2 === 0 ? 1 : -1) * (0.25 + 0.15 * (activeImpulses.length % 2))
+                      };
+                      const boundX = 150.0 + ((r * 37) % 30);
+                      const boundY = 125.0 + ((r * 43) % 25);
+                      const boundZ = 105.0 + ((r * 29) % 30); // 105 - 135 Z-Tiefe für volles 3D-Volumen
+
                       for (let p = 0; p < 100; p++) {
                         const useA = (p % 2 === 0);
                         const srcOrb = useA ? orbA : orbB;
@@ -6147,17 +6221,20 @@ export function SakuraCanvas({
                         const originOffset = {
                           x: srcOrb.x - midX,
                           y: srcOrb.y - midY,
-                          z: srcOrb.z
+                          z: srcOrb.z - ((orbA.z + orbB.z) * 0.5)
                         };
                         particles.push(
                           new FinaleMeshParticle(
                             FINALE_MESH_OPTS,
-                            165.0,
-                            135.0,
-                            48.0,
+                            boundX,
+                            boundY,
+                            boundZ,
                             pal,
                             originOffset,
-                            p
+                            p,
+                            100,
+                            shapeType,
+                            tiltEuler
                           )
                         );
                       }
@@ -6215,7 +6292,7 @@ export function SakuraCanvas({
             for (let p = 0; p < imp.particles.length; p++) {
               if (worldNodeCount >= MAX_TOTAL_NODES) break;
               const pt = imp.particles[p];
-              pt.update(delta, transitionProgress, imp.age, totalAnimTime, curMidX, curMidY);
+              pt.update(delta, transitionProgress, imp.age, totalAnimTime, curMidX, curMidY, curMidZ);
 
               const nIdx = worldNodeCount++;
               worldNodeX[nIdx] = pt.renderX;
