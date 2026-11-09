@@ -2252,10 +2252,15 @@ export function SakuraCanvas({
       const h = shouldRotate ? window.innerWidth : window.innerHeight;
       updateCameraDistance(w, h, newMode);
     }
+
+    // Clean reset & fresh launch for the switched artwork in Test Mode
+    restartTriggerRef.current();
+    triggerInitialLoading();
+
     if (shouldBroadcast) {
       sendInteractionRef.current?.('MODE_SWITCH', { mode: newMode });
     }
-  }, [updateCameraDistance]);
+  }, [updateCameraDistance, triggerInitialLoading]);
 
   useEffect(() => {
     if (initialMode && (initialMode === 'bluten' || initialMode === 'plexus') && initialMode !== activeModeRef.current) {
