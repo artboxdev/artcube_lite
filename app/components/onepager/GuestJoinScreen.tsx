@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FiVolume2, FiVolumeX } from 'react-icons/fi';
 import { Language, translations } from './translations';
 
 interface GuestJoinScreenProps {
@@ -12,6 +13,8 @@ interface GuestJoinScreenProps {
   isJoined: boolean;
   onJoin: (name: string) => void;
   onDismissToWebsite: () => void;
+  isAudioMuted?: boolean;
+  onToggleAudioMuted?: () => void;
 }
 
 function generateRandomUserName(): string {
@@ -40,6 +43,8 @@ export function GuestJoinScreen({
   isJoined,
   onJoin,
   onDismissToWebsite,
+  isAudioMuted = false,
+  onToggleAudioMuted,
 }: GuestJoinScreenProps) {
   const [localName, setLocalName] = useState(myName || '');
   const t = translations[lang].guestJoin;
@@ -182,6 +187,27 @@ export function GuestJoinScreen({
                 <p className="text-[10px] text-white/45 font-light">
                   {t.nameHint}
                 </p>
+              </div>
+
+              {/* Pre-Session Sound Toggle Button */}
+              <div className="flex items-center justify-center -my-1">
+                <button
+                  type="button"
+                  onClick={onToggleAudioMuted}
+                  className="group inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-pink-500/30 text-white/80 hover:text-white transition-all text-xs font-medium cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(255,42,157,0.15)]"
+                  aria-label={isAudioMuted ? 'Sound anschalten' : 'Sound ausschalten'}
+                >
+                  {isAudioMuted ? (
+                    <FiVolumeX className="w-4 h-4 text-pink-400 shrink-0 group-hover:scale-110 transition-transform" />
+                  ) : (
+                    <FiVolume2 className="w-4 h-4 text-cyan-400 shrink-0 group-hover:scale-110 transition-transform" />
+                  )}
+                  <span className="text-center">
+                    {lang === 'de'
+                      ? (isAudioMuted ? 'Klicke, um den Sound in der Session wieder anzuschalten' : 'Klicke, um den Sound in der Session erst einmal auszuschalten')
+                      : (isAudioMuted ? 'Click to turn sound back on in the session' : 'Click to turn off sound in the session for now')}
+                  </span>
+                </button>
               </div>
 
               <button

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { FiX } from 'react-icons/fi';
+import { FiX, FiVolume2, FiVolumeX } from 'react-icons/fi';
 import { Language, translations } from './translations';
 import { SakuraverseDualSlider } from './SakuraverseDualSlider';
 
@@ -18,6 +18,8 @@ interface ExperienceStationProps {
   onStart: (artwork: 'bluten' | 'plexus', mode: 'test' | 'souvenir') => void;
   showToast?: (msg: string) => void;
   onModalToggle?: (open: boolean) => void;
+  isAudioMuted?: boolean;
+  onToggleAudioMuted?: () => void;
 }
 
 function generateRandomUserName(): string {
@@ -50,6 +52,8 @@ export function ExperienceStation({
   onStart,
   showToast,
   onModalToggle,
+  isAudioMuted = false,
+  onToggleAudioMuted,
 }: ExperienceStationProps) {
   const [activeMode, setActiveMode] = useState<'test' | 'souvenir'>('test');
   const [copied, setCopied] = useState(false);
@@ -367,6 +371,27 @@ export function ExperienceStation({
             <span>{t.souvenirNotice}</span>
           </div>
         )}
+
+        {/* Pre-Session Sound Toggle Button */}
+        <div className="flex items-center justify-center -mb-1">
+          <button
+            type="button"
+            onClick={onToggleAudioMuted}
+            className="group inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-pink-500/30 text-white/80 hover:text-white transition-all text-xs font-medium cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(255,42,157,0.15)]"
+            aria-label={isAudioMuted ? 'Sound anschalten' : 'Sound ausschalten'}
+          >
+            {isAudioMuted ? (
+              <FiVolumeX className="w-4 h-4 text-pink-400 shrink-0 group-hover:scale-110 transition-transform" />
+            ) : (
+              <FiVolume2 className="w-4 h-4 text-cyan-400 shrink-0 group-hover:scale-110 transition-transform" />
+            )}
+            <span className="text-center">
+              {lang === 'de'
+                ? (isAudioMuted ? 'Klicke, um den Sound in der Session wieder anzuschalten' : 'Klicke, um den Sound in der Session erst einmal auszuschalten')
+                : (isAudioMuted ? 'Click to turn sound back on in the session' : 'Click to turn off sound in the session for now')}
+            </span>
+          </button>
+        </div>
 
         {/* Main Action Start Button (Adapts to Testmodus vs. Souvenirmodus) */}
         <div>

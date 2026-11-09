@@ -32,6 +32,8 @@ export interface ExperienceComponentProps {
   onRendererReady: (api: ExperienceRendererAPI) => void;
   onExit?: () => void;
   initialMode?: 'bluten' | 'plexus' | string;
+  initialAudioMuted?: boolean;
+  onAudioMuteChange?: (muted: boolean) => void;
 }
 
 export interface ExperienceDefinition {

@@ -21,6 +21,8 @@ interface OnepagerViewProps {
   onJoin: (name?: string) => void;
   onStart: (artwork: 'bluten' | 'plexus', mode?: 'test' | 'souvenir') => void;
   isJoined: boolean;
+  isAudioMuted?: boolean;
+  onToggleAudioMuted?: () => void;
 }
 
 export function OnepagerView({
@@ -33,6 +35,8 @@ export function OnepagerView({
   onJoin,
   onStart,
   isJoined,
+  isAudioMuted,
+  onToggleAudioMuted,
 }: OnepagerViewProps) {
   const [lang, setLang] = useState<Language>('de');
   const [walletModalOpen, setWalletModalOpen] = useState(false);
@@ -154,6 +158,8 @@ export function OnepagerView({
         onJoin={onJoin}
         onStart={onStart}
         onModalToggle={handleModalToggle}
+        isAudioMuted={isAudioMuted}
+        onToggleAudioMuted={onToggleAudioMuted}
       />
 
       {/* 4. Story Section: Was ist art.cube? (Story & Vision) - Swapped to follow Experience Station */}
@@ -190,6 +196,8 @@ export function OnepagerView({
             setIsGuestScreenDismissed(true);
             handleNavigateTo('erleben');
           }}
+          isAudioMuted={isAudioMuted}
+          onToggleAudioMuted={onToggleAudioMuted}
         />
       )}
     </div>

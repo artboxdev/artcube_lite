@@ -1616,6 +1616,8 @@ interface SakuraCanvasProps extends ExperienceComponentProps {
   onExit?: () => void;
   initialMode?: 'bluten' | 'plexus' | string;
   sessionId?: string;
+  initialAudioMuted?: boolean;
+  onAudioMuteChange?: (muted: boolean) => void;
 }
 
 export function SakuraCanvas({
@@ -1631,7 +1633,9 @@ export function SakuraCanvas({
   onCanvasesReady,
   onRendererReady,
   onExit,
-  initialMode = 'bluten'
+  initialMode = 'bluten',
+  initialAudioMuted = false,
+  onAudioMuteChange
 }: SakuraCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1787,8 +1791,17 @@ export function SakuraCanvas({
     onExitRef.current = onExit;
   }, [onExit]);
 
+  const onAudioMuteChangeRef = useRef(onAudioMuteChange);
+  useEffect(() => {
+    onAudioMuteChangeRef.current = onAudioMuteChange;
+  }, [onAudioMuteChange]);
+
   const [isPaused, setIsPaused] = useState(false);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(initialAudioMuted);
+  useEffect(() => {
+    setIsAudioMuted(initialAudioMuted);
+  }, [initialAudioMuted]);
+
   const isAudioMutedRef = useRef(isAudioMuted);
   useEffect(() => {
     isAudioMutedRef.current = isAudioMuted;
@@ -1887,12 +1900,13 @@ export function SakuraCanvas({
     };
   }, [isRunning, isWaitingForHost, playTrack]);
 
-  // Sync pause state with audio
+  // Sync pause state with audio: playback runs synchronously across all devices even when muted
   useEffect(() => {
     if (!audioRef.current) return;
     if (isPaused) {
       audioRef.current.pause();
-    } else if (isRunning && !isAudioMuted) {
+    } else if (isRunning) {
+      audioRef.current.muted = isAudioMuted;
       audioRef.current.play().catch(() => {});
     }
   }, [isPaused, isRunning, isAudioMuted]);
@@ -2262,7 +2276,11 @@ export function SakuraCanvas({
   }, [isPaused, showToast]);
 
   const toggleAudio = useCallback(() => {
-    setIsAudioMuted(m => !m);
+    setIsAudioMuted(m => {
+      const next = !m;
+      onAudioMuteChangeRef.current?.(next);
+      return next;
+    });
     showToast(!isAudioMuted ? 'Audio stummgeschaltet' : 'Audio aktiviert');
   }, [isAudioMuted, showToast]);
 
@@ -4304,6 +4322,7 @@ export function SakuraCanvas({
     let isPlexusFinaleActive = false;
     let plexusFinaleStartTime = 0.0;
     let isPlexusCompleted = false;
+    let isPlexusLockedAfterFinale = false;
     let isPlexusRippleActive = false;
     let plexusRippleTimer = 0.0;
     const PLEXUS_TRANSITION_DURATION = 4.0;
@@ -4624,6 +4643,7 @@ export function SakuraCanvas({
     };
 
     onPeerPlexusCreateRef.current = (id: number, x: number, y: number, z: number, nodes: PlexusNodeDef[], driftX?: number, driftY?: number, driftZ?: number) => {
+      if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) return;
       createDriftingPlexusCluster(x, y, z, nodes, id, driftX, driftY, driftZ);
     };
 
@@ -4677,8 +4697,11 @@ export function SakuraCanvas({
     };
 
     const triggerPlexusFinale = (shouldBroadcast = true) => {
-      if (isPlexusFinaleActive || isPlexusCompleted) return;
+      if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) return;
       isPlexusFinaleActive = true;
+      isPlexusLockedAfterFinale = true;
+      plexusHoldTime = 0.0;
+      activeHoldNodes = [];
       setIsPlexusFinale(true);
       isPlexusFormationActive = false;
       setPlexusCenterPromptVisibleRef.current?.(false);
@@ -4724,7 +4747,7 @@ export function SakuraCanvas({
     };
 
     const checkPlexusFinaleTrigger = (shouldBroadcast = true): boolean => {
-      if (isPlexusFinaleActive || isPlexusCompleted) return false;
+      if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) return false;
       if (totalAttachedPlexusCount < 6) return false;
 
       const occupiedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount >= 1);
@@ -5016,6 +5039,14 @@ export function SakuraCanvas({
       }
 
       if (isMouseDown && activeModeRef.current === 'plexus') {
+        if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) {
+          plexusHoldTime = 0.0;
+          activeHoldNodes = [];
+          draggedOrb = null;
+          draggedPlexusCluster = null;
+          hasActivelyDraggedOrb = false;
+          return;
+        }
         if (draggedOrb) {
           hasActivelyDraggedOrb = true;
           const targetX = mouseWorld.x + orbDragOffset.x;
@@ -5088,7 +5119,8 @@ export function SakuraCanvas({
       }
 
       // Ensure audio playback unlocks seamlessly on user gesture if browser blocked autoplay
-      if (isRunningRef.current && audioRef.current && audioRef.current.paused && !isPausedRef.current && !isAudioMutedRef.current) {
+      if (isRunningRef.current && audioRef.current && audioRef.current.paused && !isPausedRef.current) {
+        audioRef.current.muted = isAudioMutedRef.current;
         audioRef.current.play().catch(() => { });
       }
 
@@ -5130,6 +5162,13 @@ export function SakuraCanvas({
         draggedOrb = null;
         draggedPlexusCluster = null;
 
+        // Block all plexus gestures permanently once finale is triggered or completed
+        if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) {
+          plexusHoldTime = 0.0;
+          activeHoldNodes = [];
+          return;
+        }
+
         // 1. Check if clicking on an Orb (hit radius ~52 world units)
         let closestOrb: FloatingPlexusOrbInstance | null = null;
         let minOrbDist = 52.0;
@@ -5166,9 +5205,9 @@ export function SakuraCanvas({
           }
         }
 
-        // 3. If neither, start hold-down creation (only if fewer than 6 plexus in round and artwork NOT in finale / completed!)
+        // 3. If neither, start hold-down creation (only if fewer than 6 plexus in round and artwork NOT in finale / completed / locked!)
         const totalPlexusInRound = totalAttachedPlexusCount + activePlexusClusters.length;
-        if (!isPlexusFinaleActive && !isPlexusCompleted && !draggedPlexusCluster && totalPlexusInRound < 6) {
+        if (!isPlexusFinaleActive && !isPlexusCompleted && !isPlexusLockedAfterFinale && !draggedPlexusCluster && totalPlexusInRound < 6) {
           plexusHoldTime = 0.0;
           activeHoldNodes = generateRandomPlexusHoldNodes();
           plexusOriginX = mouseWorld.x;
@@ -5209,6 +5248,14 @@ export function SakuraCanvas({
         hasHitOrbThisGesture = false;
       }
       if (isMouseDown && activeModeRef.current === 'plexus') {
+        if (isPlexusFinaleActive || isPlexusCompleted || isPlexusLockedAfterFinale) {
+          plexusHoldTime = 0.0;
+          activeHoldNodes = [];
+          draggedOrb = null;
+          draggedPlexusCluster = null;
+          hasActivelyDraggedOrb = false;
+          return;
+        }
         if (draggedOrb) {
           draggedOrb.isDragged = false;
           draggedOrb.hasBeenPlaced = true;
@@ -5270,7 +5317,7 @@ export function SakuraCanvas({
             );
           }
         } else {
-          if (!isPlexusFinaleActive && !isPlexusCompleted && plexusHoldTime >= 1.5 && activeHoldNodes.length > 0) {
+          if (!isPlexusFinaleActive && !isPlexusCompleted && !isPlexusLockedAfterFinale && plexusHoldTime >= 1.5 && activeHoldNodes.length > 0) {
             const newCluster = createDriftingPlexusCluster(plexusOriginX, plexusOriginY, 0.0, activeHoldNodes);
             const createMsg = {
               id: newCluster.id,
@@ -5354,6 +5401,7 @@ export function SakuraCanvas({
       activeDockingNetworks.length = 0;
       isPlexusFinaleActive = false;
       isPlexusCompleted = false;
+      isPlexusLockedAfterFinale = false;
       finaleParticles.length = 0;
       activeImpulses.length = 0;
       isPlexusRippleActive = false;
@@ -6003,12 +6051,13 @@ export function SakuraCanvas({
               }
             }
           } else {
-            if (!isPlexusFinaleActive && !isPlexusCompleted && (totalAttachedPlexusCount + activePlexusClusters.length) < 6) {
+            if (!isPlexusFinaleActive && !isPlexusCompleted && !isPlexusLockedAfterFinale && (totalAttachedPlexusCount + activePlexusClusters.length) < 6) {
               plexusHoldTime += delta;
               plexusOriginX = mouseWorld.x;
               plexusOriginY = mouseWorld.y;
             } else {
               plexusHoldTime = 0.0;
+              activeHoldNodes = [];
             }
           }
         }
@@ -6029,6 +6078,7 @@ export function SakuraCanvas({
         if (isPlexusFinaleActive && finaleAge >= PLEXUS_FINALE_DURATION) {
           isPlexusFinaleActive = false;
           setIsPlexusFinale(false);
+          isPlexusLockedAfterFinale = true;
           if (bgUniforms.uRippleActive) bgUniforms.uRippleActive.value = 0.0;
           if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
           if (!isPlexusCompleted) {

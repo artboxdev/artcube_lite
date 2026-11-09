@@ -974,6 +974,7 @@
     let isMouseDown = false;
     let isHoldCharging = false;
     let holdTimer = 0.0;
+    let isPlexusLockedAfterFinale = false;
     const HOLD_THRESHOLD = 1.5;
     let holdOrigin = { x: 0, y: 0 };
     let mouseWorld = new THREE.Vector3(0, 0, 0);
@@ -1298,9 +1299,13 @@
     ];
 
     function startPlexusFinale() {
-      if (isFinaleActive) return;
+      if (isFinaleActive || isPlexusLockedAfterFinale) return;
       isFinaleActive = true;
+      isPlexusLockedAfterFinale = true;
       isFormationActive = false;
+      isHoldCharging = false;
+      holdTimer = 0.0;
+      holdCircle.style.opacity = '0';
       finaleStartTime = performance.now() * 0.001;
       activeImpulses.length = 0;
       const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
@@ -1332,6 +1337,12 @@
 
     window.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.bottom-bar') || e.target.closest('.top-header')) return;
+      if (isFinaleActive || isPlexusLockedAfterFinale) {
+        isHoldCharging = false;
+        holdTimer = 0.0;
+        holdCircle.style.opacity = '0';
+        return;
+      }
       isMouseDown = true;
       isHoldCharging = false;
       updatePointerWorld(e.clientX, e.clientY);
@@ -1380,6 +1391,11 @@
 
     window.addEventListener('pointermove', (e) => {
       updatePointerWorld(e.clientX, e.clientY);
+      if (isFinaleActive || isPlexusLockedAfterFinale) {
+        isHoldCharging = false;
+        holdCircle.style.opacity = '0';
+        return;
+      }
 
       if (draggedOrb) {
         draggedOrb.x = mouseWorld.x;
@@ -1403,6 +1419,15 @@
     });
 
     window.addEventListener('pointerup', (e) => {
+      if (isFinaleActive || isPlexusLockedAfterFinale) {
+        isHoldCharging = false;
+        holdTimer = 0.0;
+        holdCircle.style.opacity = '0';
+        draggedOrb = null;
+        draggedCluster = null;
+        isMouseDown = false;
+        return;
+      }
       if (draggedOrb) {
         draggedOrb.isDragged = false;
         draggedOrb.restX = mouseWorld.x;
@@ -1461,6 +1486,10 @@
     // 11. BUTTONS & TESTBED CONTROLS
     // ==========================================
     document.getElementById('btn-hold-demo').addEventListener('click', () => {
+      if (isFinaleActive || isPlexusLockedAfterFinale) {
+        showToastMsg('Session abgeschlossen! Bitte Session neu starten.');
+        return;
+      }
       if (totalAttachedPlexus + activeClusters.length >= 6) {
         showToastMsg('Maximal 6 Plexus erreicht! Es können keine weiteren erzeugt werden.');
         return;
@@ -1602,6 +1631,7 @@
       totalAttachedPlexus = 0;
       isFinaleActive = false;
       isFormationActive = false;
+      isPlexusLockedAfterFinale = false;
       formationTimer = 0.0;
       activeImpulses.length = 0;
       activeDockingNetworks.length = 0;
@@ -1686,6 +1716,7 @@
       const finaleAge = isFinaleActive ? (totalTime - finaleStartTime) : 0.0;
       if (isFinaleActive && finaleAge >= PLEXUS_FINALE_DURATION) {
         isFinaleActive = false;
+        isPlexusLockedAfterFinale = true;
         promptBanner.className = 'prompt-banner';
         promptBanner.textContent = 'Plexus-Netzwerk nach 10s vollendet!';
         showToastMsg('10s Finale abgeschlossen! Souvenir erzeugt.');

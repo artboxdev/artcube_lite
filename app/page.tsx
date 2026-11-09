@@ -30,6 +30,7 @@ function ArtCubeApp() {
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [isWaitingForHost, setIsWaitingForHost] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isSessionAudioMuted, setIsSessionAudioMuted] = useState<boolean>(false);
 
   const elapsedRef = useRef<number>(0);
   const [elapsed, setElapsed] = useState<number>(0);
@@ -157,6 +158,8 @@ function ArtCubeApp() {
           key={selectedExperienceId}
           isRunning={isStarted}
           initialMode={activeArtworkMode}
+          initialAudioMuted={isSessionAudioMuted}
+          onAudioMuteChange={setIsSessionAudioMuted}
           elapsed={elapsed}
           elapsedRef={elapsedRef}
           intensity={0.5}
@@ -190,6 +193,8 @@ function ArtCubeApp() {
         onJoin={handleJoin}
         onStart={handleStart}
         isJoined={isJoined}
+        isAudioMuted={isSessionAudioMuted}
+        onToggleAudioMuted={() => setIsSessionAudioMuted((m) => !m)}
       />
     </main>
   );
