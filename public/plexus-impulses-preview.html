@@ -762,8 +762,21 @@
         this.mesh.scale.set(scaleX, scaleY, scaleZ);
         this.mesh.position.set(this.x, this.y, this.z);
 
+        // Smooth 3D tumbling rotation of volumetric orb
+        this.mesh.rotation.y += delta * 0.55;
+        this.mesh.rotation.x += delta * 0.28;
+        this.mesh.updateMatrixWorld();
+
+        const localCam = new THREE.Vector3(
+          this.mesh.position.x,
+          this.mesh.position.y,
+          this.mesh.position.z + 150.0
+        );
+        this.mesh.worldToLocal(localCam);
+        this.material.uniforms.uLocalCamPos.value.copy(localCam);
+
         // Starburst rotation
-        this.starSprite.rotation = totalTime * 0.5 + this.phase;
+        this.starSprite.material.rotation = totalTime * 0.5 + this.phase;
       }
     }
 
@@ -1694,6 +1707,7 @@
       renderer.autoClear = false;
       renderer.clear();
       renderer.render(bgScene, bgCam);
+      renderer.clearDepth();
       renderer.render(scene, camera);
 
       // Telemetry update
