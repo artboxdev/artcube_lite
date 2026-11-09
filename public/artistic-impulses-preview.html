@@ -64,18 +64,6 @@
       cursor: crosshair;
     }
 
-    /* Impuls: Chromatische Rand-Aura */
-    #chromatic-fringe {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.25s ease-out;
-      background: radial-gradient(circle at center, transparent 65%, rgba(255, 0, 128, 0.22) 86%, rgba(0, 240, 255, 0.28) 100%);
-      mix-blend-mode: screen;
-      z-index: 5;
-    }
-
     /* Top HUD Header */
     .top-header {
       position: absolute;
@@ -365,7 +353,6 @@
   <div id="scene-container">
     <canvas id="webgl-canvas"></canvas>
     <canvas id="drawing-canvas"></canvas>
-    <div id="chromatic-fringe"></div>
   </div>
 
   <!-- Header -->
@@ -422,14 +409,14 @@
       <button class="impulse-btn" id="btn-impulse-1" onclick="triggerImpulse1()">
         <span class="btn-badge" style="color: #ff80df;">Sumi-E · Phase 1</span>
         <span class="btn-title">Tusche-Atem</span>
-        <span class="btn-duration">3.0s · Schleier-Inhale</span>
+        <span class="btn-duration">3.0s · Astbahn-Schleier</span>
       </button>
 
       <!-- 2. 8 Farbknotenpunkte -->
       <button class="impulse-btn" id="btn-impulse-2" onclick="triggerImpulse2()">
         <span class="btn-badge" style="color: #d946ef;">Sumi-E · Phase 2</span>
         <span class="btn-title">8 Farbknoten</span>
-        <span class="btn-duration">3.0s · Sumi-E Stil & Zerfall</span>
+        <span class="btn-duration">5.0s · Sumi-E Stil & Zerfall</span>
       </button>
 
       <!-- 3. Kreisbewegung & Zoom-In -->
@@ -439,28 +426,21 @@
         <span class="btn-duration">Interaktiv · Zoom-In</span>
       </button>
 
-      <!-- 4. Chromatische Rand-Aura -->
-      <button class="impulse-btn" id="btn-impulse-4" onclick="triggerImpulse4()">
-        <span class="btn-badge" style="color: #4ee2ec;">Sumi-E · Phase 4</span>
-        <span class="btn-title">Rand-Aura</span>
-        <span class="btn-duration">3.0s · Flimmern</span>
-      </button>
-
-      <!-- 5. Plexus Synaptic Web -->
+      <!-- 4. Plexus Synaptic Web -->
       <button class="impulse-btn plexus-btn" id="btn-impulse-5" onclick="triggerImpulse5()">
         <span class="btn-badge" style="color: #00f0ff;">Plexus</span>
         <span class="btn-title">Synaptic Web</span>
         <span class="btn-duration">3.0s · Volumetrische Orbs</span>
       </button>
 
-      <!-- 6. Play All Sequence -->
+      <!-- 5. Play All Sequence -->
       <button class="impulse-btn sequence-btn" id="btn-impulse-seq" onclick="triggerFullSequence()">
         <span class="btn-badge" style="color: #ffffff;">Ablauf</span>
         <span class="btn-title">Gesamt-Flow</span>
         <span class="btn-duration">Alle Sumi-E Phasen</span>
       </button>
 
-      <!-- 7. Reset -->
+      <!-- 6. Reset -->
       <button class="impulse-btn" style="border-color: rgba(255,255,255,0.15); opacity: 0.8;" onclick="resetAll()">
         <span class="btn-badge" style="color: #94a3b8;">Setup</span>
         <span class="btn-title">Zurücksetzen</span>
@@ -890,7 +870,6 @@
     const drawingCanvas = document.getElementById('drawing-canvas');
     const drawingCtx = drawingCanvas.getContext('2d');
     const sceneContainer = document.getElementById('scene-container');
-    const chromaticFringe = document.getElementById('chromatic-fringe');
     const telemetryMode = document.getElementById('telemetry-mode');
     const telemetryTimer = document.getElementById('telemetry-timer');
     const infoText = document.getElementById('info-text');
@@ -1165,6 +1144,60 @@
     buildTree();
     updateCamera();
 
+    // Pre-calculate Spline Samples & Frenet Frame for Impuls 1 Trajectory
+    const TRUNK_SAMPLES = 200;
+    const trunkSamplePositions = [];
+    const trunkSampleTangents = [];
+    const trunkSampleNormals = [];
+    const trunkSampleBinormals = [];
+
+    function precalculateTrunkSpline() {
+      trunkSamplePositions.length = 0;
+      trunkSampleTangents.length = 0;
+      trunkSampleNormals.length = 0;
+      trunkSampleBinormals.length = 0;
+
+      for (let i = 0; i <= TRUNK_SAMPLES; i++) {
+        const t = i / TRUNK_SAMPLES;
+        const pt = trunkCurve.getPointAt(t);
+        const tangent = trunkCurve.getTangentAt(t).normalize();
+
+        let up = new THREE.Vector3(0, 0, 1);
+        let normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+        if (normal.lengthSq() < 0.001) {
+          up.set(0, 1, 0);
+          normal.crossVectors(tangent, up).normalize();
+        }
+        const binormal = new THREE.Vector3().crossVectors(tangent, normal).normalize();
+
+        trunkSamplePositions.push(pt);
+        trunkSampleTangents.push(tangent);
+        trunkSampleNormals.push(normal);
+        trunkSampleBinormals.push(binormal);
+      }
+    }
+    precalculateTrunkSpline();
+
+    function getTrunkFrame(t, outPos, outNormal, outBinormal) {
+      const clampedT = Math.max(0, Math.min(1, t));
+      const idxF = clampedT * TRUNK_SAMPLES;
+      const idx0 = Math.floor(idxF);
+      const idx1 = Math.min(TRUNK_SAMPLES, idx0 + 1);
+      const frac = idxF - idx0;
+
+      const p0 = trunkSamplePositions[idx0];
+      const p1 = trunkSamplePositions[idx1];
+      outPos.lerpVectors(p0, p1, frac);
+
+      const n0 = trunkSampleNormals[idx0];
+      const n1 = trunkSampleNormals[idx1];
+      outNormal.lerpVectors(n0, n1, frac).normalize();
+
+      const b0 = trunkSampleBinormals[idx0];
+      const b1 = trunkSampleBinormals[idx1];
+      outBinormal.lerpVectors(b0, b1, frac).normalize();
+    }
+
     // =========================================================================
     // 5. VOLUMETRIC FRACTAL RAYMARCHING ORBS (PLEXUS 1:1)
     // =========================================================================
@@ -1344,13 +1377,12 @@
     const VEIL_PARTICLE_COUNT = 4500;
     const veilPositions = new Float32Array(VEIL_PARTICLE_COUNT * 3);
     const veilColors = new Float32Array(VEIL_PARTICLE_COUNT * 3);
-    const veilStartX = new Float32Array(VEIL_PARTICLE_COUNT);
-    const veilStartY = new Float32Array(VEIL_PARTICLE_COUNT);
-    const veilStartZ = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilT = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilRadius = new Float32Array(VEIL_PARTICLE_COUNT);
     const veilAngle = new Float32Array(VEIL_PARTICLE_COUNT);
     const veilSpeed = new Float32Array(VEIL_PARTICLE_COUNT);
-    const veilDelay = new Float32Array(VEIL_PARTICLE_COUNT);
-    const veilArm = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilWanderPhase = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilTurbAmp = new Float32Array(VEIL_PARTICLE_COUNT);
 
     const veilGeom = new THREE.BufferGeometry();
     veilGeom.setAttribute('position', new THREE.BufferAttribute(veilPositions, 3));
@@ -1395,13 +1427,14 @@
     // =========================================================================
 
     // --- TRIGGER 1: TUSCHE-ATEM (SCHLEIER) ---
+    // --- TRIGGER 1: TUSCHE-ATEM (ASTBAHN-SCHLEIER) ---
     function triggerImpulse1() {
       setActiveButton('btn-impulse-1');
       currentActiveImpulse = 'INHALE';
       impulseTime = 0.0;
       impulseDuration = 3.0;
       telemetryMode.innerText = 'Impuls 1: Tusche-Atem';
-      infoText.innerText = 'Feiner Tusch-Schleier zieht sich spiralförmig zum Stammursprung am linken Rand; Licht dimmt subtil ab; Stamm wächst empor.';
+      infoText.innerText = 'Mikropartikel formieren sich entlang der 3D-Stammbahn; Ast materialisiert direkt aus dem Schleier.';
       drawingHint.style.display = 'none';
 
       // Ast einblenden, Orbs ausblenden
@@ -1413,38 +1446,43 @@
       branchStroke2.uniforms.uProgress.value = 0.0;
       colorPaletteBar.classList.remove('visible');
 
-      // Veil Micro-Particles initial distribution (4,500 particles in 7 flowing veil streams)
+      // Initialize 4,500 Veil Micro-Particles along the trunk spline
       const streamColors = [
         new THREE.Color(0xffffff),
         new THREE.Color(0xffd4f2),
         new THREE.Color(0xff99dd),
         new THREE.Color(0xf472b6),
-        new THREE.Color(0xffc2ea)
+        new THREE.Color(0xffe4f7)
       ];
 
+      const tempPos = new THREE.Vector3();
+      const tempNormal = new THREE.Vector3();
+      const tempBinormal = new THREE.Vector3();
+
       for (let i = 0; i < VEIL_PARTICLE_COUNT; i++) {
-        const armIndex = i % 7;
-        const armBaseAngle = (armIndex / 7) * Math.PI * 2;
-        const armSpread = (Math.random() - 0.5) * 0.45;
-        const angle = armBaseAngle + armSpread;
+        // Distribute along the whole trunk curve (0.0 to 1.0)
+        const tVal = Math.pow(i / VEIL_PARTICLE_COUNT, 0.95);
+        veilT[i] = tVal;
 
-        const radDist = 4.5 + Math.pow(Math.random(), 0.75) * 20.0;
-        const sX = rootPoint.x + Math.cos(angle) * radDist + 5.5;
-        const sY = rootPoint.y + Math.sin(angle) * radDist + 3.8;
-        const sZ = (Math.random() - 0.5) * 3.5;
+        // Tapered radius: wider at the root, finer near the tip
+        const taper = 1.0 - tVal * 0.55;
+        const rad = (0.12 + Math.pow(Math.random(), 1.6) * 0.95) * taper;
+        veilRadius[i] = rad;
 
-        veilStartX[i] = sX;
-        veilStartY[i] = sY;
-        veilStartZ[i] = sZ;
-        veilAngle[i] = angle;
-        veilSpeed[i] = 0.85 + Math.random() * 0.4;
-        veilDelay[i] = (armIndex / 7) * 0.22 + Math.random() * 0.18;
-        veilArm[i] = armIndex;
+        veilAngle[i] = Math.random() * Math.PI * 2;
+        veilSpeed[i] = 0.08 + Math.random() * 0.12;
+        veilWanderPhase[i] = Math.random() * Math.PI * 2;
+        veilTurbAmp[i] = 0.04 + Math.random() * 0.08;
+
+        getTrunkFrame(tVal, tempPos, tempNormal, tempBinormal);
+        const cosA = Math.cos(veilAngle[i]);
+        const sinA = Math.sin(veilAngle[i]);
+        const startScatter = 2.4; // Initial spread before converging into the curve
 
         const i3 = i * 3;
-        veilPositions[i3] = sX;
-        veilPositions[i3 + 1] = sY;
-        veilPositions[i3 + 2] = sZ;
+        veilPositions[i3] = tempPos.x + (tempNormal.x * cosA + tempBinormal.x * sinA) * rad * startScatter;
+        veilPositions[i3 + 1] = tempPos.y + (tempNormal.y * cosA + tempBinormal.y * sinA) * rad * startScatter;
+        veilPositions[i3 + 2] = tempPos.z + (tempNormal.z * cosA + tempBinormal.z * sinA) * rad * startScatter;
 
         const col = streamColors[i % streamColors.length];
         veilColors[i3] = col.r;
@@ -1456,14 +1494,14 @@
       veilMat.opacity = 0.0;
     }
 
-    // --- TRIGGER 2: 8 FARBKNOTENPUNKTE IM SAKURACANVAS-STIL ---
+    // --- TRIGGER 2: 8 FARBKNOTENPUNKTE IM SAKURACANVAS-STIL (5.0s) ---
     function triggerImpulse2() {
       setActiveButton('btn-impulse-2');
       currentActiveImpulse = 'SPORES';
       impulseTime = 0.0;
-      impulseDuration = 3.0;
+      impulseDuration = 5.0; // 5 Sekunden Laufzeit
       telemetryMode.innerText = 'Impuls 2: 8 Farbknoten';
-      infoText.innerText = '8 sakurafarbene Knotenpunkte entstehen im SakuraCanvas-Stil entlang des Astes und zerfallen in 5 Paletten-Farben.';
+      infoText.innerText = '8 sakurafarbene Knotenpunkte (authentischer SakuraCanvas-Stil mit Guide-Lines) pulsieren 5s lang und zerfallen in Paletten-Farben.';
       drawingHint.style.display = 'none';
 
       // Ast einblenden, Orbs ausblenden
@@ -1483,14 +1521,14 @@
       sporeDust3D = [];
 
       const curvesPool = [
-        { c: trunkCurve, t: 0.22 },
-        { c: trunkCurve, t: 0.42 },
-        { c: trunkCurve, t: 0.64 },
-        { c: trunkCurve, t: 0.85 },
-        { c: branchCurve1, t: 0.35 },
-        { c: branchCurve1, t: 0.78 },
-        { c: branchCurve2, t: 0.38 },
-        { c: branchCurve2, t: 0.82 }
+        { c: trunkCurve, t: 0.22, angle: 26 },
+        { c: trunkCurve, t: 0.42, angle: -24 },
+        { c: trunkCurve, t: 0.64, angle: 28 },
+        { c: trunkCurve, t: 0.85, angle: -22 },
+        { c: branchCurve1, t: 0.35, angle: 30 },
+        { c: branchCurve1, t: 0.78, angle: -28 },
+        { c: branchCurve2, t: 0.38, angle: 25 },
+        { c: branchCurve2, t: 0.82, angle: -26 }
       ];
 
       const paletteColors = [
@@ -1506,8 +1544,8 @@
         const pt = def.c.getPoint(def.t);
         const col = paletteColors[i % paletteColors.length];
 
-        // Core Sumi-E Sakura Node Mesh
-        const nodeGeom = new THREE.PlaneGeometry(1.6, 1.6);
+        // Authentic SakuraCanvas OrbNode Plane (planeSize = 2.2)
+        const nodeGeom = new THREE.PlaneGeometry(2.2, 2.2);
         const nodeMat = new THREE.ShaderMaterial({
           vertexShader: orbMeshVertexShader,
           fragmentShader: sakuraOrbFragmentShader,
@@ -1523,29 +1561,38 @@
         nodeMesh.position.set(pt.x, pt.y, pt.z + 0.15);
         sumiNodeGroup.add(nodeMesh);
 
-        // Thin Outer Guide Ring
-        const ringGeom = new THREE.PlaneGeometry(1.8, 1.8);
-        const ringMat = new THREE.ShaderMaterial({
-          vertexShader: orbMeshVertexShader,
-          fragmentShader: ringFragmentShader,
-          uniforms: {
-            uAlpha: { value: 0.0 },
-            uTime: { value: 0.0 }
-          },
+        // Dashed Guide Direction Line (SakuraCanvas OrbNode style)
+        const lineMat = new THREE.LineDashedMaterial({
+          color: 0xffffff,
+          dashSize: 0.22,
+          gapSize: 0.12,
           transparent: true,
+          opacity: 0.0,
           depthWrite: false
         });
-        const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-        ringMesh.position.set(pt.x, pt.y, pt.z + 0.16);
-        sumiNodeGroup.add(ringMesh);
+
+        const angleRad = THREE.MathUtils.degToRad(def.angle);
+        const guideDir = new THREE.Vector3(Math.cos(angleRad), Math.sin(angleRad), 0).normalize();
+
+        const lineGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3().copy(guideDir).multiplyScalar(0.95)
+        ]);
+
+        const guideLine = new THREE.Line(lineGeom, lineMat);
+        guideLine.computeLineDistances();
+        nodeMesh.add(guideLine);
 
         sumiOrbNodes.push({
           nodeMesh: nodeMesh,
-          ringMesh: ringMesh,
-          pos: pt,
+          guideLine: guideLine,
+          basePt: pt.clone(),
+          pos: pt.clone(),
           color: col,
           bornTime: 0.1 * i,
-          hasDispersed: false
+          hasDispersed: false,
+          isExploding: false,
+          explosionTimer: 0.0
         });
       }
     }
@@ -1573,20 +1620,6 @@
       autoSimTimer = 0.0;
       circleProgress = 0.0;
       targetZoomMultiplier = 1.07; // Dezenter Zoom-In
-    }
-
-    // --- TRIGGER 4: CHROMATISCHE RAND-AURA ---
-    function triggerImpulse4() {
-      setActiveButton('btn-impulse-4');
-      currentActiveImpulse = 'FRINGE';
-      impulseTime = 0.0;
-      impulseDuration = 3.0;
-      telemetryMode.innerText = 'Impuls 4: Rand-Aura';
-      infoText.innerText = 'Feiner Magenta-Cyan-Schleier flackert an den Bildschirmrändern als Vorahnung des Dimensionssturms auf.';
-      drawingHint.style.display = 'none';
-
-      branchGroup.visible = true;
-      orbsGroup.visible = false;
     }
 
     // --- TRIGGER 5: PLEXUS SYNAPTIC WEB ---
@@ -1649,15 +1682,12 @@
       setActiveButton('btn-impulse-seq');
       infoText.innerText = 'Starte Gesamt-Ablauf aller Sumi-E Phasen...';
 
-      triggerImpulse1();
+      triggerImpulse1(); // 3.0s: Astbahn-Schleier & Stammwachstum
       setTimeout(() => {
-        triggerImpulse2();
+        triggerImpulse2(); // 5.0s: 8 Farbknoten & Sporenzerfall in Palette
         setTimeout(() => {
-          triggerImpulse3();
-          setTimeout(() => {
-            triggerImpulse4();
-          }, 3500);
-        }, 3200);
+          triggerImpulse3(); // Interaktiv: Kreis-Zeichnen mit Zoom-In
+        }, 5200);
       }, 3200);
     }
 
@@ -1677,7 +1707,6 @@
       branchStroke1.uniforms.uProgress.value = 0.0;
       branchStroke2.uniforms.uProgress.value = 0.0;
       bgUniforms.uBgDim.value = 1.0;
-      chromaticFringe.style.opacity = '0';
       emberMat.opacity = 0.0;
       veilMat.opacity = 0.0;
       synapticMat.opacity = 0.0;
@@ -1847,43 +1876,29 @@
         const remaining = Math.max(0, impulseDuration - impulseTime);
         telemetryTimer.innerText = `${remaining.toFixed(1)}s`;
 
-        // 1. INHALE (TUSCHE-SCHLEIER)
+        // 1. INHALE (TUSCHE-ATEM: SCHLEIER ENTLANG DER ASTBAHN)
         if (currentActiveImpulse === 'INHALE') {
           const p = Math.min(1.0, impulseTime / impulseDuration);
 
           // Ambient dimming
-          if (p < 0.4) {
-            bgUniforms.uBgDim.value = THREE.MathUtils.lerp(1.0, 0.88, p / 0.4);
-            emberMat.opacity = (p / 0.4) * 0.95;
+          if (p < 0.35) {
+            bgUniforms.uBgDim.value = THREE.MathUtils.lerp(1.0, 0.88, p / 0.35);
+            emberMat.opacity = (p / 0.35) * 0.95;
             emberMesh.scale.setScalar(1.0 + Math.sin(p * 15.0) * 0.3);
-          } else if (p > 0.75) {
-            bgUniforms.uBgDim.value = THREE.MathUtils.lerp(0.88, 1.0, (p - 0.75) / 0.25);
-            emberMat.opacity = (1.0 - (p - 0.75) / 0.25) * 0.95;
+          } else if (p > 0.85) {
+            bgUniforms.uBgDim.value = THREE.MathUtils.lerp(0.88, 1.0, (p - 0.85) / 0.15);
+            emberMat.opacity = (1.0 - (p - 0.85) / 0.15) * 0.95;
           }
 
-          // Veil Micro-Particles Spiraling Inward (Dense Silk Veil)
-          const veilFade = p < 0.22 ? (p / 0.22) : (p > 0.75 ? (1.0 - (p - 0.75) / 0.25) : 1.0);
-          veilMat.opacity = veilFade * 0.85;
+          // Convergence: starts at 2.4x scatter, concentrates onto the exact branch curve by p=0.25
+          const convergence = p < 0.25 ? THREE.MathUtils.lerp(2.4, 1.0, p / 0.25) : 1.0;
+          const veilFade = p < 0.15 ? (p / 0.15) : (p > 0.85 ? (1.0 - (p - 0.85) / 0.15) : 1.0);
+          veilMat.opacity = veilFade * 0.88;
 
-          const rootX = rootPoint.x;
-          const rootY = rootPoint.y;
-          const rootZ = rootPoint.z;
-
-          for (let i = 0; i < VEIL_PARTICLE_COUNT; i++) {
-            const effProg = Math.max(0, Math.min(1.0, (p - veilDelay[i] * 0.25) * 1.45 * veilSpeed[i]));
-            const dist = Math.pow(1.0 - effProg, 1.35);
-            const spiral = veilAngle[i] + (effProg * 6.5) + Math.sin(effProg * 8.0 + veilArm[i]) * 0.12;
-
-            const i3 = i * 3;
-            veilPositions[i3] = rootX + Math.cos(spiral) * (veilStartX[i] - rootX) * dist;
-            veilPositions[i3 + 1] = rootY + Math.sin(spiral) * (veilStartY[i] - rootY) * dist;
-            veilPositions[i3 + 2] = rootZ + (veilStartZ[i] - rootZ) * dist;
-          }
-          veilGeom.attributes.position.needsUpdate = true;
-
-          // Progressive Branch Growth
-          if (p > 0.35) {
-            const growthProg = Math.min(1.0, (p - 0.35) / 0.65);
+          // Progressive Branch Growth (Starts at 0.8s, complete by 2.8s)
+          let growthProg = 0.0;
+          if (impulseTime > 0.8) {
+            growthProg = Math.min(1.0, (impulseTime - 0.8) / 1.8);
             mainTrunkStroke.uniforms.uProgress.value = growthProg;
             if (growthProg > 0.45) {
               const bProg = (growthProg - 0.45) / 0.55;
@@ -1891,53 +1906,109 @@
               branchStroke2.uniforms.uProgress.value = bProg;
             }
           }
+
+          const tempPos = new THREE.Vector3();
+          const tempNormal = new THREE.Vector3();
+          const tempBinormal = new THREE.Vector3();
+
+          for (let i = 0; i < VEIL_PARTICLE_COUNT; i++) {
+            // Forward flow along the spline
+            const curT = (veilT[i] + impulseTime * veilSpeed[i] * 0.08) % 1.0;
+            getTrunkFrame(curT, tempPos, tempNormal, tempBinormal);
+
+            // Subtle harmonic smoke turbulence
+            const turb = Math.sin(impulseTime * 3.2 + veilWanderPhase[i]) * veilTurbAmp[i];
+            const angle = veilAngle[i] + impulseTime * 0.4;
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
+
+            // Condensation into ink branch: particles near the tip intensify, behind the tip they absorb
+            let condensation = 1.0;
+            if (growthProg > 0.01) {
+              if (curT < growthProg - 0.08) {
+                condensation = Math.max(0.05, 1.0 - (growthProg - curT) * 4.0);
+              } else if (Math.abs(curT - growthProg) < 0.06) {
+                condensation = 1.35; // Bright condensation focus at growing tip
+              }
+            }
+
+            const rad = Math.max(0.01, veilRadius[i] * convergence * condensation + turb);
+
+            const i3 = i * 3;
+            veilPositions[i3] = tempPos.x + (tempNormal.x * cosA + tempBinormal.x * sinA) * rad;
+            veilPositions[i3 + 1] = tempPos.y + (tempNormal.y * cosA + tempBinormal.y * sinA) * rad;
+            veilPositions[i3 + 2] = tempPos.z + (tempNormal.z * cosA + tempBinormal.z * sinA) * rad;
+          }
+          veilGeom.attributes.position.needsUpdate = true;
         }
 
-        // 2. 8 FARBKNOTEN (SUMI-E SAKURACANVAS STYLE)
+        // 2. 8 FARBKNOTEN (5.0s · SAKURACANVAS STIL & SPORENZERFALL)
         if (currentActiveImpulse === 'SPORES') {
+          const swayTime = now * 0.001;
+
           sumiOrbNodes.forEach(node => {
             node.nodeMesh.material.uniforms.uTime.value = impulseTime;
-            node.ringMesh.material.uniforms.uTime.value = impulseTime;
 
-            if (impulseTime >= node.bornTime && !node.hasDispersed) {
-              const age = impulseTime - node.bornTime;
-              if (age < 0.9) {
-                // Growth and breathing pulse in pure SakuraCanvas style
-                const s = Math.sin((age / 0.9) * Math.PI);
-                node.nodeMesh.material.uniforms.uAlpha.value = s * 0.98;
-                node.ringMesh.material.uniforms.uAlpha.value = s * 0.85;
-                node.nodeMesh.scale.setScalar(0.7 + s * 0.55);
-                node.ringMesh.scale.setScalar(0.8 + s * 0.6);
-              } else {
-                // Burst into micro-spores of the palette color
+            // Authentic wind sway matching SakuraCanvas
+            const normX = Math.max(0.0, Math.min(1.0, (node.basePt.x + 11.5) / 20.0));
+            const mainSway = Math.sin(swayTime * 1.25) * 0.38;
+            const subSway = Math.sin(swayTime * 0.60) * 0.14;
+            node.nodeMesh.position.y = node.basePt.y + (mainSway + subSway) * normX;
+
+            if (impulseTime < 2.0) {
+              // Phase 1: Appear, gently breathe and pulse with dashed guide lines (0.0s - 2.0s)
+              const appearProg = Math.min(1.0, impulseTime / 0.8);
+              node.nodeMesh.material.uniforms.uAlpha.value = appearProg * 0.98;
+              if (node.guideLine) {
+                node.guideLine.material.opacity = appearProg * 0.75;
+              }
+              const pulse = 1.0 + Math.sin(impulseTime * 4.0) * 0.08;
+              node.nodeMesh.scale.setScalar(pulse);
+            } else if (!node.hasDispersed) {
+              // Phase 2: Explode and dissolve into palette-colored spores (2.0s - 3.6s)
+              if (!node.isExploding) {
+                node.isExploding = true;
+                node.explosionTimer = 0.0;
+              }
+              node.explosionTimer += delta;
+              const expT = Math.min(1.0, node.explosionTimer / 0.45);
+              const easeOut = 1.0 - Math.pow(1.0 - expT, 3.0);
+              node.nodeMesh.scale.setScalar(1.0 + easeOut * 2.2);
+              node.nodeMesh.material.uniforms.uAlpha.value = (1.0 - expT) * 0.95;
+              if (node.guideLine) {
+                node.guideLine.material.opacity = (1.0 - expT) * 0.75;
+              }
+
+              if (expT >= 1.0) {
                 node.hasDispersed = true;
-                node.nodeMesh.material.uniforms.uAlpha.value = 0.0;
-                node.ringMesh.material.uniforms.uAlpha.value = 0.0;
+                node.nodeMesh.visible = false;
 
-                const dustGeom = new THREE.SphereGeometry(0.1, 8, 8);
-                for (let d = 0; d < 28; d++) {
+                // Spawn 32 fine particles in this node's palette color
+                const dustGeom = new THREE.SphereGeometry(0.09, 8, 8);
+                for (let d = 0; d < 32; d++) {
                   const vel = new THREE.Vector3(
-                    (Math.random() - 0.4) * 4.2,
-                    (Math.random() - 0.2) * 4.5,
-                    (Math.random() - 0.5) * 4.0
+                    (Math.random() - 0.5) * 3.8,
+                    0.4 + Math.random() * 3.2,
+                    (Math.random() - 0.5) * 3.2
                   );
                   const dMat = new THREE.MeshBasicMaterial({ color: node.color, transparent: true, opacity: 0.95 });
                   const dMesh = new THREE.Mesh(dustGeom, dMat);
-                  dMesh.position.copy(node.pos);
+                  dMesh.position.copy(node.nodeMesh.position);
                   branchGroup.add(dMesh);
 
                   sporeDust3D.push({
                     mesh: dMesh,
                     vel: vel,
-                    life: 1.8 + Math.random() * 0.5,
-                    maxLife: 2.3
+                    life: 2.2 + Math.random() * 0.6,
+                    maxLife: 2.8
                   });
                 }
               }
             }
           });
 
-          if (impulseTime > 1.8) {
+          // Phase 3: Palette reveal at 3.6s
+          if (impulseTime > 3.6) {
             colorPaletteBar.classList.add('visible');
           }
         }
@@ -1949,15 +2020,7 @@
           }
         }
 
-        // 4. FRINGE (CHROMATISCHE RAND-AURA)
-        if (currentActiveImpulse === 'FRINGE') {
-          const p = impulseTime / impulseDuration;
-          const flicker = 0.75 + 0.25 * Math.sin(impulseTime * 35.0);
-          const envelope = Math.sin(p * Math.PI);
-          chromaticFringe.style.opacity = (envelope * flicker * 0.95).toString();
-        }
-
-        // 5. PLEXUS SYNAPTIC WEB
+        // 4. PLEXUS SYNAPTIC WEB
         if (currentActiveImpulse === 'PLEXUS_DOCK') {
           const p = impulseTime / impulseDuration;
           const decay = Math.max(0, 1.0 - p);
@@ -1966,7 +2029,6 @@
         }
 
         if (impulseTime >= impulseDuration) {
-          if (currentActiveImpulse === 'FRINGE') chromaticFringe.style.opacity = '0';
           if (currentActiveImpulse === 'INHALE') {
             bgUniforms.uBgDim.value = 1.0;
             emberMat.opacity = 0.0;
