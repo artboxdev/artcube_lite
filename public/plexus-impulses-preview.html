@@ -596,10 +596,10 @@
     ];
 
     const ORB_CONFIGS = [
-      { id: 'pink', name: 'Sakura Pink', homeX: -160, homeY: 85, orbitRx: 45, orbitRy: 30, speed: 0.35, phase: 0.0 },
-      { id: 'blue', name: 'Electric Cyan', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
-      { id: 'yellow', name: 'Golden Sun', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
-      { id: 'green', name: 'Emerald Jade', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 }
+      { id: 'pink', orbIndex: 0, name: 'Sakura Pink', homeX: -160, homeY: 85, orbitRx: 45, orbitRy: 30, speed: 0.35, phase: 0.0 },
+      { id: 'blue', orbIndex: 1, name: 'Electric Cyan', homeX: 160, homeY: 85, orbitRx: 46, orbitRy: 30, speed: -0.32, phase: 1.6 },
+      { id: 'yellow', orbIndex: 2, name: 'Golden Sun', homeX: -160, homeY: -85, orbitRx: 44, orbitRy: 28, speed: 0.30, phase: 3.2 },
+      { id: 'green', orbIndex: 3, name: 'Emerald Jade', homeX: 160, homeY: -85, orbitRx: 45, orbitRy: 30, speed: -0.28, phase: 4.8 }
     ];
 
     // ==========================================
@@ -608,6 +608,7 @@
     class FloatingOrb {
       constructor(cfg) {
         this.id = cfg.id;
+        this.orbIndex = cfg.orbIndex;
         this.name = cfg.name;
         this.homeX = cfg.homeX;
         this.homeY = cfg.homeY;
@@ -625,6 +626,7 @@
 
         this.isDragged = false;
         this.attachedPlexusCount = 0;
+        this.attachedNodes = [];
         this.internalTime = Math.random() * 10.0;
         this.dockWobbleTimer = 999.0;
         this.hoverWobbleTimer = 999.0;
@@ -707,9 +709,40 @@
         this.hoverWobbleTimer = 0.0;
       }
 
+      attachCluster(cluster) {
+        this.attachedPlexusCount += 1;
+        const tier = this.attachedPlexusCount;
+        const layerRadius = 38.0 + (tier - 1) * 14.0;
+        const speedMul = 1.0 + (tier % 2 === 0 ? 0.35 : -0.25);
+        const palette = SATURATED_PALETTES[this.id] || SATURATED_PALETTES.pink;
+
+        const count = (cluster && cluster.nodes && cluster.nodes.length) ? cluster.nodes.length : 12;
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+          const elevation = (Math.random() - 0.5) * Math.PI * 0.6;
+          const rgb = palette[i % palette.length];
+          this.attachedNodes.push({
+            radius: layerRadius + (Math.random() - 0.5) * 6.0,
+            angle: angle,
+            elevation: elevation,
+            orbitSpeed: (0.45 + (i % 3) * 0.20) * (i % 2 === 0 ? 1 : -1) * speedMul,
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b,
+            size: 15.0 + Math.random() * 8.0,
+            tier: tier
+          });
+        }
+      }
+
       update(delta, totalTime, isFinale, finaleAge) {
         this.internalTime += delta;
         this.material.uniforms.uTime.value = this.internalTime;
+
+        // Update orbiting attached plexus satellites
+        this.attachedNodes.forEach(node => {
+          node.angle += node.orbitSpeed * delta;
+        });
 
         if (this.impulseCooldown > 0) {
           this.impulseCooldown -= delta;
@@ -864,6 +897,7 @@
     // ==========================================
     let totalAttachedPlexus = 0;
     let isMouseDown = false;
+    let isHoldCharging = false;
     let holdTimer = 0.0;
     const HOLD_THRESHOLD = 1.5;
     let holdOrigin = { x: 0, y: 0 };
@@ -906,19 +940,47 @@
     }
 
     // ==========================================
-    // 6. NEW FEATURE 1: FLICKERING SAKURA HOLD NETWORK (1.5s)
+    // 6. WILD FLICKERING SAKURA HOLD NETWORK (1.5s)
     // ==========================================
-    const holdNetworkNodes = [];
-    for (let i = 0; i < 36; i++) {
-      const angle = (i / 36) * Math.PI * 2 + Math.random() * 0.3;
-      const baseR = 15.0 + Math.random() * 45.0;
-      holdNetworkNodes.push({
+    // Swirling inner nucleus
+    const holdNetworkCore = [];
+    const CORE_NODE_COUNT = 24;
+    for (let i = 0; i < CORE_NODE_COUNT; i++) {
+      const angle = (i / CORE_NODE_COUNT) * Math.PI * 2 + Math.random() * 0.35;
+      const baseR = 8.0 + Math.random() * 32.0;
+      holdNetworkCore.push({
         angle,
         baseR,
-        curR: baseR,
-        z: (Math.random() - 0.5) * 20.0,
-        speed: 1.5 + Math.random() * 2.0,
+        z: (Math.random() - 0.5) * 18.0,
+        speed: (Math.random() > 0.5 ? 1 : -1) * (1.6 + Math.random() * 2.2),
         color: SAKURA_HOLD_PALETTE[i % SAKURA_HOLD_PALETTE.length]
+      });
+    }
+
+    // Wild outward lightning tendrils (12 branches reaching up to 175px into space)
+    const holdTendrilBranches = [];
+    const NUM_TENDRILS = 12;
+    for (let b = 0; b < NUM_TENDRILS; b++) {
+      const baseAngle = (b / NUM_TENDRILS) * Math.PI * 2 + (Math.random() - 0.5) * 0.32;
+      const nodes = [];
+      const segCount = 4;
+      for (let s = 1; s <= segCount; s++) {
+        // Progressive distance reaching far into outer space
+        const segR = 28.0 + s * 34.0 + (Math.random() - 0.5) * 14.0;
+        nodes.push({
+          angleOffset: (Math.random() - 0.5) * 0.28,
+          baseR: segR,
+          whipFreq: 16.0 + Math.random() * 16.0,
+          whipPhase: Math.random() * Math.PI * 2,
+          whipAmp: 7.0 + s * 7.5,
+          z: (Math.random() - 0.5) * 25.0,
+          color: SAKURA_HOLD_PALETTE[(b + s) % SAKURA_HOLD_PALETTE.length]
+        });
+      }
+      holdTendrilBranches.push({
+        baseAngle,
+        spinSpeed: (b % 2 === 0 ? 1 : -1) * (0.65 + Math.random() * 0.75),
+        nodes
       });
     }
 
@@ -1104,6 +1166,7 @@
     window.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.bottom-bar') || e.target.closest('.top-header')) return;
       isMouseDown = true;
+      isHoldCharging = false;
       updatePointerWorld(e.clientX, e.clientY);
 
       // Check if clicking an Orb (in Pre-Finale)
@@ -1113,6 +1176,7 @@
             draggedOrb = o;
             draggedOrb.isDragged = true;
             draggedOrb.triggerHoverWobble();
+            holdCircle.style.opacity = '0';
             return;
           }
         }
@@ -1122,11 +1186,13 @@
       for (let c of activeClusters) {
         if (Math.hypot(c.x - mouseWorld.x, c.y - mouseWorld.y) < 55.0) {
           draggedCluster = c;
+          holdCircle.style.opacity = '0';
           return;
         }
       }
 
-      // If neither, start hold-creation
+      // If neither an orb nor a cluster, start hold-creation charging on empty space
+      isHoldCharging = true;
       holdTimer = 0.0;
       holdOrigin.x = mouseWorld.x;
       holdOrigin.y = mouseWorld.y;
@@ -1154,7 +1220,7 @@
             orb.triggerHoverWobble();
           }
         });
-      } else if (isMouseDown) {
+      } else if (isHoldCharging) {
         holdCircle.setAttribute('cx', e.clientX);
         holdCircle.setAttribute('cy', e.clientY);
       }
@@ -1175,7 +1241,7 @@
         });
 
         if (closest) {
-          closest.attachedPlexusCount++;
+          closest.attachCluster(draggedCluster);
           closest.triggerDockWobble();
           totalAttachedPlexus++;
 
@@ -1193,13 +1259,14 @@
           }
         }
         draggedCluster = null;
-      } else if (isMouseDown && holdTimer >= HOLD_THRESHOLD) {
-        // Cluster successfully spawned
+      } else if (isHoldCharging && !draggedCluster && !draggedOrb && holdTimer >= HOLD_THRESHOLD) {
+        // Cluster successfully spawned ONLY when charging on empty space completed
         activeClusters.push(new DriftingCluster(holdOrigin.x, holdOrigin.y));
         showToastMsg('Neuer Plexus aus dem Sakura-Netzwerk erschaffen!');
       }
 
       isMouseDown = false;
+      isHoldCharging = false;
       holdTimer = 0.0;
       holdCircle.style.opacity = '0';
       holdCircle.setAttribute('stroke-dashoffset', '201');
@@ -1212,6 +1279,7 @@
       // Simulate Hold demo at center
       holdTimer = 0.01;
       isMouseDown = true;
+      isHoldCharging = true;
       holdOrigin = { x: 0, y: 0 };
       const centerScreenX = window.innerWidth * 0.5;
       const centerScreenY = window.innerHeight * 0.5;
@@ -1232,6 +1300,7 @@
         if (elapsed >= HOLD_THRESHOLD) {
           clearInterval(interval);
           isMouseDown = false;
+          isHoldCharging = false;
           holdCircle.style.opacity = '0';
           activeClusters.push(new DriftingCluster(0, 0));
           showToastMsg('Plexus aus Sakura-Netzwerk freigesetzt!');
@@ -1243,7 +1312,7 @@
     document.getElementById('btn-dock-demo').addEventListener('click', () => {
       // Pick next available orb
       const orb = floatingOrbs.find(o => o.attachedPlexusCount === 0) || floatingOrbs[0];
-      orb.attachedPlexusCount++;
+      orb.attachCluster(null);
       orb.triggerDockWobble();
       totalAttachedPlexus++;
 
@@ -1260,26 +1329,34 @@
     });
 
     document.getElementById('btn-dock-all').addEventListener('click', () => {
-      // Quick fill all 4 orbs with 6 plexus
-      floatingOrbs[0].attachedPlexusCount = 2;
-      floatingOrbs[1].attachedPlexusCount = 2;
-      floatingOrbs[2].attachedPlexusCount = 1;
-      floatingOrbs[3].attachedPlexusCount = 1;
+      // Clear previous attachments
+      floatingOrbs.forEach(o => { o.attachedPlexusCount = 0; o.attachedNodes = []; });
+
+      // Fill all 4 orbs with 6 plexus: 2 pink, 2 blue, 1 yellow, 1 green
+      floatingOrbs[0].attachCluster(null);
+      floatingOrbs[0].attachCluster(null);
+      floatingOrbs[1].attachCluster(null);
+      floatingOrbs[1].attachCluster(null);
+      floatingOrbs[2].attachCluster(null);
+      floatingOrbs[3].attachCluster(null);
       totalAttachedPlexus = 6;
       floatingOrbs.forEach(o => o.triggerDockWobble());
 
       promptBanner.className = 'prompt-banner sakura';
-      promptBanner.textContent = '6 Plexus bereit! Schiebe nun die Orbs zusammen!';
+      promptBanner.textContent = '6 Plexus angedockt! Schiebe nun die belegten Orbs zusammen!';
       showToastMsg('Alle 4 Orbs mit 6 Plexus belegt. Orbs können verschoben werden.');
     });
 
     document.getElementById('btn-collide-demo').addEventListener('click', () => {
       // Ensure orbs are occupied
       if (totalAttachedPlexus < 6) {
-        floatingOrbs[0].attachedPlexusCount = 2;
-        floatingOrbs[1].attachedPlexusCount = 2;
-        floatingOrbs[2].attachedPlexusCount = 1;
-        floatingOrbs[3].attachedPlexusCount = 1;
+        floatingOrbs.forEach(o => { o.attachedPlexusCount = 0; o.attachedNodes = []; });
+        floatingOrbs[0].attachCluster(null);
+        floatingOrbs[0].attachCluster(null);
+        floatingOrbs[1].attachCluster(null);
+        floatingOrbs[1].attachCluster(null);
+        floatingOrbs[2].attachCluster(null);
+        floatingOrbs[3].attachCluster(null);
         totalAttachedPlexus = 6;
       }
 
@@ -1297,10 +1374,13 @@
 
     document.getElementById('btn-finale-direct').addEventListener('click', () => {
       if (totalAttachedPlexus < 6) {
-        floatingOrbs[0].attachedPlexusCount = 2;
-        floatingOrbs[1].attachedPlexusCount = 2;
-        floatingOrbs[2].attachedPlexusCount = 1;
-        floatingOrbs[3].attachedPlexusCount = 1;
+        floatingOrbs.forEach(o => { o.attachedPlexusCount = 0; o.attachedNodes = []; });
+        floatingOrbs[0].attachCluster(null);
+        floatingOrbs[0].attachCluster(null);
+        floatingOrbs[1].attachCluster(null);
+        floatingOrbs[1].attachCluster(null);
+        floatingOrbs[2].attachCluster(null);
+        floatingOrbs[3].attachCluster(null);
         totalAttachedPlexus = 6;
       }
       startPlexusFinale();
@@ -1319,6 +1399,7 @@
         o.homeX = cfg.homeX;
         o.homeY = cfg.homeY;
         o.attachedPlexusCount = 0;
+        o.attachedNodes = [];
         o.hasBeenPlaced = false;
         o.finaleVx = 0;
         o.finaleVy = 0;
@@ -1399,35 +1480,119 @@
       // ==========================================
       activeNodeCount = 0;
 
-      // 1. Hold-Down Sakura Network (NEW FEATURE 1)
-      if (isMouseDown && holdTimer < HOLD_THRESHOLD) {
+      // 1. Wild Flickering Sakura Hold Network (Requirement 1 & 2)
+      if (isHoldCharging && !draggedCluster && !draggedOrb && holdTimer < HOLD_THRESHOLD) {
         holdTimer += delta;
         const holdProgress = Math.min(1.0, holdTimer / HOLD_THRESHOLD);
         holdCircle.setAttribute('stroke-dashoffset', `${201 * (1.0 - holdProgress)}`);
 
-        const holdIntensity = Math.pow(holdProgress, 0.85);
+        const holdIntensity = Math.pow(holdProgress, 0.72);
 
-        for (let i = 0; i < holdNetworkNodes.length; i++) {
+        // Core central spark
+        if (activeNodeCount < MAX_NODES) {
+          const cIdx = activeNodeCount++;
+          worldX[cIdx] = holdOrigin.x;
+          worldY[cIdx] = holdOrigin.y;
+          worldZ[cIdx] = 0.0;
+          worldR[cIdx] = 1.0;
+          worldG[cIdx] = 0.88;
+          worldB[cIdx] = 0.98;
+          worldS[cIdx] = 26.0 * (0.3 + 0.7 * holdIntensity);
+          worldGrp[cIdx] = 999;
+          worldAlpha[cIdx] = holdIntensity;
+        }
+
+        // Swirling inner nucleus nodes
+        for (let i = 0; i < holdNetworkCore.length; i++) {
           if (activeNodeCount >= MAX_NODES) break;
-          const hn = holdNetworkNodes[i];
-          hn.angle += hn.speed * delta;
-          const r = hn.baseR * (0.35 + 0.65 * holdIntensity);
-          const nx = holdOrigin.x + Math.cos(hn.angle) * r;
-          const ny = holdOrigin.y + Math.sin(hn.angle) * r;
-          const nz = hn.z * holdIntensity;
+          const cn = holdNetworkCore[i];
+          cn.angle += cn.speed * delta;
+          const r = cn.baseR * (0.35 + 0.65 * holdIntensity);
+          const nx = holdOrigin.x + Math.cos(cn.angle) * r;
+          const ny = holdOrigin.y + Math.sin(cn.angle) * r;
+          const nz = cn.z * holdIntensity;
 
           const nIdx = activeNodeCount++;
           worldX[nIdx] = nx;
           worldY[nIdx] = ny;
           worldZ[nIdx] = nz;
-          worldR[nIdx] = hn.color.r;
-          worldG[nIdx] = hn.color.g;
-          worldB[nIdx] = hn.color.b;
-          worldS[nIdx] = (14.0 + Math.random() * 12.0) * (0.5 + 0.5 * holdIntensity);
-          worldGrp[nIdx] = 999; // Unique group for hold network lines
+          worldR[nIdx] = cn.color.r;
+          worldG[nIdx] = cn.color.g;
+          worldB[nIdx] = cn.color.b;
+          worldS[nIdx] = (15.0 + Math.random() * 10.0) * (0.5 + 0.5 * holdIntensity);
+          worldGrp[nIdx] = 999;
           worldAlpha[nIdx] = holdIntensity;
         }
+
+        // Wild outward tendril streamers reaching far into space
+        for (let b = 0; b < holdTendrilBranches.length; b++) {
+          const br = holdTendrilBranches[b];
+          br.baseAngle += br.spinSpeed * delta;
+
+          for (let s = 0; s < br.nodes.length; s++) {
+            if (activeNodeCount >= MAX_NODES) break;
+            const tn = br.nodes[s];
+            const whip = Math.sin(totalTime * tn.whipFreq + tn.whipPhase) * tn.whipAmp;
+            const curAng = br.baseAngle + tn.angleOffset + (whip * 0.015);
+            const curR = (tn.baseR + whip * 0.45) * (0.32 + 0.68 * Math.pow(holdIntensity, 0.55));
+
+            const nx = holdOrigin.x + Math.cos(curAng) * curR;
+            const ny = holdOrigin.y + Math.sin(curAng) * curR;
+            const nz = tn.z * holdIntensity;
+
+            const nIdx = activeNodeCount++;
+            worldX[nIdx] = nx;
+            worldY[nIdx] = ny;
+            worldZ[nIdx] = nz;
+            worldR[nIdx] = tn.color.r;
+            worldG[nIdx] = tn.color.g;
+            worldB[nIdx] = tn.color.b;
+            worldS[nIdx] = (13.0 + (s === br.nodes.length - 1 ? 12.0 : 4.0)) * (0.4 + 0.6 * holdIntensity);
+            worldGrp[nIdx] = 999;
+            worldAlpha[nIdx] = holdIntensity;
+          }
+        }
       }
+
+      // 1b. Attached Plexus Satellites orbiting Orbs (Requirement 3)
+      floatingOrbs.forEach(orb => {
+        if (orb.attachedNodes.length === 0) return;
+        const orbGrp = 500 + orb.orbIndex;
+
+        // Central anchor hub for lines to connect into orb core
+        if (activeNodeCount < MAX_NODES) {
+          const hubIdx = activeNodeCount++;
+          worldX[hubIdx] = orb.x;
+          worldY[hubIdx] = orb.y;
+          worldZ[hubIdx] = orb.z;
+          const pal = SATURATED_PALETTES[orb.id] || SATURATED_PALETTES.pink;
+          worldR[hubIdx] = pal[0].r;
+          worldG[hubIdx] = pal[0].g;
+          worldB[hubIdx] = pal[0].b;
+          worldS[hubIdx] = 22.0;
+          worldGrp[hubIdx] = orbGrp;
+          worldAlpha[hubIdx] = 1.0;
+        }
+
+        // Orbiting satellite nodes
+        orb.attachedNodes.forEach(an => {
+          if (activeNodeCount >= MAX_NODES) return;
+          const localX = orb.x + Math.cos(an.angle) * Math.cos(an.elevation) * an.radius;
+          const localY = orb.y + Math.sin(an.angle) * Math.cos(an.elevation) * an.radius * 0.85;
+          const localZ = orb.z + Math.sin(an.elevation) * an.radius;
+
+          const nIdx = activeNodeCount++;
+          worldX[nIdx] = localX;
+          worldY[nIdx] = localY;
+          worldZ[nIdx] = localZ;
+          worldR[nIdx] = an.r;
+          worldG[nIdx] = an.g;
+          worldB[nIdx] = an.b;
+          worldS[nIdx] = an.size;
+          worldGrp[nIdx] = orbGrp;
+          worldAlpha[nIdx] = 1.0;
+        });
+      });
 
       // 2. Active 2.0s Docking Networks in Orb Colors (NEW FEATURE 2)
       for (let i = activeDockingNetworks.length - 1; i >= 0; i--) {
@@ -1653,7 +1818,15 @@
           const dy = worldY[j] - y1;
           const dz = worldZ[j] - z1;
           const distSq = dx * dx + dy * dy + dz * dz;
-          const cutoff = (grp1 === 999) ? 62.0 : 88.0; // tighter cutoff for hold network
+
+          let cutoff = 88.0;
+          if (grp1 === 999) {
+            cutoff = 76.0; // Wild hold network tendrils
+          } else if (grp1 >= 500 && grp1 < 600) {
+            cutoff = 68.0; // Orb attached satellite shells
+          } else if (grp1 >= 800 && grp1 < 900) {
+            cutoff = 95.0; // Docking network burst
+          }
 
           if (distSq < cutoff * cutoff) {
             const distance = Math.sqrt(distSq);
@@ -1714,7 +1887,9 @@
       let stateLabel = 'IDLE';
       if (isFinaleActive) stateLabel = `FINALE (${finaleAge.toFixed(1)}s)`;
       else if (isConvergenceActive) stateLabel = 'CONVERGENCE (DRIFT)';
-      else if (isMouseDown) stateLabel = `HOLD (${holdTimer.toFixed(1)}s)`;
+      else if (isHoldCharging) stateLabel = `HOLD (${holdTimer.toFixed(1)}s)`;
+      else if (draggedCluster) stateLabel = 'DRAGGING PLEXUS';
+      else if (draggedOrb) stateLabel = 'DRAGGING ORB';
       else if (activeDockingNetworks.length > 0) stateLabel = 'DOCK-NET ACTIVE';
 
       telemetry.textContent = `DOCK: ${totalAttachedPlexus}/6 · FPS: ${fps} · ${stateLabel}`;
