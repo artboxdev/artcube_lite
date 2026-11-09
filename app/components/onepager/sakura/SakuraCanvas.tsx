@@ -1224,6 +1224,178 @@ class ImmersiveStroke {
   }
 }
 
+// ==========================================
+// ARTISTIC IMPULSES HELPER CLASSES & SYSTEM
+// ==========================================
+
+function createVeilParticleTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 32;
+  c.height = 32;
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 15);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+    grad.addColorStop(0.28, 'rgba(255, 205, 240, 0.7)');
+    grad.addColorStop(0.60, 'rgba(217, 70, 239, 0.22)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 32, 32);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const TRUNK_SAMPLES = 200;
+const trunkSamplePositions: THREE.Vector3[] = [];
+const trunkSampleTangents: THREE.Vector3[] = [];
+const trunkSampleNormals: THREE.Vector3[] = [];
+const trunkSampleBinormals: THREE.Vector3[] = [];
+
+function precalculateTrunkSpline(curve: THREE.CatmullRomCurve3) {
+  trunkSamplePositions.length = 0;
+  trunkSampleTangents.length = 0;
+  trunkSampleNormals.length = 0;
+  trunkSampleBinormals.length = 0;
+
+  for (let i = 0; i <= TRUNK_SAMPLES; i++) {
+    const t = i / TRUNK_SAMPLES;
+    const pt = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).normalize();
+
+    let up = new THREE.Vector3(0, 0, 1);
+    let normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+    if (normal.lengthSq() < 0.001) {
+      up.set(0, 1, 0);
+      normal.crossVectors(tangent, up).normalize();
+    }
+    const binormal = new THREE.Vector3().crossVectors(tangent, normal).normalize();
+
+    trunkSamplePositions.push(pt);
+    trunkSampleTangents.push(tangent);
+    trunkSampleNormals.push(normal);
+    trunkSampleBinormals.push(binormal);
+  }
+}
+
+function getTrunkFrame(t: number, outPos: THREE.Vector3, outNormal: THREE.Vector3, outBinormal: THREE.Vector3) {
+  const clampedT = Math.max(0, Math.min(1, t));
+  const idxF = clampedT * TRUNK_SAMPLES;
+  const idx0 = Math.floor(idxF);
+  const idx1 = Math.min(TRUNK_SAMPLES, idx0 + 1);
+  const frac = idxF - idx0;
+
+  const p0 = trunkSamplePositions[idx0] || (trunkSamplePositions.length > 0 ? trunkSamplePositions[0] : new THREE.Vector3());
+  const p1 = trunkSamplePositions[idx1] || p0;
+  outPos.lerpVectors(p0, p1, frac);
+
+  const n0 = trunkSampleNormals[idx0] || new THREE.Vector3(0, 1, 0);
+  const n1 = trunkSampleNormals[idx1] || n0;
+  outNormal.lerpVectors(n0, n1, frac).normalize();
+
+  const b0 = trunkSampleBinormals[idx0] || new THREE.Vector3(0, 0, 1);
+  const b1 = trunkSampleBinormals[idx1] || b0;
+  outBinormal.lerpVectors(b0, b1, frac).normalize();
+}
+
+class SumiEBlossomCluster {
+  basePos: THREE.Vector3;
+  group: THREE.Group;
+  strokes: ImmersiveStroke[] = [];
+  coreMesh: THREE.Mesh;
+  isExploding = false;
+  hasDispersed = false;
+  explosionTimer = 0.0;
+
+  constructor(centerPos: THREE.Vector3, parentGroup: THREE.Group) {
+    this.basePos = centerPos.clone();
+    this.group = new THREE.Group();
+    this.group.position.copy(this.basePos);
+    parentGroup.add(this.group);
+
+    const pinkHexList = [0xff80df, 0xff2a9d, 0xffb3ec, 0xffaae6, 0xff77dd];
+    const numLayerStrokes = 3 + Math.floor(Math.random() * 2);
+
+    for (let s = 0; s < numLayerStrokes; s++) {
+      const strokeColor = pinkHexList[(s + Math.floor(Math.random() * pinkHexList.length)) % pinkHexList.length];
+      const clusterRadius = 0.40 + Math.random() * 0.20;
+      const baseAngle = (s * Math.PI * 2.0) / numLayerStrokes + (Math.random() - 0.5) * 0.45;
+      const pts: THREE.Vector3[] = [];
+
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24;
+        const angle = baseAngle + t * Math.PI * (1.2 + Math.random() * 0.4);
+        const r = clusterRadius * (0.6 + 0.4 * Math.sin(t * Math.PI * 2.0 + s));
+        pts.push(new THREE.Vector3(
+          Math.cos(angle) * r,
+          Math.sin(angle) * r,
+          (Math.random() - 0.5) * 0.12
+        ));
+      }
+
+      const clusterCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+      const strokeMesh = new ImmersiveStroke(this.group, 0.30 + Math.random() * 0.14, 2, strokeColor);
+
+      const spacedPts = clusterCurve.getSpacedPoints(35);
+      for (let i = 0; i <= 35; i++) {
+        const t = i / 35;
+        strokeMesh.addPoint(spacedPts[i], 0.6 + 0.8 * Math.sin(t * Math.PI));
+      }
+
+      strokeMesh.setProgress(0.0);
+      strokeMesh.setAlpha(0.0);
+      this.strokes.push(strokeMesh);
+    }
+
+    const coreGeom = new THREE.PlaneGeometry(1.6, 1.6);
+    const coreMat = new THREE.ShaderMaterial({
+      vertexShader: orbMeshVertexShader,
+      fragmentShader: sakuraOrbFragmentShader,
+      uniforms: {
+        uAlpha: { value: 0.0 },
+        uTime: { value: 0.0 },
+        uColor: { value: new THREE.Color(0xffb5dc) }
+      },
+      transparent: true,
+      depthWrite: false
+    });
+    this.coreMesh = new THREE.Mesh(coreGeom, coreMat);
+    this.coreMesh.position.set(0, 0, 0.05);
+    this.group.add(this.coreMesh);
+  }
+
+  setGrowthProgress(prog: number) {
+    this.strokes.forEach(s => s.setProgress(Math.max(0.0, Math.min(1.0, prog))));
+  }
+
+  setAlpha(alpha: number) {
+    this.strokes.forEach(s => s.setAlpha(alpha));
+    (this.coreMesh.material as THREE.ShaderMaterial).uniforms.uAlpha.value = alpha * 0.85;
+  }
+
+  setTime(t: number) {
+    this.strokes.forEach(s => s.setTime(t));
+    (this.coreMesh.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
+  }
+
+  setScale(scale: number) {
+    this.group.scale.setScalar(scale);
+  }
+
+  dispose() {
+    this.strokes.forEach(s => {
+      s.geometry.dispose();
+      s.material.dispose();
+    });
+    this.coreMesh.geometry.dispose();
+    (this.coreMesh.material as THREE.ShaderMaterial).dispose();
+    if (this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
+  }
+}
+
 class OrbNode {
   id: string;
   branchIndex: number = 0;
@@ -1525,6 +1697,7 @@ export function SakuraCanvas({
   const onPeerPlexusOrbMoveRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
   const onPeerPlexusOrbReleaseRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
   const onPeerPlexusFinaleTriggerRef = useRef<((timestamp?: number) => void) | null>(null);
+  const triggerBlossomImpulseRef = useRef<(() => void) | null>(null);
 
   const displayUser1Name = isHost ? (myName || 'Host') : (peerName || remoteUser1Name || 'Host');
   const displayUser2Name = isHost ? (peerName || remoteUser2Name || 'Gast') : (myName || 'Gast');
@@ -2364,9 +2537,11 @@ export function SakuraCanvas({
     const strokeGroup = new THREE.Group();
     const orbGroup = new THREE.Group();
     const petalGroup = new THREE.Group();
+    const impulseBlossomGroup = new THREE.Group();
     blutenSceneGroup.add(strokeGroup);
     blutenSceneGroup.add(orbGroup);
     blutenSceneGroup.add(petalGroup);
+    blutenSceneGroup.add(impulseBlossomGroup);
 
     // Mouse Tracking Vectors
     const mouseScreen = new THREE.Vector2(0.5, 0.5);
@@ -2487,6 +2662,143 @@ export function SakuraCanvas({
     let isTrunkGrowthFinished = false;
     let growthProgressVal = 0.0;
     const growthDurationSeconds = 6.0;
+
+    // Precalculate Spline Frenet Frame for Impuls 1
+    precalculateTrunkSpline(trunkCurve);
+
+    // Impuls 1: 4,500 Veil Micro-Particles Setup
+    const VEIL_PARTICLE_COUNT = 4500;
+    const veilPositions = new Float32Array(VEIL_PARTICLE_COUNT * 3);
+    const veilColors = new Float32Array(VEIL_PARTICLE_COUNT * 3);
+    const veilT = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilRadius = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilAngle = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilSpeed = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilWanderPhase = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilTurbAmp = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilOriginX = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilOriginY = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilOriginZ = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilCurlSeed = new Float32Array(VEIL_PARTICLE_COUNT);
+    const veilSwirlDir = new Float32Array(VEIL_PARTICLE_COUNT);
+
+    const veilGeom = new THREE.BufferGeometry();
+    veilGeom.setAttribute('position', new THREE.BufferAttribute(veilPositions, 3));
+    veilGeom.setAttribute('color', new THREE.BufferAttribute(veilColors, 3));
+
+    const veilMat = new THREE.PointsMaterial({
+      size: 0.16,
+      map: createVeilParticleTexture(),
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true
+    });
+    const veilPointsMesh = new THREE.Points(veilGeom, veilMat);
+    blutenSceneGroup.add(veilPointsMesh);
+
+    let veilArrangementTimer = 0.0;
+    const VEIL_ARRANGE_DURATION = 3.0; // 3.0s diffuse swirl onto trunk trajectory
+
+    const initVeilParticles = () => {
+      const streamColors = [
+        new THREE.Color(0xffffff),
+        new THREE.Color(0xffd4f2),
+        new THREE.Color(0xff99dd),
+        new THREE.Color(0xf472b6),
+        new THREE.Color(0xffe4f7)
+      ];
+
+      const tempPos = new THREE.Vector3();
+      const tempNormal = new THREE.Vector3();
+      const tempBinormal = new THREE.Vector3();
+
+      for (let i = 0; i < VEIL_PARTICLE_COUNT; i++) {
+        const tVal = Math.pow(i / VEIL_PARTICLE_COUNT, 0.95);
+        veilT[i] = tVal;
+
+        const taper = 1.0 - tVal * 0.55;
+        const rad = (0.12 + Math.pow(Math.random(), 1.6) * 0.95) * taper;
+        veilRadius[i] = rad;
+
+        veilAngle[i] = Math.random() * Math.PI * 2.0;
+        veilSpeed[i] = 0.08 + Math.random() * 0.12;
+        veilWanderPhase[i] = Math.random() * Math.PI * 2.0;
+        veilTurbAmp[i] = 0.04 + Math.random() * 0.08;
+        veilCurlSeed[i] = Math.random() * 60.0;
+        veilSwirlDir[i] = Math.random() > 0.5 ? 1 : -1;
+
+        getTrunkFrame(tVal, tempPos, tempNormal, tempBinormal);
+
+        const scatterDist = 7.0 + Math.random() * 14.0;
+        const scatterAngle = Math.random() * Math.PI * 2.0;
+        veilOriginX[i] = tempPos.x + Math.cos(scatterAngle) * scatterDist + (Math.random() - 0.5) * 5.0;
+        veilOriginY[i] = tempPos.y + Math.sin(scatterAngle) * scatterDist + (Math.random() - 0.5) * 5.0;
+        veilOriginZ[i] = tempPos.z + (Math.random() - 0.5) * 6.0;
+
+        const i3 = i * 3;
+        veilPositions[i3] = veilOriginX[i];
+        veilPositions[i3 + 1] = veilOriginY[i];
+        veilPositions[i3 + 2] = veilOriginZ[i];
+
+        const col = streamColors[i % streamColors.length];
+        veilColors[i3] = col.r;
+        veilColors[i3 + 1] = col.g;
+        veilColors[i3 + 2] = col.b;
+      }
+      veilGeom.attributes.position.needsUpdate = true;
+      veilGeom.attributes.color.needsUpdate = true;
+      veilMat.opacity = 0.0;
+    };
+    initVeilParticles();
+
+    // Impuls 2: 8 Sumi-E Blossom Clusters (5.0s Lifecycle before Blossom Phase)
+    let impulseBlossoms: SumiEBlossomCluster[] = [];
+    interface SporeDustItem {
+      mesh: THREE.Mesh;
+      vel: THREE.Vector3;
+      life: number;
+      maxLife: number;
+    }
+    const impulseSporeDust: SporeDustItem[] = [];
+    let isImpulseBlossomActive = false;
+    let impulseBlossomTimer = 0.0;
+    const IMPULSE_BLOSSOM_DURATION = 5.0;
+
+    const triggerSumiBlossomImpulse = () => {
+      isImpulseBlossomActive = true;
+      impulseBlossomTimer = 0.0;
+
+      impulseBlossoms.forEach(b => b.dispose());
+      impulseBlossoms = [];
+      while (impulseBlossomGroup.children.length > 0) {
+        impulseBlossomGroup.remove(impulseBlossomGroup.children[0]);
+      }
+      impulseSporeDust.forEach(s => {
+        if (s.mesh.parent) s.mesh.parent.remove(s.mesh);
+        s.mesh.geometry.dispose();
+        (s.mesh.material as THREE.Material).dispose();
+      });
+      impulseSporeDust.length = 0;
+
+      const branchPool = allBranches.length > 0 ? allBranches : [{ curve: trunkCurve, stroke: mainTrunkStroke, level: 0, totalLength: trunkCurve.getLength() }];
+      const tDistribution = [0.22, 0.42, 0.64, 0.85, 0.33, 0.58, 0.77, 0.92];
+
+      for (let i = 0; i < 8; i++) {
+        const br = branchPool[i % branchPool.length];
+        const t = tDistribution[i % tDistribution.length];
+        const pt = br.curve.getPoint(t);
+        const blossom = new SumiEBlossomCluster(pt, impulseBlossomGroup);
+        impulseBlossoms.push(blossom);
+      }
+    };
+    triggerBlossomImpulseRef.current = triggerSumiBlossomImpulse;
+
+    // Impuls 3: Subtle Camera Zoom on Circle Gesture Tracking
+    let cameraZoomMultiplier = 1.0;
+    let targetCameraZoomMultiplier = 1.0;
 
     // Sumi-e Step-by-Step Round Lifecycle Timers
     const ROUND_ACTIVE_TIME_DEFAULT = 5.0; // 5.0s active interaction window for user
@@ -2675,6 +2987,7 @@ export function SakuraCanvas({
       if (activeModeRef.current !== 'bluten') return;
       if (currentPhaseName !== 'AWAIT_VORTEX' && currentPhaseName !== 'DONE') return;
       if (fullVortexHoldTimer >= 0.0) return;
+      targetCameraZoomMultiplier = 1.0;
 
       if (shouldBroadcast) {
         if (channelRef.current) {
@@ -4580,6 +4893,9 @@ export function SakuraCanvas({
         e.preventDefault();
       }
       isMouseDown = true;
+      if (activeModeRef.current === 'bluten' && (currentPhaseName === 'AWAIT_VORTEX' || currentPhaseName === 'DONE') && fullVortexHoldTimer < 0.0) {
+        targetCameraZoomMultiplier = 1.07;
+      }
 
       // Ensure audio playback unlocks seamlessly on user gesture if browser blocked autoplay
       if (isRunningRef.current && audioRef.current && audioRef.current.paused && !isPausedRef.current && !isAudioMutedRef.current) {
@@ -4775,6 +5091,7 @@ export function SakuraCanvas({
         }
       }
       isMouseDown = false;
+      targetCameraZoomMultiplier = 1.0;
       draggedPlexusCluster = null;
       draggedOrb = null;
     };
@@ -4812,6 +5129,23 @@ export function SakuraCanvas({
       growingBlossomClusters.length = 0;
       persistentBlossomStrokes.length = 0;
       allBranches.length = 0;
+
+      // Reset Artistic Impulses State
+      veilArrangementTimer = 0.0;
+      initVeilParticles();
+      isImpulseBlossomActive = false;
+      impulseBlossomTimer = 0.0;
+      impulseBlossoms.forEach(b => b.dispose());
+      impulseBlossoms = [];
+      impulseSporeDust.forEach(s => {
+        if (s.mesh.parent) s.mesh.parent.remove(s.mesh);
+        s.mesh.geometry.dispose();
+        (s.mesh.material as THREE.Material).dispose();
+      });
+      impulseSporeDust.length = 0;
+      cameraZoomMultiplier = 1.0;
+      targetCameraZoomMultiplier = 1.0;
+      if (bgUniforms.uBgDim) bgUniforms.uBgDim.value = 1.0;
 
       // Reset Plexus State
       activePlexusClusters.length = 0;
@@ -4868,6 +5202,8 @@ export function SakuraCanvas({
 
         isTrunkGrowthFinished = false;
         growthProgressVal = 0.0;
+        veilArrangementTimer = 0.0;
+        initVeilParticles();
         setIsTrunkGrowing(true);
         roundState = 'IDLE';
         roundTimer = 0.0;
@@ -4957,6 +5293,13 @@ export function SakuraCanvas({
       const modeFadeAlpha = THREE.MathUtils.smoothstep(modeTransitionTimerRef.current, 0.0, 1.0);
 
       if (showBlüten) {
+        // Impuls 3: Smooth camera zoom interpolation on circle gesture
+        if (Math.abs(cameraZoomMultiplier - targetCameraZoomMultiplier) > 0.0005) {
+          cameraZoomMultiplier += (targetCameraZoomMultiplier - cameraZoomMultiplier) * (delta * 4.5);
+          camera.fov = 45 / cameraZoomMultiplier;
+          camera.updateProjectionMatrix();
+        }
+
         mainTrunkStroke.setTime(totalAnimTime);
         mainTrunkStroke.setAlpha(modeFadeAlpha);
         allBranches.forEach(b => {
@@ -4968,16 +5311,89 @@ export function SakuraCanvas({
           s.setAlpha(modeFadeAlpha);
         });
 
-        // Step-by-Step Trunk Growth Animation (0.0 -> 1.0 over 6 seconds)
+        // Step-by-Step Trunk Growth Animation (3.0s Veil Arrangement + 6.0s Trunk Growth = 9.0s total)
         if (!isTrunkGrowthFinished) {
-          growthProgressVal += delta / growthDurationSeconds;
-          if (growthProgressVal >= 1.0) {
-            growthProgressVal = 1.0;
-            isTrunkGrowthFinished = true;
-            setIsTrunkGrowing(false);
-            trunkPostDelayTimer = 0.0;
+          const tempPos = new THREE.Vector3();
+          const tempNormal = new THREE.Vector3();
+          const tempBinormal = new THREE.Vector3();
+
+          if (veilArrangementTimer < VEIL_ARRANGE_DURATION) {
+            // Phase A: 3.0s diffuse particle swirl onto the session's individual trunk trajectory
+            veilArrangementTimer += delta;
+            const arrangeP = Math.min(1.0, veilArrangementTimer / VEIL_ARRANGE_DURATION);
+            const smoothP = arrangeP * arrangeP * (3.0 - 2.0 * arrangeP);
+            const remain = 1.0 - smoothP;
+
+            if (bgUniforms.uBgDim) {
+              bgUniforms.uBgDim.value = THREE.MathUtils.lerp(1.0, 0.88, arrangeP);
+            }
+            veilMat.opacity = Math.min(1.0, veilArrangementTimer / 1.0) * 0.92;
+            mainTrunkStroke.setProgress(0.0);
+
+            for (let i = 0; i < VEIL_PARTICLE_COUNT; i++) {
+              getTrunkFrame(veilT[i], tempPos, tempNormal, tempBinormal);
+
+              const cosA = Math.cos(veilAngle[i] + veilArrangementTimer * 0.7);
+              const sinA = Math.sin(veilAngle[i] + veilArrangementTimer * 0.7);
+              const targetX = tempPos.x + (tempNormal.x * cosA + tempBinormal.x * sinA) * veilRadius[i];
+              const targetY = tempPos.y + (tempNormal.y * cosA + tempBinormal.y * sinA) * veilRadius[i];
+              const targetZ = tempPos.z + (tempNormal.z * cosA + tempBinormal.z * sinA) * veilRadius[i];
+
+              const swirlAngle = veilArrangementTimer * 2.2 * veilSwirlDir[i] + veilCurlSeed[i];
+              const swirlOffset = remain * (3.6 + Math.sin(veilArrangementTimer * 3.0 + veilCurlSeed[i]) * 1.4);
+
+              const i3 = i * 3;
+              veilPositions[i3] = THREE.MathUtils.lerp(veilOriginX[i], targetX, smoothP) + Math.cos(swirlAngle) * swirlOffset;
+              veilPositions[i3 + 1] = THREE.MathUtils.lerp(veilOriginY[i], targetY, smoothP) + Math.sin(swirlAngle) * swirlOffset;
+              veilPositions[i3 + 2] = THREE.MathUtils.lerp(veilOriginZ[i], targetZ, smoothP) + Math.sin(swirlAngle * 1.3) * (swirlOffset * 0.4);
+            }
+            veilGeom.attributes.position.needsUpdate = true;
+          } else {
+            // Phase B: 6.0s authentic trunk growth with tip condensation & behind-tip absorption
+            growthProgressVal += delta / growthDurationSeconds;
+            if (growthProgressVal >= 1.0) {
+              growthProgressVal = 1.0;
+              isTrunkGrowthFinished = true;
+              setIsTrunkGrowing(false);
+              trunkPostDelayTimer = 0.0;
+              veilMat.opacity = 0.0;
+              if (bgUniforms.uBgDim) bgUniforms.uBgDim.value = 1.0;
+            } else {
+              if (growthProgressVal > 0.85) {
+                const restP = (growthProgressVal - 0.85) / 0.15;
+                if (bgUniforms.uBgDim) bgUniforms.uBgDim.value = THREE.MathUtils.lerp(0.88, 1.0, restP);
+                veilMat.opacity = (1.0 - restP) * 0.92;
+              } else {
+                veilMat.opacity = 0.92;
+              }
+
+              const growthTime = (growthProgressVal * growthDurationSeconds);
+              for (let i = 0; i < VEIL_PARTICLE_COUNT; i++) {
+                const curT = (veilT[i] + growthTime * veilSpeed[i] * 0.08) % 1.0;
+                getTrunkFrame(curT, tempPos, tempNormal, tempBinormal);
+
+                let condensation = 1.0;
+                if (curT < growthProgressVal - 0.04) {
+                  condensation = Math.max(0.0, 1.0 - (growthProgressVal - curT) * 6.0);
+                } else if (Math.abs(curT - growthProgressVal) < 0.05) {
+                  condensation = 1.6;
+                }
+
+                const turb = Math.sin((veilArrangementTimer + growthTime) * 3.2 + veilWanderPhase[i]) * veilTurbAmp[i];
+                const rad = Math.max(0.01, veilRadius[i] * condensation + turb);
+                const angle = veilAngle[i] + (veilArrangementTimer + growthTime) * 0.4;
+                const cosA = Math.cos(angle);
+                const sinA = Math.sin(angle);
+
+                const i3 = i * 3;
+                veilPositions[i3] = tempPos.x + (tempNormal.x * cosA + tempBinormal.x * sinA) * rad;
+                veilPositions[i3 + 1] = tempPos.y + (tempNormal.y * cosA + tempBinormal.y * sinA) * rad;
+                veilPositions[i3 + 2] = tempPos.z + (tempNormal.z * cosA + tempBinormal.z * sinA) * rad;
+              }
+              veilGeom.attributes.position.needsUpdate = true;
+            }
+            mainTrunkStroke.setProgress(growthProgressVal);
           }
-          mainTrunkStroke.setProgress(growthProgressVal);
         } else if (roundState === 'IDLE' && fullVortexHoldTimer < 0.0 && currentPhaseName === 'BRANCH' && activeOrbs.length === 0) {
           trunkPostDelayTimer += delta;
           if (trunkPostDelayTimer >= TRUNK_POST_DELAY) {
@@ -4985,6 +5401,111 @@ export function SakuraCanvas({
               spawnOrbRound(1, 'BRANCH');
               showToastRef.current?.('Astphase gestartet — Klicke die Knotenpunkte!');
             }
+          }
+        }
+
+        // Impuls 2: 8 Sumi-E Blossom Clusters & Spores Lifecycle (5.0s)
+        if (isImpulseBlossomActive) {
+          impulseBlossomTimer += delta;
+          const swayTime = totalAnimTime;
+
+          impulseBlossoms.forEach(blossom => {
+            blossom.setTime(impulseBlossomTimer);
+
+            // Synchronous wind sway matching tree
+            const normX = Math.max(0.0, Math.min(1.0, (blossom.basePos.x + 11.5) / 20.0));
+            const mainSway = Math.sin(swayTime * 1.25) * 0.38;
+            const subSway = Math.sin(swayTime * 0.60) * 0.14;
+            blossom.group.position.y = blossom.basePos.y + (mainSway + subSway) * normX;
+
+            if (impulseBlossomTimer < 2.0) {
+              // Phase 1: Calligraphy growth (0.0s - 0.55s), then breathing
+              const growProg = Math.min(1.0, impulseBlossomTimer / 0.55);
+              blossom.setGrowthProgress(growProg);
+              const alphaProg = Math.min(1.0, impulseBlossomTimer / 0.45);
+              blossom.setAlpha(alphaProg);
+              const pulse = 1.0 + Math.sin(impulseBlossomTimer * 3.5) * 0.06;
+              blossom.setScale(pulse);
+            } else if (!blossom.hasDispersed) {
+              // Phase 2: Blossom expands and dissolves into Sakura pink spores (2.0s - 3.6s)
+              if (!blossom.isExploding) {
+                blossom.isExploding = true;
+                blossom.explosionTimer = 0.0;
+              }
+              blossom.explosionTimer += delta;
+              const expT = Math.min(1.0, blossom.explosionTimer / 0.45);
+              const easeOut = 1.0 - Math.pow(1.0 - expT, 3.0);
+              blossom.setScale(1.0 + easeOut * 1.7);
+              blossom.setAlpha((1.0 - expT) * 0.95);
+
+              if (expT >= 1.0) {
+                blossom.hasDispersed = true;
+                blossom.group.visible = false;
+
+                // Spawn 32 pure Sakura pink spores per blossom (256 total)
+                const dustGeom = new THREE.SphereGeometry(0.09, 8, 8);
+                const sakuraSporeColors = [
+                  new THREE.Color(0xff80df),
+                  new THREE.Color(0xff2a9d),
+                  new THREE.Color(0xffb5dc),
+                  new THREE.Color(0xffaae6),
+                  new THREE.Color(0xff77dd)
+                ];
+
+                for (let d = 0; d < 32; d++) {
+                  const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 3.6,
+                    0.4 + Math.random() * 3.2,
+                    (Math.random() - 0.5) * 3.0
+                  );
+                  const pCol = sakuraSporeColors[Math.floor(Math.random() * sakuraSporeColors.length)];
+                  const dMat = new THREE.MeshBasicMaterial({ color: pCol, transparent: true, opacity: 0.95 });
+                  const dMesh = new THREE.Mesh(dustGeom, dMat);
+                  dMesh.position.copy(blossom.group.position);
+                  impulseBlossomGroup.add(dMesh);
+
+                  impulseSporeDust.push({
+                    mesh: dMesh,
+                    vel: vel,
+                    life: 2.2 + Math.random() * 0.6,
+                    maxLife: 2.8
+                  });
+                }
+              }
+            }
+          });
+
+          // Spore physics update
+          for (let sIdx = impulseSporeDust.length - 1; sIdx >= 0; sIdx--) {
+            const sp = impulseSporeDust[sIdx];
+            sp.life -= delta;
+            sp.mesh.position.addScaledVector(sp.vel, delta);
+            sp.vel.y += delta * 0.28;
+            sp.vel.x += Math.sin(sp.life * 4.0) * delta * 0.45;
+            sp.mesh.scale.setScalar(Math.max(0.01, sp.life / sp.maxLife));
+            (sp.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0.0, sp.life / sp.maxLife);
+
+            if (sp.life <= 0) {
+              if (sp.mesh.parent) sp.mesh.parent.remove(sp.mesh);
+              sp.mesh.geometry.dispose();
+              (sp.mesh.material as THREE.Material).dispose();
+              impulseSporeDust.splice(sIdx, 1);
+            }
+          }
+
+          // Phase 3: Reveal palette at 3.6s
+          if (impulseBlossomTimer > 3.6 && currentPhaseRef.current !== 'BLOSSOM') {
+            currentPhaseRef.current = 'BLOSSOM';
+            setCurrentPhase('BLOSSOM');
+          }
+
+          // Complete at 5.0s -> Spawn first blossom orb round
+          if (impulseBlossomTimer >= IMPULSE_BLOSSOM_DURATION) {
+            isImpulseBlossomActive = false;
+            impulseBlossoms.forEach(b => b.dispose());
+            impulseBlossoms = [];
+            spawnOrbRound(1, 'BLOSSOM');
+            showToastRef.current?.('Blütenphase gestartet! Wähle deine Wunschfarbe.');
           }
         }
 
@@ -5215,8 +5736,13 @@ export function SakuraCanvas({
                   }
                 } else {
                   if (currentPhaseName === 'BRANCH') {
-                    spawnOrbRound(1, 'BLOSSOM');
-                    showToastRef.current?.('Blütenphase gestartet! Wähle deine Wunschfarbe.');
+                    roundState = 'IDLE';
+                    triggerSumiBlossomImpulse();
+                    showToastRef.current?.('Tusche-Impuls: Sakurablüten erwachen...');
+                    if (isHostRef.current) {
+                      sendInteractionRef.current?.('SAKURA_IMPULSE_BLOSSOM', {});
+                      channelRef.current?.postMessage({ type: 'SAKURA_IMPULSE_BLOSSOM' });
+                    }
                   } else if (currentPhaseName === 'BLOSSOM') {
                     roundState = 'IDLE';
                     startFlyingPetalsIfNeeded();
@@ -6241,6 +6767,8 @@ export function SakuraCanvas({
           }
         } else if (msg.kind === 'SUMIE_VORTEX_CIRCLE') {
           triggerCircleFromUserRef.current?.(remoteIdx, false);
+        } else if (msg.kind === 'SAKURA_IMPULSE_BLOSSOM' || msg.type === 'SAKURA_IMPULSE_BLOSSOM') {
+          triggerBlossomImpulseRef.current?.();
         } else if (msg.kind === 'RESTART_ARTWORK') {
           colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
           setSelectedColor('pink');
@@ -6292,6 +6820,14 @@ export function SakuraCanvas({
       plexusFinaleGeo.dispose();
       plexusFinaleMat.dispose();
       noiseTex.dispose();
+      veilGeom.dispose();
+      veilMat.dispose();
+      impulseBlossoms.forEach(b => b.dispose());
+      impulseSporeDust.forEach(s => {
+        if (s.mesh.parent) s.mesh.parent.remove(s.mesh);
+        s.mesh.geometry.dispose();
+        (s.mesh.material as THREE.Material).dispose();
+      });
       floatingPlexusOrbs.forEach(orb => orb.destroy());
     };
   }, []);
