@@ -3574,7 +3574,17 @@ export function SakuraCanvas({
       r: number;
       g: number;
       b: number;
+      age?: number;
+      fadeInDuration?: number;
     }
+
+    const SAKURA_HOLD_PALETTE = [
+      { r: 1.0, g: 0.15, b: 0.55 },
+      { r: 1.0, g: 0.35, b: 0.72 },
+      { r: 0.98, g: 0.55, b: 0.82 },
+      { r: 1.0, g: 0.78, b: 0.90 },
+      { r: 1.0, g: 0.95, b: 0.98 }
+    ];
 
     // 4 Draggable Plexus Orbs in 4 quadrants with harmonic floating
     const PLEXUS_4_ORB_CONFIGS: {
@@ -3606,6 +3616,23 @@ export function SakuraCanvas({
       isDragged = false;
       isRemoteDragged = false;
       hasBeenPlaced = false;
+      hasBeenMovedByUser = false;
+      formationOffsetX = 0;
+      formationOffsetY = 0;
+      flightCenterX = 0;
+      flightCenterY = 0;
+      flightFreqX1 = 0.6;
+      flightFreqX2 = 1.2;
+      flightPhaseX = 0;
+      flightAmpX = 135.0;
+      flightFreqY1 = 0.5;
+      flightFreqY2 = 1.1;
+      flightPhaseY = 0;
+      flightAmpY = 85.0;
+      flightFreqZ1 = 0.42;
+      flightFreqZ2 = 0.88;
+      flightPhaseZ = 0;
+      flightAmpZ = 50.0;
       restX = 0;
       restY = 0;
       dragTargetX = 0;
@@ -3655,6 +3682,16 @@ export function SakuraCanvas({
         this.orbitRy = cfg.orbitRy;
         this.speed = cfg.speed;
         this.phase = cfg.phase;
+
+        const formationOffsets = [
+          { x: -58.0, y: 58.0 },
+          { x: 58.0, y: 58.0 },
+          { x: -58.0, y: -58.0 },
+          { x: 58.0, y: -58.0 }
+        ];
+        const fOffset = formationOffsets[this.orbIndex] || { x: 0, y: 0 };
+        this.formationOffsetX = fOffset.x;
+        this.formationOffsetY = fOffset.y;
 
         this.orbitAngle = this.phase;
         this.x = this.homeX + Math.cos(this.orbitAngle) * this.orbitRx;
@@ -3867,7 +3904,38 @@ export function SakuraCanvas({
         this.impulseTimer = 0.0;
       }
 
-      update(delta: number, time: number, isFinale: boolean, finaleTimer: number, camera?: THREE.Camera | null, modeFadeAlpha = 1.0) {
+      initFinaleFlight(index: number, totalCount: number) {
+        const baseAngle = (index / Math.max(1, totalCount)) * Math.PI * 2;
+        this.flightCenterX = Math.cos(baseAngle) * (35.0 + Math.random() * 30.0);
+        this.flightCenterY = Math.sin(baseAngle) * (25.0 + Math.random() * 25.0);
+
+        this.flightFreqX1 = 0.50 + Math.random() * 0.35;
+        this.flightFreqX2 = 1.10 + Math.random() * 0.55;
+        this.flightPhaseX = Math.random() * Math.PI * 2;
+        this.flightAmpX = 135.0 + Math.random() * 45.0;
+
+        this.flightFreqY1 = 0.45 + Math.random() * 0.35;
+        this.flightFreqY2 = 1.00 + Math.random() * 0.50;
+        this.flightPhaseY = Math.random() * Math.PI * 2;
+        this.flightAmpY = 85.0 + Math.random() * 35.0;
+
+        this.flightFreqZ1 = 0.38 + Math.random() * 0.30;
+        this.flightFreqZ2 = 0.85 + Math.random() * 0.40;
+        this.flightPhaseZ = Math.random() * Math.PI * 2;
+        this.flightAmpZ = 50.0 + Math.random() * 25.0;
+      }
+
+      update(
+        delta: number,
+        time: number,
+        isFinale: boolean,
+        finaleTimer: number,
+        camera?: THREE.Camera | null,
+        modeFadeAlpha = 1.0,
+        isFormation = false,
+        flockX = 0,
+        flockY = 0
+      ) {
         this.internalTime += delta * 0.55;
         this.material.uniforms.uTime.value = this.internalTime;
 
@@ -3885,64 +3953,27 @@ export function SakuraCanvas({
         this.mesh.worldToLocal(localCam);
         this.material.uniforms.uLocalCamPos.value.copy(localCam);
 
-        if (isFinale) {
-          // Orbs ohne angedockte Plexus werden in der finalen Animation komplett ausgeblendet
-          if (this.attachedPlexusCount === 0) {
-            this.mesh.visible = false;
-            this.atmosphereMesh.visible = false;
-            if (this.starSprite) this.starSprite.visible = false;
-            if (this.trailRibbonMesh) this.trailRibbonMesh.visible = false;
-            this.material.uniforms.uAlpha.value = 0.0;
-            this.atmosphereMaterial.uniforms.uAlpha.value = 0.0;
-            return;
-          }
+        if (this.impulseCooldown > 0) {
+          this.impulseCooldown -= delta;
+        }
 
-          if (!this.hasCapturedPreFinale) {
-            this.preFinaleOrbitAngle = this.orbitAngle;
-            this.hasCapturedPreFinale = true;
-            // Initial organic velocity pointing toward center (+50% speed boost)
-            const angleToCenter = Math.atan2(-this.y, -this.x);
-            this.finaleVx = (Math.cos(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0) * 1.5;
-            this.finaleVy = (Math.sin(angleToCenter) * 35.0 + (Math.random() - 0.5) * 15.0) * 1.5;
-          }
+        if (isFinale && this.attachedPlexusCount > 0) {
+          // 1. Requirement: Randomisierte 3D-Flugbahnen mit moderatem Wandern auf der Z-Achse (Tiefe)
+          const t = finaleTimer;
+          const trajX = Math.sin(t * this.flightFreqX1 + this.flightPhaseX) * (this.flightAmpX * 0.65)
+                      + Math.sin(t * this.flightFreqX2 + this.flightPhaseX * 1.6) * (this.flightAmpX * 0.35);
+          const trajY = Math.cos(t * this.flightFreqY1 + this.flightPhaseY) * (this.flightAmpY * 0.65)
+                      + Math.sin(t * this.flightFreqY2 + this.flightPhaseY * 1.4) * (this.flightAmpY * 0.35);
+          const trajZ = Math.sin(t * this.flightFreqZ1 + this.flightPhaseZ) * (this.flightAmpZ * 0.70)
+                      + Math.cos(t * this.flightFreqZ2 + this.flightPhaseZ * 1.5) * (this.flightAmpZ * 0.30);
 
-          const BOUND_X = 105.0;
-          const BOUND_Y = 70.0;
+          const targetX = this.flightCenterX + trajX;
+          const targetY = this.flightCenterY + trajY;
+          const targetZ = trajZ;
 
-          if (this.inImpulse) {
-            // Position during active 1s impulse is coupled around impulse midpoint
-          } else {
-            this.impulseCooldown = Math.max(0.0, this.impulseCooldown - delta);
-
-            // Smooth physical wandering on random/organic paths in small center area (+50% velocity)
-            this.x += this.finaleVx * delta;
-            this.y += this.finaleVy * delta;
-            this.z = Math.sin(time * 2.0 + this.phase) * 8.0;
-
-            // Soft organic bounce off center boundaries
-            if (this.x > BOUND_X) { this.finaleVx = -Math.abs(this.finaleVx); this.x = BOUND_X; }
-            else if (this.x < -BOUND_X) { this.finaleVx = Math.abs(this.finaleVx); this.x = -BOUND_X; }
-            if (this.y > BOUND_Y) { this.finaleVy = -Math.abs(this.finaleVy); this.y = BOUND_Y; }
-            else if (this.y < -BOUND_Y) { this.finaleVy = Math.abs(this.finaleVy); this.y = -BOUND_Y; }
-
-            // Continuous organic curl acceleration (+50% speed boost)
-            this.finaleVx += Math.sin(time * 1.8 + this.phase) * 33.0 * delta;
-            this.finaleVy += Math.cos(time * 1.5 + this.phase * 1.3) * 33.0 * delta;
-
-            // Damping & speed clamping (+50% speed clamp range: 27.0 - 98.0)
-            this.finaleVx *= (1.0 - delta * 0.45);
-            this.finaleVy *= (1.0 - delta * 0.45);
-
-            const curSpeed = Math.hypot(this.finaleVx, this.finaleVy);
-            if (curSpeed > 98.0) {
-              this.finaleVx = (this.finaleVx / curSpeed) * 98.0;
-              this.finaleVy = (this.finaleVy / curSpeed) * 98.0;
-            } else if (curSpeed < 27.0) {
-              const ang = Math.random() * Math.PI * 2;
-              this.finaleVx += Math.cos(ang) * 30.0;
-              this.finaleVy += Math.sin(ang) * 30.0;
-            }
-          }
+          this.x = THREE.MathUtils.lerp(this.x, targetX, delta * 3.2);
+          this.y = THREE.MathUtils.lerp(this.y, targetY, delta * 3.2);
+          this.z = THREE.MathUtils.lerp(this.z, targetZ, delta * 3.2);
 
           this.material.uniforms.uAlpha.value = THREE.MathUtils.lerp(this.material.uniforms.uAlpha.value, 1.0 * modeFadeAlpha, 0.1);
           this.atmosphereMaterial.uniforms.uAlpha.value = 1.0 * modeFadeAlpha;
@@ -3977,7 +4008,6 @@ export function SakuraCanvas({
                 const samples = spline.getSpacedPoints(this.ribbonSamples - 1);
                 const rPositions = this.trailRibbonGeo.attributes.position.array as Float32Array;
                 const camPos = camera ? camera.position : { x: 0, y: 0, z: 540 };
-                // Dezenter Schweif: sanft proportionierte Anfangsbreite passend zum Orb-Radius
                 const BASE_RIBBON_WIDTH = (this.inImpulse ? 18.0 : 14.0);
 
                 for (let s = 0; s < this.ribbonSamples; s++) {
@@ -4020,6 +4050,15 @@ export function SakuraCanvas({
               }
             }
           }
+        } else if (isFinale) {
+          // Unbelegte Orbs in der finalen Animation ruhig ausblenden
+          this.mesh.visible = false;
+          this.atmosphereMesh.visible = false;
+          if (this.starSprite) this.starSprite.visible = false;
+          if (this.trailRibbonMesh) this.trailRibbonMesh.visible = false;
+          this.material.uniforms.uAlpha.value = 0.0;
+          this.atmosphereMaterial.uniforms.uAlpha.value = 0.0;
+          return;
         } else {
           if (this.trailRibbonMesh) this.trailRibbonMesh.visible = false;
           if (this.starSprite) this.starSprite.visible = false;
@@ -4049,6 +4088,22 @@ export function SakuraCanvas({
             this.hasBeenPlaced = true;
             this.restX = this.dragTargetX;
             this.restY = this.dragTargetY;
+          } else if (isFormation && this.attachedPlexusCount > 0) {
+            // Synchronous Flocking Formation (interconnected without overlapping)
+            const breath = Math.sin(time * 2.2 + this.orbIndex * 1.5) * 5.0;
+            const targetX = flockX + this.formationOffsetX + Math.cos(time * 1.5 + this.phase) * breath;
+            const targetY = flockY + this.formationOffsetY + Math.sin(time * 1.5 + this.phase) * breath;
+            this.x = THREE.MathUtils.lerp(this.x, targetX, delta * 3.2);
+            this.y = THREE.MathUtils.lerp(this.y, targetY, delta * 3.2);
+            this.z = Math.sin(time * 1.8 + this.phase) * 6.0;
+          } else if (totalAttachedPlexusCount >= 6 && this.attachedPlexusCount > 0) {
+            // Keiner der belegten Orbs bewegt sich von selbst ins Zentrum!
+            // Sie bleiben ortsfest am aktuellen Ort (sanftes Mikroschweben), bis der Nutzer sie bewegt.
+            const hoverX = Math.cos(time * 1.5 + this.phase) * 2.5;
+            const hoverY = Math.sin(time * 1.5 + this.phase) * 2.5;
+            this.x = this.restX + hoverX;
+            this.y = this.restY + hoverY;
+            this.z = Math.sin(time * 1.2 + this.phase) * 4.0;
           } else if (this.hasBeenPlaced) {
             // Orb stays stably at its placed resting position with subtle organic breathing hover
             const hoverWobble = Math.sin(time * 1.5 + this.phase) * 2.2;
@@ -4175,6 +4230,51 @@ export function SakuraCanvas({
       }
     }
 
+    class DockingNetworkInstance {
+      orb: FloatingPlexusOrbInstance;
+      age = 0.0;
+      duration = 2.0;
+      palette: { r: number; g: number; b: number }[];
+      nodes: {
+        angle: number;
+        spinSpeed: number;
+        targetR: number;
+        curR: number;
+        relZ: number;
+        color: { r: number; g: number; b: number };
+        strandPhase: number;
+      }[] = [];
+
+      constructor(orb: FloatingPlexusOrbInstance) {
+        this.orb = orb;
+        this.palette = SATURATED_PLEXUS_PALETTES[orb.id] || PALETTE_RGB_CACHE[orb.id];
+        const count = 72;
+        for (let i = 0; i < count; i++) {
+          const phi = (i / count) * Math.PI * 2 * 3.0;
+          const targetR = 40.0 + (i / count) * 135.0 + Math.random() * 25.0;
+          this.nodes.push({
+            angle: phi,
+            spinSpeed: (i % 2 === 0 ? 1.0 : -1.0) * (1.2 + Math.random() * 1.6),
+            targetR: targetR,
+            curR: 10.0,
+            relZ: (Math.random() - 0.5) * 45.0,
+            color: this.palette[i % this.palette.length],
+            strandPhase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      update(delta: number): boolean {
+        this.age += delta;
+        const progress = Math.min(1.0, this.age / this.duration);
+        this.nodes.forEach(n => {
+          n.curR = THREE.MathUtils.lerp(n.curR, n.targetR, delta * 3.5);
+          n.angle += n.spinSpeed * delta;
+        });
+        return progress < 1.0;
+      }
+    }
+
     const floatingPlexusOrbs: FloatingPlexusOrbInstance[] = [];
     PLEXUS_4_ORB_CONFIGS.forEach((cfg, idx) => {
       const orb = new FloatingPlexusOrbInstance(cfg, idx);
@@ -4194,6 +4294,13 @@ export function SakuraCanvas({
     let plexusOriginY = 0;
     let activeHoldNodes: PlexusNodeDef[] = [];
     let totalAttachedPlexusCount = 0;
+    let isPlexusFormationActive = false;
+    let plexusFormationTimer = 0.0;
+    const FORMATION_TO_FINALE_DELAY = 2.0;
+    let flockAngle = 0.0;
+    let flockCenterX = 0.0;
+    let flockCenterY = 0.0;
+    const activeDockingNetworks: DockingNetworkInstance[] = [];
     let isPlexusFinaleActive = false;
     let plexusFinaleStartTime = 0.0;
     let isPlexusCompleted = false;
@@ -4454,7 +4561,9 @@ export function SakuraCanvas({
         nodes: nodes,
         r: 1.0,
         g: 0.18,
-        b: 0.65
+        b: 0.65,
+        age: 0.0,
+        fadeInDuration: 0.75
       };
       activePlexusClusters.push(cluster);
       return cluster;
@@ -4475,6 +4584,7 @@ export function SakuraCanvas({
         }
         dockedOrb.triggerDockImpulse();
         dockedOrb.triggerDockWobble();
+        activeDockingNetworks.push(new DockingNetworkInstance(dockedOrb));
         totalAttachedPlexusCount++;
         setPlexusAttachedCount(totalAttachedPlexusCount);
         const occupiedCount = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0).length;
@@ -4489,6 +4599,7 @@ export function SakuraCanvas({
       const targetOrb = floatingPlexusOrbs.find(o => o.id === orbId);
       if (targetOrb) {
         targetOrb.isRemoteDragged = true;
+        targetOrb.hasBeenMovedByUser = true;
         targetOrb.dragTargetX = x;
         targetOrb.dragTargetY = y;
         checkPlexusFinaleTrigger(false);
@@ -4500,6 +4611,7 @@ export function SakuraCanvas({
       if (targetOrb) {
         targetOrb.isRemoteDragged = false;
         targetOrb.hasBeenPlaced = true;
+        targetOrb.hasBeenMovedByUser = true;
         targetOrb.dragTargetX = x;
         targetOrb.dragTargetY = y;
         targetOrb.restX = x;
@@ -4514,6 +4626,7 @@ export function SakuraCanvas({
       if (isPlexusFinaleActive || isPlexusCompleted) return;
       isPlexusFinaleActive = true;
       setIsPlexusFinale(true);
+      isPlexusFormationActive = false;
       setPlexusCenterPromptVisibleRef.current?.(false);
       plexusFinaleStartTime = totalAnimTime;
       isPlexusRippleActive = true;
@@ -4522,7 +4635,9 @@ export function SakuraCanvas({
       if (bgUniforms.uRippleTime) bgUniforms.uRippleTime.value = 0.0;
 
       activeImpulses.length = 0;
-      floatingPlexusOrbs.forEach(orb => {
+      const occupied = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0);
+      occupied.forEach((orb, idx) => {
+        orb.initFinaleFlight(idx, occupied.length);
         orb.finaleNetworkCount = 0;
         orb.inImpulse = false;
         orb.impulseCooldown = 0.0;
@@ -4561,13 +4676,34 @@ export function SakuraCanvas({
       const occupiedOrbs = floatingPlexusOrbs.filter(o => o.attachedPlexusCount >= 1);
       if (occupiedOrbs.length === 0) return false;
 
-      // Drop zone radius 88.0 in world coordinates at screen center (0, 0)
-      const CENTER_RADIUS = 88.0;
-      const allInside = occupiedOrbs.every(orb => Math.hypot(orb.x, orb.y) <= CENTER_RADIUS);
+      // Requirement: ALL occupied orbs must have been moved by user
+      const allMovedByUser = occupiedOrbs.every(o => o.hasBeenMovedByUser);
+      if (!allMovedByUser) {
+        return false;
+      }
 
-      if (allInside) {
-        occupiedOrbs.forEach(orb => orb.triggerDockWobble());
-        triggerPlexusFinale(shouldBroadcast);
+      // Check cluster radius around centroid
+      let cx = 0, cy = 0;
+      occupiedOrbs.forEach(o => { cx += o.x; cy += o.y; });
+      cx /= occupiedOrbs.length;
+      cy /= occupiedOrbs.length;
+
+      const maxDistToCentroid = Math.max(...occupiedOrbs.map(o => Math.hypot(o.x - cx, o.y - cy)));
+      const COLLAPSE_RADIUS = 110.0;
+
+      if (maxDistToCentroid < COLLAPSE_RADIUS) {
+        if (!isPlexusFormationActive) {
+          isPlexusFormationActive = true;
+          plexusFormationTimer = 0.0;
+          flockCenterX = cx;
+          flockCenterY = cy;
+          occupiedOrbs.forEach(orb => orb.triggerDockWobble());
+          showToastRef.current?.(
+            isEnRef.current
+              ? 'Orbs interconnected! Finale starting in 2s...'
+              : 'Orbs gekoppelt! Finale startet in 2s...'
+          );
+        }
         return true;
       }
 
@@ -4955,6 +5091,7 @@ export function SakuraCanvas({
         if (closestOrb) {
           draggedOrb = closestOrb;
           draggedOrb.isDragged = true;
+          draggedOrb.hasBeenMovedByUser = true;
           hasActivelyDraggedOrb = false;
           orbDragOffset.set(closestOrb.x - mouseWorld.x, closestOrb.y - mouseWorld.y);
           closestOrb.triggerHoverWobble();
@@ -4975,8 +5112,9 @@ export function SakuraCanvas({
           }
         }
 
-        // 3. If neither, start hold-down creation
-        if (!draggedPlexusCluster) {
+        // 3. If neither, start hold-down creation (only if fewer than 6 plexus in round!)
+        const totalPlexusInRound = totalAttachedPlexusCount + activePlexusClusters.length;
+        if (!draggedPlexusCluster && totalPlexusInRound < 6) {
           plexusHoldTime = 0.0;
           activeHoldNodes = generateRandomPlexusHoldNodes();
           plexusOriginX = mouseWorld.x;
@@ -5017,6 +5155,7 @@ export function SakuraCanvas({
         if (draggedOrb) {
           draggedOrb.isDragged = false;
           draggedOrb.hasBeenPlaced = true;
+          draggedOrb.hasBeenMovedByUser = true;
           draggedOrb.restX = draggedOrb.x;
           draggedOrb.restY = draggedOrb.y;
           const orbRelMsg = {
@@ -5049,6 +5188,7 @@ export function SakuraCanvas({
             dockedOrb.attachCluster(draggedPlexusCluster);
             dockedOrb.triggerDockImpulse();
             dockedOrb.triggerDockWobble();
+            activeDockingNetworks.push(new DockingNetworkInstance(dockedOrb));
             totalAttachedPlexusCount++;
             setPlexusAttachedCount(totalAttachedPlexusCount);
             const occupiedCount = floatingPlexusOrbs.filter(o => o.attachedPlexusCount > 0).length;
@@ -5150,6 +5290,9 @@ export function SakuraCanvas({
       // Reset Plexus State
       activePlexusClusters.length = 0;
       totalAttachedPlexusCount = 0;
+      isPlexusFormationActive = false;
+      plexusFormationTimer = 0.0;
+      activeDockingNetworks.length = 0;
       isPlexusFinaleActive = false;
       isPlexusCompleted = false;
       finaleParticles.length = 0;
@@ -5169,6 +5312,7 @@ export function SakuraCanvas({
         orb.isDragged = false;
         orb.isRemoteDragged = false;
         orb.hasBeenPlaced = false;
+        orb.hasBeenMovedByUser = false;
         orb.finaleNetworkCount = 0;
         orb.inImpulse = false;
         orb.impulseCooldown = 0.0;
@@ -5840,24 +5984,34 @@ export function SakuraCanvas({
           bgUniforms.uBgDim.value = THREE.MathUtils.lerp(bgUniforms.uBgDim.value, targetDim, delta * 2.0);
         }
 
+        if (isPlexusFormationActive) {
+          plexusFormationTimer += delta;
+          flockAngle += delta * 0.4;
+          flockCenterX += Math.cos(flockAngle) * delta * 15.0;
+          flockCenterY += Math.sin(flockAngle * 0.7) * delta * 12.0;
+
+          if (plexusFormationTimer >= FORMATION_TO_FINALE_DELAY) {
+            isPlexusFormationActive = false;
+            triggerPlexusFinale(true);
+          }
+        }
+
         floatingPlexusOrbs.forEach(orb => {
-          orb.update(delta, totalAnimTime, isPlexusFinaleActive, finaleAge, cameraRef.current, modeFadeAlpha);
+          orb.update(
+            delta,
+            totalAnimTime,
+            isPlexusFinaleActive,
+            finaleAge,
+            cameraRef.current,
+            modeFadeAlpha,
+            isPlexusFormationActive,
+            flockCenterX,
+            flockCenterY
+          );
         });
 
-        // Subtle Magenta Center Circle Drop Zone Update
-        const isCenterDropZoneActive = (activeModeRef.current === 'plexus') &&
-          totalAttachedPlexusCount >= 6 &&
-          !isPlexusFinaleActive &&
-          !isPlexusCompleted;
-
-        centerZoneGroup.visible = isCenterDropZoneActive;
-        if (isCenterDropZoneActive) {
-          const pulse = 0.55 + Math.sin(totalAnimTime * 3.2) * 0.25;
-          centerRingMat.opacity = pulse * modeFadeAlpha;
-          centerDiscMat.opacity = (0.07 + Math.sin(totalAnimTime * 3.2) * 0.03) * modeFadeAlpha;
-          centerAccentMat.opacity = (0.28 + Math.cos(totalAnimTime * 2.5) * 0.15) * modeFadeAlpha;
-          centerAccentMesh.rotation.z = totalAnimTime * 0.15;
-        }
+        // Circle drop zone removed as user requested, mesh kept hidden
+        centerZoneGroup.visible = false;
 
         if (activeModeRef.current === 'plexus' && !isPlexusFinaleActive && !isPlexusCompleted) {
           checkPlexusFinaleTrigger(true);
@@ -6053,24 +6207,15 @@ export function SakuraCanvas({
             const curDistA = THREE.MathUtils.lerp(imp.initialDistA, targetOrbitR, smoothEase);
             const orbitAngle = imp.initialAngle + imp.age * 1.7; // 50% verlangsamt (vorher 3.4)
 
-            if (imp.orbB) {
-              const curDistB = THREE.MathUtils.lerp(imp.initialDistB, targetOrbitR, smoothEase);
-              imp.orbA.x = imp.midX + Math.cos(orbitAngle) * curDistA;
-              imp.orbA.y = imp.midY + Math.sin(orbitAngle) * curDistA * 0.85;
-              imp.orbB.x = imp.midX - Math.cos(orbitAngle) * curDistB;
-              imp.orbB.y = imp.midY - Math.sin(orbitAngle) * curDistB * 0.85;
-            } else {
-              // Sanft pulsierende Orbitalbewegung des einzelnen Orbs
-              const singleR = THREE.MathUtils.lerp(imp.initialDistA, 8.0, smoothEase);
-              imp.orbA.x = imp.midX + Math.cos(orbitAngle) * singleR;
-              imp.orbA.y = imp.midY + Math.sin(orbitAngle) * singleR * 0.85;
-            }
+            const curMidX = imp.orbB ? (imp.orbA.x + imp.orbB.x) * 0.5 : imp.orbA.x;
+            const curMidY = imp.orbB ? (imp.orbA.y + imp.orbB.y) * 0.5 : imp.orbA.y;
+            const curMidZ = imp.orbB ? (imp.orbA.z + imp.orbB.z) * 0.5 : imp.orbA.z;
 
             // 1. 100 Unfolding FinaleMeshParticles (Filament Threads)
             for (let p = 0; p < imp.particles.length; p++) {
               if (worldNodeCount >= MAX_TOTAL_NODES) break;
               const pt = imp.particles[p];
-              pt.update(delta, transitionProgress, imp.age, totalAnimTime, imp.midX, imp.midY);
+              pt.update(delta, transitionProgress, imp.age, totalAnimTime, curMidX, curMidY);
 
               const nIdx = worldNodeCount++;
               worldNodeX[nIdx] = pt.renderX;
@@ -6298,38 +6443,97 @@ export function SakuraCanvas({
 
           let worldNodeCount = 0;
 
-          // 1. Growing cluster around cursor
+          // 1. Neural Synapse Web around cursor during hold-charge (without wobble)
           if (isMouseDown && !draggedPlexusCluster && activeHoldNodes.length > 0) {
-            const progress = Math.min(1.0, plexusHoldTime / 1.5);
-            const activeCount = Math.floor(progress * activeHoldNodes.length);
+            const holdProgress = Math.min(1.0, plexusHoldTime / 1.5);
+            const holdIntensity = Math.pow(holdProgress, 0.72);
+            const cX = plexusOriginX;
+            const cY = plexusOriginY;
 
-            for (let n = 0; n < activeCount; n++) {
+            // Central spark
+            if (worldNodeCount < MAX_TOTAL_NODES) {
+              const cIdx = worldNodeCount++;
+              worldNodeX[cIdx] = cX;
+              worldNodeY[cIdx] = cY;
+              worldNodeZ[cIdx] = 0.0;
+              worldNodeR[cIdx] = 1.0;
+              worldNodeG[cIdx] = 0.92;
+              worldNodeB[cIdx] = 0.98;
+              worldNodeSize[cIdx] = (24.0 + Math.sin(totalAnimTime * 22.0) * 6.0) * (0.4 + 0.6 * holdIntensity);
+              worldNodeDistCenter[cIdx] = Math.sqrt(cX * cX + cY * cY);
+            }
+
+            // Neural synapse web (54 nodes)
+            const numSynapses = 54;
+            const pulseWave = (totalAnimTime * 3.5) % (Math.PI * 2);
+            for (let i = 0; i < numSynapses; i++) {
               if (worldNodeCount >= MAX_TOTAL_NODES) break;
-              const node = activeHoldNodes[n];
-              node.rot += delta * node.rotSpeed;
+              const trunk = Math.floor(i / 9);
+              const trunkAngle = (trunk / 6) * Math.PI * 2 + Math.sin(totalAnimTime * 2.0 + trunk) * 0.25;
+              const step = (i % 9) + 1;
+              const baseDist = step * 18.0;
+              const twitch = Math.sin(totalAnimTime * 18.0 + i * 2.7) * (step > 4 ? 12.0 : 4.0);
+              const branchCurv = Math.cos(step * 0.8 + totalAnimTime * 2.0) * (step * 3.5);
 
-              const wx = plexusOriginX + node.dx * progress + Math.sin(totalAnimTime * node.freq + node.phase) * 10.0;
-              const wy = plexusOriginY + node.dy * progress + Math.cos(totalAnimTime * node.freq + node.phase) * 10.0;
-              const wz = node.dz * progress;
+              const r = (baseDist + twitch) * (0.35 + 0.65 * holdIntensity);
+              const a = trunkAngle + (branchCurv * 0.02);
+              const nx = cX + Math.cos(a) * r;
+              const ny = cY + Math.sin(a) * r;
+              const nz = Math.sin(totalAnimTime * 4.0 + step) * 16.0;
 
-              const idx = worldNodeCount++;
-              worldNodeX[idx] = wx;
-              worldNodeY[idx] = wy;
-              worldNodeZ[idx] = wz;
-              worldNodeR[idx] = 1.0;
-              worldNodeG[idx] = 0.18;
-              worldNodeB[idx] = 0.65;
-              worldNodeSize[idx] = 15.0 * progress;
-              worldNodeDistCenter[idx] = Math.sqrt(wx * wx + wy * wy);
+              const isFiring = Math.abs(Math.sin(pulseWave - step * 0.45)) > 0.88;
+              const col = isFiring ? { r: 1.0, g: 0.9, b: 1.0 } : SAKURA_HOLD_PALETTE[i % SAKURA_HOLD_PALETTE.length];
+
+              const nIdx = worldNodeCount++;
+              worldNodeX[nIdx] = nx;
+              worldNodeY[nIdx] = ny;
+              worldNodeZ[nIdx] = nz;
+              worldNodeR[nIdx] = col.r;
+              worldNodeG[nIdx] = col.g;
+              worldNodeB[nIdx] = col.b;
+              worldNodeSize[nIdx] = (isFiring ? 22.0 : 13.0) * (0.4 + 0.6 * holdIntensity);
+              worldNodeDistCenter[nIdx] = Math.sqrt(nx * nx + ny * ny);
             }
           }
 
-          // 2. Free floating clusters
+          // 1b. Active 2.0s Docking Networks in Orb Colors
+          for (let i = activeDockingNetworks.length - 1; i >= 0; i--) {
+            const dn = activeDockingNetworks[i];
+            const alive = dn.update(delta);
+            const alpha = Math.min(1.0, dn.age / 0.2) * Math.max(0.0, 1.0 - Math.pow(dn.age / dn.duration, 1.5));
+
+            for (let k = 0; k < dn.nodes.length; k++) {
+              if (worldNodeCount >= MAX_TOTAL_NODES) break;
+              const dnNode = dn.nodes[k];
+              const nx = dn.orb.x + Math.cos(dnNode.angle) * dnNode.curR;
+              const ny = dn.orb.y + Math.sin(dnNode.angle) * dnNode.curR;
+              const nz = dn.orb.z + dnNode.relZ;
+
+              const idx = worldNodeCount++;
+              worldNodeX[idx] = nx;
+              worldNodeY[idx] = ny;
+              worldNodeZ[idx] = nz;
+              worldNodeR[idx] = dnNode.color.r;
+              worldNodeG[idx] = dnNode.color.g;
+              worldNodeB[idx] = dnNode.color.b;
+              worldNodeSize[idx] = 18.0 * alpha;
+              worldNodeDistCenter[idx] = Math.sqrt(nx * nx + ny * ny);
+            }
+
+            if (!alive) {
+              activeDockingNetworks.splice(i, 1);
+            }
+          }
+
+          // 2. Free floating clusters (with smooth fade-in)
           const safeMarginX = 260.0;
           const safeMarginY = 160.0;
 
           for (let c = 0; c < activePlexusClusters.length; c++) {
             const cluster = activePlexusClusters[c];
+            cluster.age = (cluster.age !== undefined ? cluster.age : 0.0) + delta;
+            const clusterFadeAlpha = Math.min(1.0, cluster.age / (cluster.fadeInDuration || 0.75));
+
             if (cluster !== draggedPlexusCluster) {
               cluster.centerX += cluster.driftX * delta;
               cluster.centerY += cluster.driftY * delta;
@@ -6355,10 +6559,10 @@ export function SakuraCanvas({
               worldNodeX[idx] = wx;
               worldNodeY[idx] = wy;
               worldNodeZ[idx] = wz;
-              worldNodeR[idx] = cluster.r;
-              worldNodeG[idx] = cluster.g;
-              worldNodeB[idx] = cluster.b;
-              worldNodeSize[idx] = 15.0;
+              worldNodeR[idx] = cluster.r * clusterFadeAlpha;
+              worldNodeG[idx] = cluster.g * clusterFadeAlpha;
+              worldNodeB[idx] = cluster.b * clusterFadeAlpha;
+              worldNodeSize[idx] = 15.0 * (0.35 + 0.65 * clusterFadeAlpha);
               worldNodeDistCenter[idx] = Math.sqrt(wx * wx + wy * wy);
             }
           }
@@ -7004,8 +7208,8 @@ export function SakuraCanvas({
                 </svg>
                 <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   {isEn
-                    ? 'Drag all docked orbs into the center circle!'
-                    : 'Alle belegten Orbs in den markierten Kreis in der Bildmitte ziehen!'}
+                    ? 'Push all docked orbs together!'
+                    : 'Schiebe alle belegten Orbs zusammen!'}
                 </span>
               </div>
             </div>
