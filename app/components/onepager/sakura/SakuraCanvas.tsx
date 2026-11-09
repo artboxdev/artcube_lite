@@ -6899,7 +6899,7 @@ export function SakuraCanvas({
     <div
       ref={containerRef}
       className={`fixed overflow-hidden bg-[#2b0016] select-none z-0 font-sans ${
-        isVirtualLandscape ? '' : 'inset-0 w-full h-[100dvh] min-h-screen'
+        isVirtualLandscape ? '' : 'inset-0 w-full h-[100dvh] max-h-[100dvh]'
       }`}
       style={isVirtualLandscape ? {
         position: 'fixed',
@@ -6909,7 +6909,10 @@ export function SakuraCanvas({
         height: '100dvw',
         transform: 'translate(100dvw, 0) rotate(90deg)',
         transformOrigin: '0 0',
-      } : undefined}
+      } : {
+        height: '100dvh',
+        maxHeight: '100dvh'
+      }}
     >
       {/* Centered Artwork Canvas Wrapper */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -7056,10 +7059,10 @@ export function SakuraCanvas({
           {(isPortraitMode && !isVirtualLandscape) ? (
             /* PORTRAIT STACKED HUD (iPhone & Portrait Smartphones) */
             <div
-              className={`absolute inset-0 px-4 py-3 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}
+              className={`absolute inset-0 px-3 sm:px-4 py-2 sm:py-3 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}
               style={{
                 paddingTop: 'max(12px, env(safe-area-inset-top, 12px))',
-                paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
+                paddingBottom: 'max(18px, env(safe-area-inset-bottom, 18px))',
               }}
             >
               {/* TOP SECTION: Cleanly stacked above the 16:9 canvas */}
@@ -7206,34 +7209,36 @@ export function SakuraCanvas({
                   )}
                 </div>
 
-                {/* Souvenir Action Button & Badges */}
-                <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-auto">
-                  {(hostCreationReady || guestCreationReady) && (
-                    <div className="flex items-center gap-3">
-                      <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
-                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span> Host
+                {/* Souvenir Action Button & Badges - ONLY when NOT in Souvenir mode */}
+                {!isCreationMode && (
+                  <div className="pointer-events-auto flex flex-col items-center gap-1.5 w-auto">
+                    {(hostCreationReady || guestCreationReady) && (
+                      <div className="flex items-center gap-3">
+                        <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                            <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span> Host
+                        </div>
+                        <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                            <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span> {isEn ? 'Guest' : 'Gast'}
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-1 text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
-                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span> {isEn ? 'Guest' : 'Gast'}
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={toggleCreationReady}
-                    className="py-1.5 sm:py-2 px-4 sm:px-5 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-[1.2px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/70 shadow-[0_4px_16px_rgba(255,42,157,0.35)] cursor-pointer active:scale-95"
-                    title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
-                  >
-                    <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
-                  </button>
-                </div>
+                    )}
+                    <button
+                      onClick={toggleCreationReady}
+                      className="py-1.5 sm:py-2 px-4 sm:px-5 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-[1.2px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/70 shadow-[0_4px_16px_rgba(255,42,157,0.35)] cursor-pointer active:scale-95"
+                      title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
+                    >
+                      <span>{isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Brand Title */}
                 <div className="text-center select-none pt-0.5">
@@ -7250,11 +7255,16 @@ export function SakuraCanvas({
             /* LANDSCAPE 4-CORNER GLASSMORPHIC HUD (Desktop, Tablet & Mobile Virtual Landscape) */
             <div
               className={`absolute inset-0 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}
-              style={{
+              style={isVirtualLandscape ? {
+                paddingTop: 'max(8px, env(safe-area-inset-right, 8px))',
+                paddingBottom: 'max(14px, env(safe-area-inset-left, 14px))',
+                paddingLeft: 'max(16px, env(safe-area-inset-top, 16px))',
+                paddingRight: 'max(24px, env(safe-area-inset-bottom, 24px))',
+              } : {
                 paddingTop: 'max(10px, env(safe-area-inset-top, 10px))',
-                paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
-                paddingLeft: 'max(12px, env(safe-area-inset-left, 12px))',
-                paddingRight: 'max(12px, env(safe-area-inset-right, 12px))',
+                paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+                paddingLeft: 'max(14px, env(safe-area-inset-left, 14px))',
+                paddingRight: 'max(14px, env(safe-area-inset-right, 14px))',
               }}
             >
 
@@ -7386,39 +7396,41 @@ export function SakuraCanvas({
                   )}
                 </div>
 
-                {/* Bottom Right: Creation Button & Readiness Indicators */}
-                <div className="pointer-events-auto flex flex-col items-end gap-1 shrink-0">
-                  {(hostCreationReady || guestCreationReady) && (
-                    <div className="flex items-center gap-2 pr-0.5">
-                      <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
-                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span> Host
+                {/* Bottom Right: Creation Button & Readiness Indicators - ONLY when NOT in Souvenir mode */}
+                {!isCreationMode && (
+                  <div className="pointer-events-auto flex flex-col items-end gap-1 shrink-0">
+                    {(hostCreationReady || guestCreationReady) && (
+                      <div className="flex items-center gap-2 pr-0.5">
+                        <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                            <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span> Host
+                        </div>
+                        <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                            <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </span> {isEn ? 'Guest' : 'Gast'}
+                        </div>
                       </div>
-                      <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
-                          <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span> {isEn ? 'Guest' : 'Gast'}
-                      </div>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="flex items-center">
-                    <button
-                      onClick={toggleCreationReady}
-                      className="relative overflow-hidden px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-[1px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/60 shadow-[0_4px_16px_rgba(255,42,157,0.35)] hover:shadow-[0_6px_22px_rgba(255,42,157,0.5)] hover:scale-[1.02] active:scale-95 cursor-pointer"
-                      title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
-                    >
-                      <span className="relative z-10">
-                        {isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}
-                      </span>
-                    </button>
+                    <div className="flex items-center">
+                      <button
+                        onClick={toggleCreationReady}
+                        className="relative overflow-hidden px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-[1px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/60 shadow-[0_4px_16px_rgba(255,42,157,0.35)] hover:shadow-[0_6px_22px_rgba(255,42,157,0.5)] hover:scale-[1.02] active:scale-95 cursor-pointer"
+                        title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
+                      >
+                        <span className="relative z-10">
+                          {isEn ? 'Start Souvenir Mode' : 'Souvenirmodus starten'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}

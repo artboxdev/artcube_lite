@@ -56,13 +56,20 @@ export function ExperienceStation({
   const [shareUrl, setShareUrl] = useState('');
   const [isArtworksModalOpen, setIsArtworksModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [sumieImgSrc, setSumieImgSrc] = useState('/sumie-lightbox.jpg');
+  const [sumieImgSrc, setSumieImgSrc] = useState('/sumie_about.jpg');
+  const [plexusImgSrc, setPlexusImgSrc] = useState('/plexus_about.jpg');
   const t = translations[lang].experience;
 
   useEffect(() => {
     setMounted(true);
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/artcube_lite')) {
-      setSumieImgSrc('/artcube_lite/sumie-lightbox.jpg');
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname.startsWith('/artcube_lite')) {
+        setSumieImgSrc('/artcube_lite/sumie_about.jpg');
+        setPlexusImgSrc('/artcube_lite/plexus_about.jpg');
+      } else if (window.location.pathname.startsWith('/artcube')) {
+        setSumieImgSrc('/artcube/sumie_about.jpg');
+        setPlexusImgSrc('/artcube/plexus_about.jpg');
+      }
     }
   }, []);
 
@@ -490,16 +497,26 @@ export function ExperienceStation({
             </div>
 
             {/* Section 2: Plexus (Visual Impact in Artworks) */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-cyan-500/30 flex flex-col gap-2.5">
-              <span className="inline-flex items-center self-start px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 text-[10px] font-bold tracking-widest uppercase">
-                {t.artworksModal.plexusBadge}
-              </span>
-              <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
-                {t.artworksModal.plexusTitle}
-              </h4>
-              <p className="text-xs sm:text-sm text-white/80 font-light leading-relaxed">
-                {t.artworksModal.plexusText}
-              </p>
+            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-cyan-500/30 flex flex-col sm:flex-row gap-5 items-center sm:items-start">
+              <div className="w-full sm:w-44 md:w-48 shrink-0 overflow-hidden rounded-xl border border-cyan-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(6,182,212,0.2)] bg-[#0d0914]">
+                <img
+                  src={plexusImgSrc}
+                  alt={t.artworksModal.plexusTitle}
+                  className="w-full h-auto object-cover block"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2.5 flex-1">
+                <span className="inline-flex items-center self-start px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 text-[10px] font-bold tracking-widest uppercase">
+                  {t.artworksModal.plexusBadge}
+                </span>
+                <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
+                  {t.artworksModal.plexusTitle}
+                </h4>
+                <p className="text-xs sm:text-sm text-white/80 font-light leading-relaxed">
+                  {t.artworksModal.plexusText}
+                </p>
+              </div>
             </div>
 
             {/* Close Action Button */}
