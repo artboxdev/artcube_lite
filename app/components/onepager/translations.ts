@@ -15,7 +15,7 @@ export const translations = {
       menuAria: 'Navigation öffnen',
     },
     hero: {
-      lead: 'Kunst wird digital. Kunst wird lebendig. art.cube lässt die räumlichen und emotionalen Grenzen zwischen dir und der Kunst verschwinden. Tauche ein in Sakuraverse und erlebe, wie die Pixel vor dir zur Leinwand werden.',
+      lead: 'Kunst wird digital. Kunst wird lebendig. art.cube lässt die räumlichen und emotionalen Grenzen zwischen dir und der Kunst verschwinden. Erschaffe dein eigenes digitales Kunstwerk und lasse die Pixel vor dir zur Leinwand werden.',
       btnPrimary: 'Jetzt das Kunstwerk erleben',
       btnSecondary: 'art.cube entdecken',
     },
@@ -23,7 +23,7 @@ export const translations = {
       pill: 'Jetzt das Kunstwerk erleben',
       titlePrefix: 'Willkommen im',
       titleHighlight: 'Sakuraverse.',
-      subline: 'Die räumlichen und emotionalen Grenzen zwischen dir und der Kunst verschwinden. Tauche in das Kunstwerk "Sakuraverse" ein und erlebe, wie die Pixel vor dir durch deine Bewegungen die Leinwand zum Leben erwecken. Sakuraverse ist unser Kunstwerk der "ersten Generation". Inspiriert wurde es von der Bedeutung der Kirschblüte (Sakura) für Schönheit und Vergänglichkeit. In zwei unterschiedlichen Modi (Sumi-e und Plexus) werden Entstehung und Zerfall auf besondere Art und Weise dargestellt, die, wenn Künstler oder Künstlerin (ihr) es wünscht, nie dem vorherigen Erlebnis gleicht. Verschiedene Elemente können in den Kunstwerken angeklickt werden, wodurch sie im Endergebnis unterschiedliche Erscheinungen haben können.',
+      subline: 'Tauche in das Kunstwerk "Sakuraverse" ein und erlebe, wie die Pixel vor dir durch deine Bewegungen die Leinwand zum Leben erwachen. Inspiriert wurde es von der Bedeutung der Kirschblüte (Sakura) für Entstehung und Vergänglichkeit. In zwei unterschiedlichen Modi (Sumi-E und Plexus) erstellst du deine eigenen, unzerstörbaren Kunstwerke. Dabei können verschiedene Elemente angeklickt werden, durch die das Endergebnis unterschiedliche Erscheinungen haben kann.',
       sublineModalLink: 'Lerne mehr über die beiden Kunstwerke',
       sliderPrompt: 'Hier kannst du Sakuraverse testen:',
       artworksModal: {
@@ -93,7 +93,7 @@ export const translations = {
       pill: 'Was ist art.cube?',
       headlineMain: 'Ein Raum für Co-Kreation:',
       headlineHighlight: 'Zwei Modi, eine Idee',
-      lead: 'Wir sind ein kleines Team, das die Menschen (wortwörtlich) mit der Kunst verbinden möchte. Dafür sollt ihr selbst zu Künstlern und Künstlerinnen werden. Auf den Smartphones führt ihr die "Pinselstriche" aus und erweckt das Bild vor euch zum Leben. art.cube soll für einzigartige und interaktive Erlebnisse stehen, die du gemeinsam mit anderen teilen kannst. Unsere Kunstwerke starten hier mit "Sakuraverse" zuerst im Browser — später entstehen begehbare, immersive Orte, in denen ihr zusammen die Kunst mit euren Smartphones steuert. Der Raum um dich herum zur lebendigen Leinwand. Ein noch nie dagewesenes Zusammenspiel aus Licht, Klang und menschlicher Interaktion.',
+      lead: 'Wir sind ein kleines Team, das die Menschen (wortwörtlich) mit der Kunst verbinden möchte. Dafür sollt ihr selbst zu Künstlern und Künstlerinnen werden. Auf Smartphones oder Laptop führt ihr die "Pinselstriche" aus und erweckt das Bild vor euch zum Leben. art.cube soll für einzigartige und interaktive Erlebnisse stehen, die du gemeinsam mit anderen teilen kannst. Unsere Kunstwerke starten jetzt zuerst im Browser — später sollen begehbare, immersive Orte entstehen, in denen ihr zusammen die Kunst mit euren Smartphones steuert. Der Raum um dich herum wird zur lebendigen Leinwand. Ein noch nie dagewesenes Zusammenspiel aus Licht, Klang und menschlicher Interaktion.',
       card1Badge: 'Now Live',
       card1Phase: 'PHASE 1',
       card1Title: 'Der digitale Prototyp',
@@ -189,7 +189,7 @@ export const translations = {
       menuAria: 'Open navigation',
     },
     hero: {
-      lead: 'Art turns digital. Art comes alive. art.cube erases all spatial and emotional limits between yourself and the artwork in front of you. Discover Sakuraverse and experience how pixels become your canvas.',
+      lead: 'Art turns digital. Art comes alive. art.cube erases all spatial and emotional limits between yourself and the artwork in front of you. Create your own digital artwork and let the pixels before you become your canvas.',
       btnPrimary: 'Experience Artwork Now',
       btnSecondary: 'Discover art.cube',
     },
@@ -197,7 +197,7 @@ export const translations = {
       pill: 'Experience Artwork Now',
       titlePrefix: 'Welcome to',
       titleHighlight: 'Sakuraverse.',
-      subline: 'The spatial and emotional boundaries between you and the artwork dissolve. Immerse yourself in "Sakuraverse" and experience how pixels come alive through your movements, turning before your eyes into a living canvas. Sakuraverse is our "first-generation" artwork, inspired by the significance of cherry blossoms (Sakura) for beauty and impermanence. Across two distinct modes (Sumi-e and Plexus), genesis and decay are visualised in ways that never repeat if you choose. Interactive elements can be clicked throughout the artwork, shaping different visual outcomes.',
+      subline: 'Immerse yourself in the artwork "Sakuraverse" and experience how pixels awaken the canvas to life through your movements. Inspired by the significance of the cherry blossom (Sakura) for creation and impermanence. Across two distinct modes (Sumi-e and Plexus), you create your own indestructible artworks. Various elements can be clicked throughout the artwork, shaping different visual outcomes.',
       sublineModalLink: 'Learn more about the two artworks',
       sliderPrompt: 'Test Sakuraverse here:',
       artworksModal: {
@@ -267,7 +267,7 @@ export const translations = {
       pill: 'What is art.cube?',
       headlineMain: 'A Space for Co-Creation:',
       headlineHighlight: 'Two Modes, One Idea',
-      lead: 'We are a small team dedicated to (literally) connecting people with art. For this, you become the artists yourselves. Using your smartphones, you create the "brushstrokes" and bring the image before you to life. art.cube stands for unique, interactive experiences that you can share together. Our artworks begin here with "Sakuraverse" in the browser — followed later by walkable, immersive spaces where you co-create and control the art together using your smartphones. The space around you becomes a living canvas: an unprecedented interplay of light, sound, and human interaction.',
+      lead: 'We are a small team dedicated to (literally) connecting people with art. For this, you become the artists yourselves. On smartphones or laptops, you make the "brushstrokes" and bring the image in front of you to life. art.cube stands for unique, interactive experiences that you can share together. Our artworks begin now in the browser — followed later by walkable, immersive spaces where you co-create and control the art together using your smartphones. The space around you becomes a living canvas: an unprecedented interplay of light, sound, and human interaction.',
       card1Badge: 'Now Live',
       card1Phase: 'PHASE 1',
       card1Title: 'The Digital Prototype',
