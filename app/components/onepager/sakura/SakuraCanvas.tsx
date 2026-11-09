@@ -3410,7 +3410,7 @@ export function SakuraCanvas({
     const lineGeo = new THREE.BufferGeometry();
     lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
     lineGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_TOTAL_LINES * 6), 3));
-    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.NormalBlending, depthWrite: false });
+    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.NormalBlending, depthWrite: false });
     const plexusLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
     plexusLinesMesh.renderOrder = 1;
     plexusSceneGroup.add(plexusLinesMesh);
@@ -5914,7 +5914,7 @@ export function SakuraCanvas({
         // PLEXUS ENGINE UPDATE LOOP
         // ==========================================
         if (plexusLinesMesh && plexusLinesMesh.material) {
-          (plexusLinesMesh.material as THREE.LineBasicMaterial).opacity = 0.85 * modeFadeAlpha;
+          (plexusLinesMesh.material as THREE.LineBasicMaterial).opacity = 0.95 * modeFadeAlpha;
         }
         if (plexusPointsMesh && plexusPointsMesh.material && (plexusPointsMesh.material as THREE.ShaderMaterial).uniforms?.uAlpha) {
           (plexusPointsMesh.material as THREE.ShaderMaterial).uniforms.uAlpha.value = modeFadeAlpha;
@@ -6341,20 +6341,9 @@ export function SakuraCanvas({
                 nodeLinkCounts[i]++;
                 nodeLinkCounts[j]++;
 
-                // Farbsättigung erhalten, damit niemals abgedunkeltes Grau durch NormalBlending entsteht
+                // Farbsättigung erhalten, direkt reine RGB-Werte ohne minWhite-Subtraktion
                 const colMul = Math.max(0.85, Math.min(1.2, effectiveAlpha * 1.15));
                 const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
-
-                // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
-                const minWhiteA = Math.min(ar, Math.min(ag, ab));
-                const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
-                const lAg = Math.max(0.0, ag - minWhiteA * 0.85);
-                const lAb = Math.max(0.0, ab - minWhiteA * 0.85);
-
-                const minWhiteB = Math.min(r2, Math.min(g2, b2));
-                const lR2 = Math.max(0.0, r2 - minWhiteB * 0.85);
-                const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
-                const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
 
                 const pLen = Math.sqrt(dx * dx + dy * dy) || 1.0;
                 const perpX = (-dy / pLen) * 0.85;
@@ -6368,12 +6357,12 @@ export function SakuraCanvas({
                 linePositions[lineVertexIdx++] = y2;
                 linePositions[lineVertexIdx++] = z2;
 
-                lineColors[lineColorIdx++] = lAr * colMul;
-                lineColors[lineColorIdx++] = lAg * colMul;
-                lineColors[lineColorIdx++] = lAb * colMul;
-                lineColors[lineColorIdx++] = lR2 * colMul;
-                lineColors[lineColorIdx++] = lG2 * colMul;
-                lineColors[lineColorIdx++] = lB2 * colMul;
+                lineColors[lineColorIdx++] = ar * colMul;
+                lineColors[lineColorIdx++] = ag * colMul;
+                lineColors[lineColorIdx++] = ab * colMul;
+                lineColors[lineColorIdx++] = r2 * colMul;
+                lineColors[lineColorIdx++] = g2 * colMul;
+                lineColors[lineColorIdx++] = b2 * colMul;
 
                 // 2. Positive Perpendicular Filament
                 if (lineVertexIdx < maxLineVertices) {
@@ -6384,12 +6373,12 @@ export function SakuraCanvas({
                   linePositions[lineVertexIdx++] = y2 + perpY;
                   linePositions[lineVertexIdx++] = z2;
 
-                  lineColors[lineColorIdx++] = lAr * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lAg * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lAb * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lR2 * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lG2 * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lB2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = ar * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = ag * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = ab * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = r2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = g2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = b2 * 0.95 * colMul;
                 }
 
                 // 3. Negative Perpendicular Filament
@@ -6401,12 +6390,12 @@ export function SakuraCanvas({
                   linePositions[lineVertexIdx++] = y2 - perpY;
                   linePositions[lineVertexIdx++] = z2;
 
-                  lineColors[lineColorIdx++] = lAr * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lAg * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lAb * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lR2 * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lG2 * 0.95 * colMul;
-                  lineColors[lineColorIdx++] = lB2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = ar * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = ag * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = ab * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = r2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = g2 * 0.95 * colMul;
+                  lineColors[lineColorIdx++] = b2 * 0.95 * colMul;
                 }
               }
             }
@@ -6464,6 +6453,8 @@ export function SakuraCanvas({
               worldNodeB[cIdx] = 0.98;
               worldNodeSize[cIdx] = (24.0 + Math.sin(totalAnimTime * 22.0) * 6.0) * (0.4 + 0.6 * holdIntensity);
               worldNodeDistCenter[cIdx] = Math.sqrt(cX * cX + cY * cY);
+              worldNodeGroup[cIdx] = 999;
+              worldNodeAlpha[cIdx] = 1.0;
             }
 
             // Neural synapse web (54 nodes)
@@ -6496,6 +6487,8 @@ export function SakuraCanvas({
               worldNodeB[nIdx] = col.b;
               worldNodeSize[nIdx] = (isFiring ? 22.0 : 13.0) * (0.4 + 0.6 * holdIntensity);
               worldNodeDistCenter[nIdx] = Math.sqrt(nx * nx + ny * ny);
+              worldNodeGroup[nIdx] = 999;
+              worldNodeAlpha[nIdx] = holdIntensity;
             }
           }
 
@@ -6521,6 +6514,8 @@ export function SakuraCanvas({
               worldNodeB[idx] = dnNode.color.b;
               worldNodeSize[idx] = 18.0 * alpha;
               worldNodeDistCenter[idx] = Math.sqrt(nx * nx + ny * ny);
+              worldNodeGroup[idx] = 800 + i;
+              worldNodeAlpha[idx] = alpha;
             }
 
             if (!alive) {
@@ -6567,6 +6562,8 @@ export function SakuraCanvas({
               worldNodeB[idx] = cluster.b * clusterFadeAlpha;
               worldNodeSize[idx] = 15.0 * (0.35 + 0.65 * clusterFadeAlpha);
               worldNodeDistCenter[idx] = Math.sqrt(wx * wx + wy * wy);
+              worldNodeGroup[idx] = 100 + c;
+              worldNodeAlpha[idx] = clusterFadeAlpha;
             }
           }
 
@@ -6597,6 +6594,8 @@ export function SakuraCanvas({
               worldNodeB[idx] = node.b;
               worldNodeSize[idx] = node.size;
               worldNodeDistCenter[idx] = Math.sqrt(localX * localX + localY * localY);
+              worldNodeGroup[idx] = 500 + o;
+              worldNodeAlpha[idx] = 1.0;
             }
           }
 
@@ -6607,85 +6606,108 @@ export function SakuraCanvas({
             nodePositions[k3 + 1] = worldNodeY[k];
             nodePositions[k3 + 2] = worldNodeZ[k];
 
-            nodeColors[k3] = worldNodeR[k];
-            nodeColors[k3 + 1] = worldNodeG[k];
-            nodeColors[k3 + 2] = worldNodeB[k];
+            const a = worldNodeAlpha[k] !== undefined ? worldNodeAlpha[k] : 1.0;
+            nodeColors[k3] = worldNodeR[k] * a;
+            nodeColors[k3 + 1] = worldNodeG[k] * a;
+            nodeColors[k3 + 2] = worldNodeB[k] * a;
 
             nodeSizes[k] = worldNodeSize[k];
           }
 
-          // Render Dynamic Lines Between Connected Nodes
+          // Render Dynamic Lines Between Connected Nodes (DualSlider 1:1)
           let lineVertexIdx = 0;
           let lineColorIdx = 0;
-          const maxLineVertices = linePositions.length - 6;
+          const maxLineVertices = linePositions.length - 18;
           nodeConnCounts.fill(0, 0, worldNodeCount);
 
-          const maxDistCutoff = 85.0;
-          const maxDistCutoff2 = maxDistCutoff * maxDistCutoff;
-
           for (let i = 0; i < worldNodeCount; i++) {
-            const ax = worldNodeX[i];
-            const ay = worldNodeY[i];
-            const az = worldNodeZ[i];
-            const ar = worldNodeR[i];
-            const ag = worldNodeG[i];
-            const ab = worldNodeB[i];
+            if (nodeConnCounts[i] >= 4) continue;
+            const x1 = worldNodeX[i], y1 = worldNodeY[i], z1 = worldNodeZ[i];
+            const grp1 = worldNodeGroup[i];
+            const r1 = worldNodeR[i], g1 = worldNodeG[i], b1 = worldNodeB[i];
+            const a1 = worldNodeAlpha[i] !== undefined ? worldNodeAlpha[i] : 1.0;
 
             for (let j = i + 1; j < worldNodeCount; j++) {
               if (lineVertexIdx >= maxLineVertices) break;
+              if (nodeConnCounts[i] >= 4) break;
+              if (nodeConnCounts[j] >= 4) continue;
 
-              const dx = ax - worldNodeX[j];
-              if (dx > maxDistCutoff || dx < -maxDistCutoff) continue;
+              const grp2 = worldNodeGroup[j];
+              let canConnect = (grp2 === grp1);
+              let isInterOrbBridge = false;
 
-              const dy = ay - worldNodeY[j];
-              if (dy > maxDistCutoff || dy < -maxDistCutoff) continue;
+              // INTER-ORB BRIDGE LINES: Nur zwischen belegten Orbs
+              if (!canConnect && grp1 >= 500 && grp1 < 600 && grp2 >= 500 && grp2 < 600) {
+                const orb1 = floatingPlexusOrbs[grp1 - 500];
+                const orb2 = floatingPlexusOrbs[grp2 - 500];
+                if (orb1 && orb2 && orb1.attachedNodes.length > 0 && orb2.attachedNodes.length > 0) {
+                  canConnect = true;
+                  isInterOrbBridge = true;
+                }
+              }
 
-              const dz = az - worldNodeZ[j];
-              if (dz > maxDistCutoff || dz < -maxDistCutoff) continue;
+              if (!canConnect) continue;
 
-              const d2 = dx * dx + dy * dy + dz * dz;
-              if (d2 >= maxDistCutoff2) continue;
+              const dx = worldNodeX[j] - x1;
+              const dy = worldNodeY[j] - y1;
+              const dz = worldNodeZ[j] - z1;
+              const distSq = dx * dx + dy * dy + dz * dz;
 
-              const dist = Math.sqrt(d2);
-              const opacity = 1.0 - dist / 85.0;
-              if (opacity <= 0.15) continue;
+              let cutoff = 85.0;
+              if (isInterOrbBridge) {
+                cutoff = 120.0;
+              } else if (grp1 === 999) {
+                cutoff = 84.0;
+              } else if (grp1 >= 500 && grp1 < 600) {
+                cutoff = 68.0;
+              } else if (grp1 >= 800 && grp1 < 900) {
+                cutoff = 95.0;
+              }
 
-              const effAlpha = Math.pow(opacity * 0.92, 0.72) * 1.15;
-              if (effAlpha < 0.28) continue;
+              if (distSq < cutoff * cutoff) {
+                const distance = Math.sqrt(distSq);
+                const opacity = 1.0 - distance / cutoff;
+                if (opacity <= 0.15) continue;
 
-              nodeConnCounts[i]++;
-              nodeConnCounts[j]++;
+                // DualSlider 1:1 High-Frequency Flicker
+                const seed = (i * 137.5 + j * 269.3) % 1000.0;
+                const fA = Math.sin(totalAnimTime * 14.0 + seed);
+                const fB = Math.cos(totalAnimTime * 25.0 + seed * 1.7);
+                const fNoise = fA * 0.6 + fB * 0.4;
 
-              // Farbsättigung erhalten, damit niemals abgedunkeltes Grau durch NormalBlending entsteht
-              const colMul = Math.max(0.85, Math.min(1.2, effAlpha * 1.15));
+                // Harter Cutoff im Flackertal verhindert graue Linienreste (Linie wird gar nicht erst gezeichnet)
+                if (fNoise < -0.15) continue;
+                let fMul = 1.0;
+                if (fNoise > 0.60) {
+                  fMul = 1.75;
+                }
 
-              linePositions[lineVertexIdx++] = ax;
-              linePositions[lineVertexIdx++] = ay;
-              linePositions[lineVertexIdx++] = az;
+                const lAlpha = Math.min(1.0, Math.pow(opacity, isInterOrbBridge ? 0.45 : 0.55) * 1.35 * fMul) * a1;
+                if (lAlpha < 0.28) continue;
 
-              linePositions[lineVertexIdx++] = worldNodeX[j];
-              linePositions[lineVertexIdx++] = worldNodeY[j];
-              linePositions[lineVertexIdx++] = worldNodeZ[j];
+                nodeConnCounts[i]++;
+                nodeConnCounts[j]++;
 
-              // Weißanteil für Linien im Netzwerk um weitere 50% gesenkt (85% Gesamtreduktion)
-              const minWhiteA = Math.min(ar, Math.min(ag, ab));
-              const lAr = Math.max(0.0, ar - minWhiteA * 0.85);
-              const lAg = Math.max(0.0, ag - minWhiteA * 0.85);
-              const lAb = Math.max(0.0, ab - minWhiteA * 0.85);
+                // Farbsättigung erhalten, direkt reine RGB-Werte ohne minWhite-Subtraktion
+                const colMul = Math.max(0.85, Math.min(1.2, lAlpha * 1.15));
+                const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
 
-              const r2 = worldNodeR[j], g2 = worldNodeG[j], b2 = worldNodeB[j];
-              const minWhiteB = Math.min(r2, Math.min(g2, b2));
-              const lR2 = Math.max(0.0, r2 - minWhiteB * 0.85);
-              const lG2 = Math.max(0.0, g2 - minWhiteB * 0.85);
-              const lB2 = Math.max(0.0, b2 - minWhiteB * 0.85);
+                // Vertex 1
+                linePositions[lineVertexIdx++] = x1;
+                linePositions[lineVertexIdx++] = y1;
+                linePositions[lineVertexIdx++] = z1;
+                lineColors[lineColorIdx++] = r1 * colMul;
+                lineColors[lineColorIdx++] = g1 * colMul;
+                lineColors[lineColorIdx++] = b1 * colMul;
 
-              lineColors[lineColorIdx++] = lAr * colMul;
-              lineColors[lineColorIdx++] = lAg * colMul;
-              lineColors[lineColorIdx++] = lAb * colMul;
-
-              lineColors[lineColorIdx++] = lR2 * colMul;
-              lineColors[lineColorIdx++] = lG2 * colMul;
-              lineColors[lineColorIdx++] = lB2 * colMul;
+                // Vertex 2
+                linePositions[lineVertexIdx++] = worldNodeX[j];
+                linePositions[lineVertexIdx++] = worldNodeY[j];
+                linePositions[lineVertexIdx++] = worldNodeZ[j];
+                lineColors[lineColorIdx++] = r2 * colMul;
+                lineColors[lineColorIdx++] = g2 * colMul;
+                lineColors[lineColorIdx++] = b2 * colMul;
+              }
             }
           }
 
