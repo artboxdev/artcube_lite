@@ -2102,21 +2102,6 @@
             colorPaletteBar.classList.add('visible');
           }
         }
-                    mesh: dMesh,
-                    vel: vel,
-                    life: 2.2 + Math.random() * 0.6,
-                    maxLife: 2.8
-                  });
-                }
-              }
-            }
-          });
-
-          // Phase 3: Palette reveal bei 3.6s
-          if (impulseTime > 3.6) {
-            colorPaletteBar.classList.add('visible');
-          }
-        }
 
         // 3. CIRCLE ZOOM
         if (currentActiveImpulse === 'CIRCLE_ZOOM') {
@@ -2159,10 +2144,16 @@
 
       renderer.clear();
       renderer.render(bgScene, bgCamera);
+      renderer.clearDepth();
       renderer.render(mainScene, camera);
     }
 
     requestAnimationFrame(animate);
+
+    // Initial Start: Automatically run Impulse 1 so the canvas is active immediately
+    setTimeout(() => {
+      triggerImpulse1();
+    }, 350);
   </script>
 </body>
 </html>
