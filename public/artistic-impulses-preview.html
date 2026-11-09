@@ -2064,8 +2064,8 @@
                 blossom.hasDispersed = true;
                 blossom.group.visible = false;
 
-                // Spawn 32 feine Partikel ausschließlich in Sakurapink
-                const dustGeom = new THREE.SphereGeometry(0.09, 8, 8);
+                // Spawn 48 deutlich feinere Partikel in Sakurapink (vom Wind nach rechts getragen)
+                const dustGeom = new THREE.SphereGeometry(0.022, 6, 6);
                 const sakuraSporeColors = [
                   new THREE.Color(0xff80df),
                   new THREE.Color(0xff2a9d),
@@ -2074,11 +2074,11 @@
                   new THREE.Color(0xff77dd)
                 ];
 
-                for (let d = 0; d < 32; d++) {
+                for (let d = 0; d < 48; d++) {
                   const vel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 3.6,
-                    0.4 + Math.random() * 3.2,
-                    (Math.random() - 0.5) * 3.0
+                    2.2 + Math.random() * 4.2,
+                    (Math.random() - 0.42) * 1.6,
+                    (Math.random() - 0.5) * 1.0
                   );
                   const pCol = sakuraSporeColors[Math.floor(Math.random() * sakuraSporeColors.length)];
                   const dMat = new THREE.MeshBasicMaterial({ color: pCol, transparent: true, opacity: 0.95 });
@@ -2089,8 +2089,10 @@
                   sporeDust3D.push({
                     mesh: dMesh,
                     vel: vel,
-                    life: 2.2 + Math.random() * 0.6,
-                    maxLife: 2.8
+                    life: 2.8 + Math.random() * 1.0,
+                    maxLife: 3.8,
+                    baseScale: 0.7 + Math.random() * 0.7,
+                    seed: Math.random() * 20.0
                   });
                 }
               }
@@ -2129,13 +2131,23 @@
         }
       }
 
-      // Update Spore Dust Particle Dispersion
+      // Update Spore Dust Particle Dispersion (wehen wie Blütenstaub nach rechts)
       for (let i = sporeDust3D.length - 1; i >= 0; i--) {
         const dust = sporeDust3D[i];
-        dust.mesh.position.addScaledVector(dust.vel, delta);
-        dust.vel.y += delta * 0.6; // Soft upward lift
         dust.life -= delta;
-        dust.mesh.material.opacity = Math.max(0, dust.life / dust.maxLife);
+
+        // Kontinuierlicher Wind nach rechts (+X)
+        const gustX = 1.8 + Math.sin(dust.life * 2.6 + (dust.seed || i)) * 0.9;
+        dust.vel.x += gustX * delta;
+        dust.vel.y += Math.sin(dust.life * 4.0 + (dust.seed || i)) * delta * 0.7 - delta * 0.22;
+
+        dust.mesh.position.addScaledVector(dust.vel, delta);
+
+        const lifeRatio = Math.max(0, dust.life / dust.maxLife);
+        const scaleFactor = (dust.baseScale || 1.0) * Math.min(1.0, lifeRatio * 1.35);
+        dust.mesh.scale.setScalar(Math.max(0.01, scaleFactor));
+        dust.mesh.material.opacity = Math.pow(lifeRatio, 0.85) * 0.95;
+
         if (dust.life <= 0) {
           branchGroup.remove(dust.mesh);
           sporeDust3D.splice(i, 1);

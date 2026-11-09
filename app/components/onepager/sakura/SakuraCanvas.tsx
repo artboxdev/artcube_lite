@@ -2784,6 +2784,8 @@ export function SakuraCanvas({
       vel: THREE.Vector3;
       life: number;
       maxLife: number;
+      baseScale?: number;
+      seed?: number;
     }
     const impulseSporeDust: SporeDustItem[] = [];
     let isImpulseBlossomActive = false;
@@ -5876,8 +5878,8 @@ export function SakuraCanvas({
                 blossom.hasDispersed = true;
                 blossom.group.visible = false;
 
-                // Spawn 32 pure Sakura pink spores per blossom (256 total)
-                const dustGeom = new THREE.SphereGeometry(0.09, 8, 8);
+                // Spawn 48 deutlich feinere Sakurapink-Sporen/Pixel (vom Wind getragen)
+                const dustGeom = new THREE.SphereGeometry(0.022, 6, 6);
                 const sakuraSporeColors = [
                   new THREE.Color(0xff80df),
                   new THREE.Color(0xff2a9d),
@@ -5886,11 +5888,12 @@ export function SakuraCanvas({
                   new THREE.Color(0xff77dd)
                 ];
 
-                for (let d = 0; d < 32; d++) {
+                for (let d = 0; d < 48; d++) {
+                  // Wind carrying towards right screen edge (+X): positive base drift with natural turbulence
                   const vel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 3.6,
-                    0.4 + Math.random() * 3.2,
-                    (Math.random() - 0.5) * 3.0
+                    2.2 + Math.random() * 4.2,
+                    (Math.random() - 0.42) * 1.6,
+                    (Math.random() - 0.5) * 1.0
                   );
                   const pCol = sakuraSporeColors[Math.floor(Math.random() * sakuraSporeColors.length)];
                   const dMat = new THREE.MeshBasicMaterial({ color: pCol, transparent: true, opacity: 0.95 });
@@ -5901,23 +5904,33 @@ export function SakuraCanvas({
                   impulseSporeDust.push({
                     mesh: dMesh,
                     vel: vel,
-                    life: 2.2 + Math.random() * 0.6,
-                    maxLife: 2.8
+                    life: 2.8 + Math.random() * 1.0,
+                    maxLife: 3.8,
+                    baseScale: 0.7 + Math.random() * 0.7,
+                    seed: Math.random() * 20.0
                   });
                 }
               }
             }
           });
 
-          // Spore physics update
+          // Spore physics update: Wehen sanft wie Blütenstaub im Wind in Richtung des rechten Bildschirmrandes (+X)
           for (let sIdx = impulseSporeDust.length - 1; sIdx >= 0; sIdx--) {
             const sp = impulseSporeDust[sIdx];
             sp.life -= delta;
+
+            // Kontinuierliche Windbeschleunigung nach rechts (+X) mit sanften Windböen
+            const gustX = 1.8 + Math.sin(sp.life * 2.6 + (sp.seed || sIdx)) * 0.9;
+            sp.vel.x += gustX * delta;
+            // Aerodynamisches Schweben und Wellenbewegung in Y
+            sp.vel.y += Math.sin(sp.life * 4.0 + (sp.seed || sIdx)) * delta * 0.7 - delta * 0.22;
+
             sp.mesh.position.addScaledVector(sp.vel, delta);
-            sp.vel.y += delta * 0.28;
-            sp.vel.x += Math.sin(sp.life * 4.0) * delta * 0.45;
-            sp.mesh.scale.setScalar(Math.max(0.01, sp.life / sp.maxLife));
-            (sp.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0.0, sp.life / sp.maxLife);
+
+            const lifeRatio = Math.max(0.0, sp.life / sp.maxLife);
+            const scaleFactor = (sp.baseScale || 1.0) * Math.min(1.0, lifeRatio * 1.35);
+            sp.mesh.scale.setScalar(Math.max(0.01, scaleFactor));
+            (sp.mesh.material as THREE.MeshBasicMaterial).opacity = Math.pow(lifeRatio, 0.85) * 0.95;
 
             if (sp.life <= 0) {
               if (sp.mesh.parent) sp.mesh.parent.remove(sp.mesh);
@@ -7452,11 +7465,18 @@ export function SakuraCanvas({
         left: 0,
         width: '100dvh',
         height: '100dvw',
+        maxWidth: '100dvh',
+        maxHeight: '100dvw',
         transform: 'translate(100dvw, 0) rotate(90deg)',
         transformOrigin: '0 0',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
       } : {
+        width: '100%',
         height: '100dvh',
-        maxHeight: '100dvh'
+        maxHeight: '100dvh',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
       {/* Centered Artwork Canvas Wrapper */}
@@ -7507,15 +7527,15 @@ export function SakuraCanvas({
 
           {/* 3-Second Track Notification Badge */}
           {trackBadgeText && (
-            <div className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-[110] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
-              <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d]/60 text-white shadow-[0_0_25px_rgba(255,42,157,0.5),0_8px_20px_rgba(0,0,0,0.7)]">
-                <svg className="w-4 h-4 text-[#ff2a9d] animate-pulse shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <div className="fixed top-12 sm:top-16 left-1/2 -translate-x-1/2 z-[110] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2.5 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d]/60 text-white shadow-[0_0_25px_rgba(255,42,157,0.5),0_8px_20px_rgba(0,0,0,0.7)]">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#ff2a9d] animate-pulse shrink-0" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                 </svg>
-                <span className="text-xs sm:text-sm font-extrabold tracking-wider uppercase text-[#ff2a9d] drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+                <span className="text-[10px] sm:text-xs font-extrabold tracking-wider uppercase text-[#ff2a9d] drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   Track:
                 </span>
-                <span className="text-xs sm:text-sm font-medium tracking-wide text-white/95">
+                <span className="text-[10px] sm:text-xs font-medium tracking-wide text-white/95">
                   {trackBadgeText}
                 </span>
               </div>
@@ -7524,12 +7544,12 @@ export function SakuraCanvas({
 
           {/* 2-Second Top-Center Gesture Instruction Badge */}
           {circlePromptVisible && (
-            <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
-              <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
-                <svg className="w-5 h-5 text-[#ff2a9d] animate-spin shrink-0" style={{ animationDuration: '2.5s' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <div className="fixed top-3 sm:top-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-2 px-3.5 sm:px-6 py-1.5 sm:py-2.5 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#ff2a9d] animate-spin shrink-0" style={{ animationDuration: '2.5s' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+                <span className="text-[10px] sm:text-xs font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   {isEn ? 'Make a circular motion!' : 'Kreisbewegung ausführen!'}
                 </span>
               </div>
@@ -7540,14 +7560,14 @@ export function SakuraCanvas({
 
           {/* Top-Center Gesture Instruction Badge for Plexus Center Drop Zone */}
           {plexusCenterPromptVisible && activeMode === 'plexus' && !isPlexusFinale && (
-            <div className="fixed top-6 sm:top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
-              <div className="flex items-center gap-3 px-6 py-3 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
-                <svg className="w-5 h-5 text-[#ff2a9d] animate-pulse shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <div className="fixed top-3 sm:top-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <div className="flex items-center gap-2 px-3.5 sm:px-6 py-1.5 sm:py-2.5 rounded-full bg-[#120c1c]/95 backdrop-blur-xl border border-[#ff2a9d] text-white shadow-[0_0_30px_rgba(255,42,157,0.7),0_10px_25px_rgba(0,0,0,0.8)]">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#ff2a9d] animate-pulse shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <circle cx="12" cy="12" r="10" />
                   <circle cx="12" cy="12" r="6" />
                   <circle cx="12" cy="12" r="2" fill="currentColor" />
                 </svg>
-                <span className="text-xs sm:text-sm font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
+                <span className="text-[10px] sm:text-xs font-bold tracking-wider uppercase text-white drop-shadow-[0_0_8px_rgba(255,42,157,0.8)]">
                   {isEn
                     ? 'Push all docked orbs together!'
                     : 'Schiebe alle belegten Orbs zusammen!'}
@@ -7560,12 +7580,19 @@ export function SakuraCanvas({
 
           {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape & Virtual Landscape, compact on smartphones) */}
           {activeMode === 'bluten' && currentPhase === 'BLOSSOM' && (!isPortraitMode || isVirtualLandscape) && (
-            <div className="absolute right-3 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1.5 sm:gap-2 lg:gap-3.5 p-2 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300">
+            <div
+              className="absolute top-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center gap-1 sm:gap-2 lg:gap-3.5 p-1.5 sm:p-2.5 lg:p-4 bg-[#120c1c]/90 backdrop-blur-xl border border-[#ff69b4]/40 rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-[0_12px_35px_rgba(0,0,0,0.6)] z-50 animate-in fade-in duration-300"
+              style={{
+                right: isVirtualLandscape
+                  ? 'max(14px, env(safe-area-inset-bottom, 14px))'
+                  : 'max(14px, env(safe-area-inset-right, 14px))',
+              }}
+            >
               <div className="hidden lg:block text-[10px] font-bold tracking-[2.5px] uppercase text-[#ffc8eb]/80 [writing-mode:vertical-lr] rotate-180 py-1">
                 {isEn ? 'Palette' : 'Farbpalette'}
               </div>
               <div className="hidden lg:block w-6 h-px bg-white/20 my-0.5" />
-              <div className="flex flex-col gap-2 sm:gap-2.5 lg:gap-3">
+              <div className="flex flex-col gap-1.5 sm:gap-2.5 lg:gap-3">
                 {(Object.keys(BLOSSOM_PALETTES) as BlossomColorId[]).map((colorKey) => {
                   const pal = BLOSSOM_PALETTES[colorKey];
                   const isSelected = selectedColor === colorKey;
@@ -7578,14 +7605,14 @@ export function SakuraCanvas({
                         handleColorSelect(colorKey);
                       }}
                       title={`${isEn ? 'Choose color: ' : 'Farbe wählen: '}${isEn ? pal.nameEn : pal.name}`}
-                      className={`relative group w-6 h-6 sm:w-7 sm:h-7 lg:w-10 lg:h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${isSelected
+                      className={`relative group w-5 h-5 sm:w-7 sm:h-7 lg:w-10 lg:h-10 rounded-full transition-all duration-300 flex items-center justify-center cursor-pointer pointer-events-auto touch-manipulation ${isSelected
                         ? 'scale-115 ring-2 ring-white shadow-[0_0_18px_' + pal.uiColor + ']'
                         : 'opacity-75 hover:opacity-100 hover:scale-110'
                         }`}
                       style={{ backgroundColor: pal.uiColor }}
                     >
                       {isSelected && (
-                        <span className="w-1.5 h-1.5 lg:w-2.5 lg:h-2.5 rounded-full bg-white shadow-[0_0_8px_white] pointer-events-none" />
+                        <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 lg:w-2.5 lg:h-2.5 rounded-full bg-white shadow-[0_0_8px_white] pointer-events-none" />
                       )}
                       {/* Tooltip on hover */}
                       <span className="hidden lg:block absolute right-full mr-3 px-2.5 py-1 bg-[#180f24]/95 text-white text-[10px] font-semibold tracking-wider uppercase rounded-lg border border-white/20 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
@@ -7799,53 +7826,53 @@ export function SakuraCanvas({
           ) : (
             /* LANDSCAPE 4-CORNER GLASSMORPHIC HUD (Desktop, Tablet & Mobile Virtual Landscape) */
             <div
-              className={`absolute inset-0 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}
+              className={`absolute inset-0 flex flex-col justify-between pointer-events-none z-40 transition-opacity duration-700 box-border overflow-hidden ${isHudDimmed ? 'opacity-20 hover:opacity-100' : 'opacity-100'}`}
               style={isVirtualLandscape ? {
-                paddingTop: 'max(8px, env(safe-area-inset-right, 8px))',
-                paddingBottom: 'max(14px, env(safe-area-inset-left, 14px))',
-                paddingLeft: 'max(16px, env(safe-area-inset-top, 16px))',
-                paddingRight: 'max(24px, env(safe-area-inset-bottom, 24px))',
+                paddingTop: 'max(6px, env(safe-area-inset-right, 6px))',
+                paddingBottom: 'max(10px, env(safe-area-inset-left, 10px))',
+                paddingLeft: 'max(14px, env(safe-area-inset-top, 14px))',
+                paddingRight: 'max(18px, env(safe-area-inset-bottom, 18px))',
               } : {
-                paddingTop: 'max(10px, env(safe-area-inset-top, 10px))',
-                paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+                paddingTop: 'max(8px, env(safe-area-inset-top, 8px))',
+                paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
                 paddingLeft: 'max(14px, env(safe-area-inset-left, 14px))',
                 paddingRight: 'max(14px, env(safe-area-inset-right, 14px))',
               }}
             >
 
               {/* TOP BAR: Instruction Box (Left) & Control Buttons (Right) */}
-              <div className="flex justify-between items-start w-full gap-2">
+              <div className="flex justify-between items-start w-full gap-1.5 sm:gap-2">
                 {/* Top Left: Dynamic Instruction Box */}
-                <div className="pointer-events-auto flex flex-col gap-1 p-2 sm:p-2.5 md:p-3 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-xl sm:rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] max-w-[210px] sm:max-w-[280px] md:max-w-[340px] lg:max-w-[420px]">
+                <div className="pointer-events-auto flex flex-col gap-0.5 sm:gap-1 p-1.5 sm:p-2.5 md:p-3 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/40 rounded-xl sm:rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] max-w-[180px] sm:max-w-[260px] md:max-w-[340px] lg:max-w-[420px] shrink-0">
                   {(roundInfo || isPaused) && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
-                      <span className="text-[10px] sm:text-[11px] font-bold tracking-[1.5px] uppercase text-[#ffb4dc]/95 truncate">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d] animate-ping" />
+                      <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold tracking-[1.2px] uppercase text-[#ffb4dc]/95 truncate">
                         {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
                       </span>
                     </div>
                   )}
-                  <p className="text-[11px] sm:text-xs leading-snug sm:leading-relaxed text-white/90 font-normal line-clamp-3 sm:line-clamp-none">
+                  <p className="text-[10px] sm:text-[11px] md:text-xs leading-tight sm:leading-snug md:leading-relaxed text-white/90 font-normal line-clamp-2 md:line-clamp-none">
                     {instructionBody}
                   </p>
                 </div>
 
                 {/* Top Right: Sound, Pause, Restart & EXIT Control Buttons */}
-                <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={toggleAudio}
                     aria-label={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
                     title={isAudioMuted ? (isEn ? 'Sound on' : 'Sound an') : (isEn ? 'Sound off' : 'Sound aus')}
-                    className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                    className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
                   >
                     {isAudioMuted ? (
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l4-4m0 4l-4-4" />
                       </svg>
                     ) : (
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z" />
                       </svg>
                     )}
@@ -7856,14 +7883,14 @@ export function SakuraCanvas({
                     onClick={togglePause}
                     aria-label={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
                     title={isPaused ? (isEn ? 'Resume' : 'Fortsetzen') : (isEn ? 'Pause' : 'Pause')}
-                    className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                    className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
                   >
                     {isPaused ? (
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white translate-x-0.5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white translate-x-0.5 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                       </svg>
                     ) : (
-                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
                       </svg>
                     )}
@@ -7874,9 +7901,9 @@ export function SakuraCanvas({
                     onClick={handleRestart}
                     aria-label={isEn ? 'Restart' : 'Neu starten'}
                     title={isEn ? 'Restart' : 'Neu starten'}
-                    className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
+                    className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-[#120c1c]/80 hover:bg-[#ff2a9d]/25 border border-white/20 hover:border-[#ff2a9d] text-white shadow-lg backdrop-blur-md transition-all active:scale-95"
                   >
-                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </button>
@@ -7886,19 +7913,19 @@ export function SakuraCanvas({
                     onClick={() => setIsExitConfirmOpen(true)}
                     aria-label={isEn ? 'Exit' : 'Beenden'}
                     title={isEn ? 'Exit & return to home' : 'Beenden & zurück zur Startseite'}
-                    className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+                    className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-rose-950/60 hover:bg-rose-600/70 border border-rose-500/40 hover:border-rose-400 text-white shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
                   >
-                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              {/* BOTTOM BAR: Brand Title (Left), Mode Selector (Center), Action Button (Right) */}
+              {/* BOTTOM BAR: Brand Title (Left on desktop/tablet), Mode Selector (Center), Action Button (Right) */}
               <div className="flex justify-between items-end w-full gap-2">
-                {/* Bottom Left: Brand Title */}
-                <div className="hidden sm:flex flex-col gap-0.5 select-none shrink-0">
+                {/* Bottom Left: Brand Title (hidden on small smartphones to preserve space, visible on md+) */}
+                <div className="hidden md:flex flex-col gap-0.5 select-none shrink-0">
                   <h1 className="text-base sm:text-xl md:text-2xl font-bold tracking-[2px] sm:tracking-[4px] uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-[#ff80df] to-[#ff2a9d] drop-shadow-[0_0_15px_rgba(255,42,157,0.7)] leading-none">
                     Sakuraverse
                   </h1>
@@ -7908,19 +7935,19 @@ export function SakuraCanvas({
                 </div>
 
                 {/* Bottom Center: Mode Selector / Creation Mode Badge */}
-                <div className="pointer-events-auto flex flex-col gap-1 items-center shrink-0">
+                <div className="pointer-events-auto flex flex-col gap-1 items-center shrink-0 mx-auto md:mx-0">
                   {isCreationMode ? (
-                    <div className="flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_15px_rgba(255,42,157,0.4)]">
+                    <div className="flex items-center gap-1.5 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full bg-[#160e22]/90 backdrop-blur-md border border-[#ff69b4]/50 shadow-[0_0_15px_rgba(255,42,157,0.4)]">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#ff2a9d] shadow-[0_0_8px_#ff2a9d] animate-pulse" />
                       <span className="text-[9px] sm:text-xs font-bold tracking-[1.5px] uppercase text-white">
                         Souvenir Mode
                       </span>
                     </div>
                   ) : (
-                    <div className="flex gap-1 p-1 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-xl">
+                    <div className="flex gap-1 p-0.5 sm:p-1 bg-[#120c1c]/85 backdrop-blur-md border border-[#ff69b4]/30 rounded-full shadow-xl">
                       <button
                         onClick={() => handleSwitchMode('bluten')}
-                        className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold tracking-wider uppercase transition-all ${activeMode === 'bluten'
+                        className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-semibold tracking-wider uppercase transition-all ${activeMode === 'bluten'
                           ? 'bg-gradient-to-r from-[#ff2a9d]/80 to-[#120c1c]/90 text-white border border-[#ffb4dc]/80 shadow-[0_0_12px_rgba(255,42,157,0.5)]'
                           : 'text-[#ffc8eb]/60 hover:text-white'
                           }`}
@@ -7930,7 +7957,7 @@ export function SakuraCanvas({
 
                       <button
                         onClick={() => handleSwitchMode('plexus')}
-                        className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold tracking-wider uppercase transition-all ${activeMode === 'plexus'
+                        className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-semibold tracking-wider uppercase transition-all ${activeMode === 'plexus'
                           ? 'bg-gradient-to-r from-[#00f0ff]/80 to-[#120c1c]/90 text-white border border-[#4ee2ec]/80 shadow-[0_0_12px_rgba(0,240,255,0.5)]'
                           : 'text-[#ffc8eb]/60 hover:text-white'
                           }`}
@@ -7943,19 +7970,19 @@ export function SakuraCanvas({
 
                 {/* Bottom Right: Creation Button & Readiness Indicators - ONLY when NOT in Souvenir mode */}
                 {!isCreationMode && (
-                  <div className="pointer-events-auto flex flex-col items-end gap-1 shrink-0">
+                  <div className="pointer-events-auto flex flex-col items-end gap-0.5 sm:gap-1 shrink-0 ml-auto md:ml-0">
                     {(hostCreationReady || guestCreationReady) && (
-                      <div className="flex items-center gap-2 pr-0.5">
-                        <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
-                            <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                      <div className="flex items-center gap-1.5 sm:gap-2 pr-0.5">
+                        <div className={`flex items-center gap-1 text-[7.5px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${hostCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                          <span className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                            <svg className="w-1.5 h-1.5 sm:w-2 sm:h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </span> Host
                         </div>
-                        <div className={`flex items-center gap-1 text-[8px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
-                            <svg className="w-2 h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
+                        <div className={`flex items-center gap-1 text-[7.5px] sm:text-[9px] font-bold uppercase text-white transition-opacity ${guestCreationReady ? 'opacity-100' : 'opacity-0'}`}>
+                          <span className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full bg-[#10e782] text-black flex items-center justify-center">
+                            <svg className="w-1.5 h-1.5 sm:w-2 sm:h-2 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </span> {isEn ? 'Guest' : 'Gast'}
@@ -7966,7 +7993,7 @@ export function SakuraCanvas({
                     <div className="flex items-center">
                       <button
                         onClick={toggleCreationReady}
-                        className="relative overflow-hidden px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-[11px] font-semibold tracking-[1px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/60 shadow-[0_4px_16px_rgba(255,42,157,0.35)] hover:shadow-[0_6px_22px_rgba(255,42,157,0.5)] hover:scale-[1.02] active:scale-95 cursor-pointer"
+                        className="relative overflow-hidden px-2.5 sm:px-4 py-1 sm:py-2 rounded-full text-[9px] sm:text-[11px] font-semibold tracking-[0.8px] sm:tracking-[1px] uppercase transition-all flex items-center justify-center bg-gradient-to-r from-[#ff2a9d] via-[#a855f7] to-[#4ee2ec] text-white border border-[#4ee2ec]/60 shadow-[0_4px_16px_rgba(255,42,157,0.35)] hover:shadow-[0_6px_22px_rgba(255,42,157,0.5)] hover:scale-[1.02] active:scale-95 cursor-pointer"
                         title={isEn ? 'Switch to Souvenir Mode' : 'In den Souvenirmodus wechseln'}
                       >
                         <span className="relative z-10">
