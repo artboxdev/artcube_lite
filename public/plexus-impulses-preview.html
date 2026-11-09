@@ -635,6 +635,25 @@
         this.finaleNetworkCount = 0;
         this.inImpulse = false;
         this.impulseCooldown = 0.0;
+        this.hasBeenMovedByUser = false;
+        this.restX = this.homeX;
+        this.restY = this.homeY;
+
+        // Randomized 3D Finale Flight Parameters
+        this.flightCenterX = 0;
+        this.flightCenterY = 0;
+        this.flightFreqX1 = 0.6;
+        this.flightFreqX2 = 1.2;
+        this.flightPhaseX = this.phase;
+        this.flightAmpX = 135.0;
+        this.flightFreqY1 = 0.5;
+        this.flightFreqY2 = 1.1;
+        this.flightPhaseY = this.phase + 1.2;
+        this.flightAmpY = 85.0;
+        this.flightFreqZ1 = 0.42;
+        this.flightFreqZ2 = 0.88;
+        this.flightPhaseZ = this.phase + 2.4;
+        this.flightAmpZ = 50.0; // Moderate Z-Tiefe
 
         // Non-overlapping formation offsets around centroid (Requirement 2)
         const formationOffsets = [
@@ -712,6 +731,30 @@
         this.mesh.add(this.starSprite);
       }
 
+      initFinaleFlight(index, totalCount) {
+        // Distribute flight base centers and assign distinct randomized 3D harmonics
+        const baseAngle = (index / Math.max(1, totalCount)) * Math.PI * 2;
+        this.flightCenterX = Math.cos(baseAngle) * (35.0 + Math.random() * 30.0);
+        this.flightCenterY = Math.sin(baseAngle) * (25.0 + Math.random() * 25.0);
+
+        // Randomized harmonic frequencies & phase offsets (smooth non-repeating 3D curves)
+        this.flightFreqX1 = 0.50 + Math.random() * 0.35;
+        this.flightFreqX2 = 1.10 + Math.random() * 0.55;
+        this.flightPhaseX = Math.random() * Math.PI * 2;
+        this.flightAmpX = 135.0 + Math.random() * 45.0; // Moderate Breite (~ -180px bis +180px)
+
+        this.flightFreqY1 = 0.45 + Math.random() * 0.35;
+        this.flightFreqY2 = 1.00 + Math.random() * 0.50;
+        this.flightPhaseY = Math.random() * Math.PI * 2;
+        this.flightAmpY = 85.0 + Math.random() * 35.0;  // Moderate Höhe (~ -120px bis +120px)
+
+        // Moderates Wandern auf der Z-Achse (Tiefe: ~ -70px bis +70px)
+        this.flightFreqZ1 = 0.38 + Math.random() * 0.30;
+        this.flightFreqZ2 = 0.85 + Math.random() * 0.40;
+        this.flightPhaseZ = Math.random() * Math.PI * 2;
+        this.flightAmpZ = 50.0 + Math.random() * 25.0;
+      }
+
       triggerDockWobble() {
         this.dockWobbleTimer = 0.0;
       }
@@ -759,12 +802,24 @@
           this.impulseCooldown -= delta;
         }
 
-        if (isFinale) {
-          // Finale Drift / Interaction Movement
-          this.x += this.finaleVx * delta;
-          this.y += this.finaleVy * delta;
-          this.finaleVx *= Math.max(0.0, 1.0 - delta * 2.2);
-          this.finaleVy *= Math.max(0.0, 1.0 - delta * 2.2);
+        if (isFinale && this.attachedPlexusCount > 0) {
+          // 1. Requirement: Randomisierte 3D-Flugbahnen mit moderatem Wandern auf der Z-Achse (Tiefe)
+          const t = finaleAge;
+          const trajX = Math.sin(t * this.flightFreqX1 + this.flightPhaseX) * (this.flightAmpX * 0.65)
+                      + Math.sin(t * this.flightFreqX2 + this.flightPhaseX * 1.6) * (this.flightAmpX * 0.35);
+          const trajY = Math.cos(t * this.flightFreqY1 + this.flightPhaseY) * (this.flightAmpY * 0.65)
+                      + Math.sin(t * this.flightFreqY2 + this.flightPhaseY * 1.4) * (this.flightAmpY * 0.35);
+          // Moderates Wandern auf der Z-Achse (Tiefe)
+          const trajZ = Math.sin(t * this.flightFreqZ1 + this.flightPhaseZ) * (this.flightAmpZ * 0.70)
+                      + Math.cos(t * this.flightFreqZ2 + this.flightPhaseZ * 1.5) * (this.flightAmpZ * 0.30);
+
+          const targetX = this.flightCenterX + trajX;
+          const targetY = this.flightCenterY + trajY;
+          const targetZ = trajZ;
+
+          this.x = THREE.MathUtils.lerp(this.x, targetX, delta * 3.2);
+          this.y = THREE.MathUtils.lerp(this.y, targetY, delta * 3.2);
+          this.z = THREE.MathUtils.lerp(this.z, targetZ, delta * 3.2);
         } else if (isFormationActive && this.attachedPlexusCount > 0) {
           // Synchronous Flocking Formation (nur für belegte Orbs; unbelegte Orbs kreisen frei weiter!)
           const breath = Math.sin(totalTime * 2.2 + this.orbIndex * 1.5) * 5.0;
@@ -777,12 +832,17 @@
           // Follow pointer
           this.x = mouseWorld.x;
           this.y = mouseWorld.y;
-        } else if (totalAttachedPlexus >= 6 && this.attachedPlexusCount > 0 && this.hasBeenPlaced) {
-          // Pre-Finale placed at rest position (nur belegte Orbs)
-          this.x = THREE.MathUtils.lerp(this.x, this.restX, delta * 3.0);
-          this.y = THREE.MathUtils.lerp(this.y, this.restY, delta * 3.0);
+          this.z = 0;
+        } else if (totalAttachedPlexus >= 6 && this.attachedPlexusCount > 0) {
+          // 2. Requirement: Keiner der belegten Orbs bewegt sich von selbst ins Zentrum!
+          // Sie bleiben ortsfest am aktuellen Ort (sanftes Mikroschweben), bis der Nutzer sie bewegt.
+          const hoverX = Math.cos(totalTime * 1.5 + this.phase) * 2.5;
+          const hoverY = Math.sin(totalTime * 1.5 + this.phase) * 2.5;
+          this.x = this.restX + hoverX;
+          this.y = this.restY + hoverY;
+          this.z = Math.sin(totalTime * 1.2 + this.phase) * 4.0;
         } else {
-          // Free Orbiting (unbelegte Orbs bleiben völlig unbeeinflusst von der Formations-Gravitation)
+          // Free Orbiting (unbelegte Orbs oder bevor 6 Plexus angedockt sind)
           this.orbitAngle += this.speed * delta;
           this.x = this.homeX + Math.cos(this.orbitAngle) * this.orbitRx;
           this.y = this.homeY + Math.sin(this.orbitAngle) * this.orbitRy;
@@ -1077,16 +1137,26 @@
       const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
       if (occupied.length < 2) return;
 
-      // Berechne den Mittelpunkt (Centroid) aller belegten Orbs
+      // 1. Requirement: ALLE belegten Orbs müssen vom Nutzer aktiv bewegt worden sein (keiner aktiviert dies von selbst!)
+      const allMovedByUser = occupied.every(o => o.hasBeenMovedByUser);
+      if (!allMovedByUser) {
+        const movedCount = occupied.filter(o => o.hasBeenMovedByUser).length;
+        promptBanner.className = 'prompt-banner sakura';
+        promptBanner.textContent = `Schiebe ALLE belegten Orbs zusammen (${movedCount}/${occupied.length} bewegt)!`;
+        return;
+      }
+
+      // 2. Requirement: Alle belegten Orbs müssen auf einen gewissen Radius zusammengeschoben sein
       let cx = 0, cy = 0;
       occupied.forEach(o => { cx += o.x; cy += o.y; });
       cx /= occupied.length;
       cy /= occupied.length;
 
-      // Wenn alle belegten Orbs zusammengeschoben wurden (< 135 Einheiten)
+      // Bestimme den maximalen Abstand zur Cluster-Mitte
       const maxDistToCentroid = Math.max(...occupied.map(o => Math.hypot(o.x - cx, o.y - cy)));
+      const COLLAPSE_RADIUS = 110.0;
 
-      if (maxDistToCentroid < 135.0) {
+      if (maxDistToCentroid < COLLAPSE_RADIUS) {
         // Trigger Formation: Nicht übereinander, sondern über Netzwerke verbunden und synchron schwebend!
         isFormationActive = true;
         formationTimer = 0.0;
@@ -1094,8 +1164,11 @@
         bgUniforms.uRippleActive.value = 1.0;
         bgUniforms.uRippleTime.value = 0.0;
         promptBanner.className = 'prompt-banner finale';
-        promptBanner.textContent = 'Orbs über Netzwerke verbunden — Finale startet in 2.0s...';
-        showToastMsg('Netzwerk-Verbund aktiv: Finale startet in 2s!');
+        promptBanner.textContent = 'Alle Orbs im Radius verbunden — Finale startet in 2.0s...';
+        showToastMsg('Perfekt! Alle Orbs zusammengeführt: Finale startet in 2s!');
+      } else {
+        promptBanner.className = 'prompt-banner sakura';
+        promptBanner.textContent = `Orbs noch nicht nah genug zusammen (${Math.round(maxDistToCentroid)}px / max ${COLLAPSE_RADIUS}px)!`;
       }
     }
 
@@ -1172,12 +1245,17 @@
       isFormationActive = false;
       finaleStartTime = performance.now() * 0.001;
       activeImpulses.length = 0;
-      floatingOrbs.forEach(o => { o.finaleNetworkCount = 0; o.inImpulse = false; });
+      const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
+      occupied.forEach((o, i) => {
+        o.initFinaleFlight(i, occupied.length);
+        o.finaleNetworkCount = 0;
+        o.inImpulse = false;
+      });
       bgUniforms.uRippleActive.value = 1.0;
       bgUniforms.uRippleTime.value = 0.0;
       promptBanner.className = 'prompt-banner finale';
-      promptBanner.textContent = '10s Finale aktiv: Synaptisches Netzwerk entfaltet sich!';
-      showToastMsg('10s Finale gestartet!');
+      promptBanner.textContent = '10s Finale aktiv: Orbs fliegen in randomisierten 3D-Bahnen!';
+      showToastMsg('10s Finale gestartet: Randomisierter 3D-Schwebeflug!');
     }
 
     // ==========================================
@@ -1203,9 +1281,10 @@
       // Check if clicking an Orb (in Pre-Finale)
       if (totalAttachedPlexus >= 6 && !isFinaleActive && !isFormationActive) {
         for (let o of floatingOrbs) {
-          if (Math.hypot(o.x - mouseWorld.x, o.y - mouseWorld.y) < 45.0) {
+          if (o.attachedPlexusCount > 0 && Math.hypot(o.x - mouseWorld.x, o.y - mouseWorld.y) < 50.0) {
             draggedOrb = o;
             draggedOrb.isDragged = true;
+            draggedOrb.hasBeenMovedByUser = true;
             draggedOrb.triggerHoverWobble();
             holdCircle.style.opacity = '0';
             return;
@@ -1249,6 +1328,7 @@
         draggedOrb.y = mouseWorld.y;
         draggedOrb.restX = mouseWorld.x;
         draggedOrb.restY = mouseWorld.y;
+        draggedOrb.hasBeenMovedByUser = true;
         checkPreFinaleProximity();
       } else if (draggedCluster) {
         draggedCluster.x = mouseWorld.x;
@@ -1267,9 +1347,11 @@
     window.addEventListener('pointerup', (e) => {
       if (draggedOrb) {
         draggedOrb.isDragged = false;
-        draggedOrb.hasBeenPlaced = true;
-        draggedOrb = null;
+        draggedOrb.restX = mouseWorld.x;
+        draggedOrb.restY = mouseWorld.y;
+        draggedOrb.hasBeenMovedByUser = true;
         checkPreFinaleProximity();
+        draggedOrb = null;
       } else if (draggedCluster) {
         // Check if dropped onto an Orb (< 120px)
         let closest = null, minDist = 120.0;
@@ -1292,8 +1374,15 @@
           showToastMsg(`Plexus an ${closest.name}-Orb angedockt! (${totalAttachedPlexus}/6)`);
 
           if (totalAttachedPlexus >= 6) {
+            floatingOrbs.forEach(o => {
+              if (o.attachedPlexusCount > 0) {
+                o.restX = o.x;
+                o.restY = o.y;
+                o.hasBeenMovedByUser = false;
+              }
+            });
             promptBanner.className = 'prompt-banner sakura';
-            promptBanner.textContent = '6 Plexus angedockt! Schiebe alle belegten Orbs zusammen!';
+            promptBanner.textContent = '6 Plexus angedockt! Schiebe ALLE belegten Orbs zusammen!';
           }
         }
         draggedCluster = null;
@@ -1373,7 +1462,12 @@
 
     document.getElementById('btn-dock-all').addEventListener('click', () => {
       // Clear previous attachments
-      floatingOrbs.forEach(o => { o.attachedPlexusCount = 0; o.attachedNodes = []; });
+      floatingOrbs.forEach(o => {
+        o.attachedPlexusCount = 0;
+        o.attachedNodes = [];
+        o.hasBeenMovedByUser = false;
+        o.z = 0;
+      });
 
       // Belege 3 Orbs mit insgesamt 6 Plexus (2 pink, 2 blue, 2 yellow).
       // Der 4. (grüne) Orb bleibt unbelegt, um Anforderung 5 zu demonstrieren!
@@ -1384,11 +1478,18 @@
       floatingOrbs[2].attachCluster(null);
       floatingOrbs[2].attachCluster(null);
       totalAttachedPlexus = 6;
-      floatingOrbs.forEach(o => { if (o.attachedPlexusCount > 0) o.triggerDockWobble(); });
+      floatingOrbs.forEach(o => {
+        if (o.attachedPlexusCount > 0) {
+          o.restX = o.x;
+          o.restY = o.y;
+          o.hasBeenMovedByUser = false;
+          o.triggerDockWobble();
+        }
+      });
 
       promptBanner.className = 'prompt-banner sakura';
-      promptBanner.textContent = '6 Plexus angedockt! Schiebe nun die belegten Orbs zusammen!';
-      showToastMsg('6 Plexus an 3 Orbs angedockt. Der unbelegte Orb schwebt frei weiter.');
+      promptBanner.textContent = '6 Plexus angedockt! Schiebe nun ALLE 3 belegten Orbs zusammen!';
+      showToastMsg('6 Plexus an 3 Orbs angedockt. Schiebe alle belegten Orbs zusammen.');
     });
 
     document.getElementById('btn-collide-demo').addEventListener('click', () => {
@@ -1404,21 +1505,25 @@
         totalAttachedPlexus = 6;
       }
 
-      // Smoothly activate flocking formation with networks connected
-      isFormationActive = true;
-      formationTimer = 0.0;
-      flockAngle = 0.0;
-      floatingOrbs.forEach(o => {
+      // Simuliere das Zusammenschieben aller belegten Orbs durch den Nutzer in den Radius
+      const occupied = floatingOrbs.filter(o => o.attachedPlexusCount > 0);
+      const clusterOffsets = [
+        { x: -35, y: 35 },
+        { x: 35, y: 35 },
+        { x: 0, y: -45 }
+      ];
+      occupied.forEach((o, i) => {
+        const off = clusterOffsets[i] || { x: (i - 1) * 35, y: 0 };
+        o.x = off.x;
+        o.y = off.y;
+        o.restX = off.x;
+        o.restY = off.y;
+        o.hasBeenMovedByUser = true;
         o.isDragged = false;
-        o.hasBeenPlaced = false;
-        if (o.attachedPlexusCount > 0) o.triggerDockWobble();
+        o.triggerDockWobble();
       });
 
-      bgUniforms.uRippleActive.value = 1.0;
-      bgUniforms.uRippleTime.value = 0.0;
-      promptBanner.className = 'prompt-banner finale';
-      promptBanner.textContent = 'Orbs über Netzwerke verbunden — Finale startet in 2.0s...';
-      showToastMsg('Netzwerk-Verbund aktiv: Finale startet in 2s!');
+      checkPreFinaleProximity();
     });
 
     document.getElementById('btn-finale-direct').addEventListener('click', () => {
@@ -1447,9 +1552,14 @@
         const cfg = ORB_CONFIGS[i];
         o.homeX = cfg.homeX;
         o.homeY = cfg.homeY;
+        o.x = cfg.homeX;
+        o.y = cfg.homeY;
+        o.z = 0;
+        o.restX = cfg.homeX;
+        o.restY = cfg.homeY;
         o.attachedPlexusCount = 0;
         o.attachedNodes = [];
-        o.hasBeenPlaced = false;
+        o.hasBeenMovedByUser = false;
         o.finaleVx = 0;
         o.finaleVy = 0;
       });
@@ -1669,23 +1779,14 @@
                 const nx = dx / dist;
                 const ny = dy / dist;
 
-                if (finaleAge < win.triggerAt) {
-                  // Mutual Attraction
-                  const pull = Math.min(260.0, 550.0 / Math.max(20.0, dist));
-                  orbA.finaleVx += nx * pull * delta * 3.6;
-                  orbA.finaleVy += ny * pull * delta * 3.6;
-                  orbB.finaleVx -= nx * pull * delta * 3.6;
-                  orbB.finaleVy -= ny * pull * delta * 3.6;
-                } else {
+                if (finaleAge >= win.triggerAt) {
                   // Window Trigger Encounter
                   orbA.triggerDockWobble();
                   orbB.triggerDockWobble();
 
                   const midX = (orbA.x + orbB.x) * 0.5;
                   const midY = (orbA.y + orbB.y) * 0.5;
-                  const initialAngle = Math.atan2(orbA.y - midY, orbA.x - midX);
-                  const initialDistA = Math.hypot(orbA.x - midX, orbA.y - midY);
-                  const initialDistB = Math.hypot(orbB.x - midX, orbB.y - midY);
+                  const midZ = (orbA.z + orbB.z) * 0.5;
 
                   const palA = SATURATED_PALETTES[orbA.id];
                   const palB = SATURATED_PALETTES[orbB.id];
@@ -1695,13 +1796,12 @@
                     const useA = (p % 2 === 0);
                     const srcOrb = useA ? orbA : orbB;
                     const pal = useA ? palA : palB;
-                    particles.push(new FinaleMeshParticle(pal, { x: srcOrb.x - midX, y: srcOrb.y - midY, z: srcOrb.z }, p));
+                    particles.push(new FinaleMeshParticle(pal, { x: srcOrb.x - midX, y: srcOrb.y - midY, z: srcOrb.z - midZ }, p));
                   }
 
                   const duration = Math.max(0.1, win.endAt - finaleAge);
                   activeImpulses.push({
                     orbA, orbB, age: 0.0, remaining: duration, duration,
-                    midX, midY, initialAngle, initialDistA, initialDistB,
                     particles, roundIdx: r
                   });
 
@@ -1715,7 +1815,7 @@
           }
         }
 
-        // Update Active Finale Impulses
+        // Update Active Finale Impulses (Synaptische Entladungen zwischen den frei fliegenden 3D-Orbs)
         for (let impIdx = activeImpulses.length - 1; impIdx >= 0; impIdx--) {
           const imp = activeImpulses[impIdx];
           imp.age += delta;
@@ -1723,28 +1823,22 @@
 
           const transitionProgress = Math.min(1.0, imp.age / 0.65);
           const impAlpha = Math.min(1.0, Math.min(imp.age / 0.40, Math.max(0.0, imp.remaining / 0.30)));
-          const entryProg = Math.min(1.0, imp.age / 0.60);
-          const smoothEase = entryProg * entryProg * (3.0 - 2.0 * entryProg);
-          const targetOrbitR = 26.0;
-          const curDistA = THREE.MathUtils.lerp(imp.initialDistA, targetOrbitR, smoothEase);
-          const curDistB = THREE.MathUtils.lerp(imp.initialDistB, targetOrbitR, smoothEase);
-          const orbitAngle = imp.initialAngle + imp.age * 1.7;
 
-          imp.orbA.x = imp.midX + Math.cos(orbitAngle) * curDistA;
-          imp.orbA.y = imp.midY + Math.sin(orbitAngle) * curDistA * 0.85;
-          imp.orbB.x = imp.midX - Math.cos(orbitAngle) * curDistB;
-          imp.orbB.y = imp.midY - Math.sin(orbitAngle) * curDistB * 0.85;
+          // Dynamischer 3D-Mittelpunkt zwischen beiden fliegenden Orbs
+          const curMidX = (imp.orbA.x + imp.orbB.x) * 0.5;
+          const curMidY = (imp.orbA.y + imp.orbB.y) * 0.5;
+          const curMidZ = (imp.orbA.z + imp.orbB.z) * 0.5;
 
-          // Push particles into GPU buffer
+          // Push particles into GPU buffer (wandern im 3D-Raum zwischen den Orbs)
           for (let p = 0; p < imp.particles.length; p++) {
             if (activeNodeCount >= MAX_NODES) break;
             const pt = imp.particles[p];
             pt.update(delta, transitionProgress, imp.age, totalTime);
 
             const nIdx = activeNodeCount++;
-            worldX[nIdx] = pt.renderX;
-            worldY[nIdx] = pt.renderY;
-            worldZ[nIdx] = pt.renderZ;
+            worldX[nIdx] = curMidX + pt.renderX;
+            worldY[nIdx] = curMidY + pt.renderY;
+            worldZ[nIdx] = curMidZ + pt.renderZ;
             worldR[nIdx] = pt.color.r;
             worldG[nIdx] = pt.color.g;
             worldB[nIdx] = pt.color.b;
@@ -1754,14 +1848,6 @@
           }
 
           if (imp.remaining <= 0) {
-            const dx = imp.orbB.x - imp.orbA.x;
-            const dy = imp.orbB.y - imp.orbA.y;
-            const d = Math.hypot(dx, dy) || 1.0;
-            const sep = 175.0;
-            imp.orbA.finaleVx = -(dx / d) * sep;
-            imp.orbA.finaleVy = -(dy / d) * sep;
-            imp.orbB.finaleVx = (dx / d) * sep;
-            imp.orbB.finaleVy = (dy / d) * sep;
             imp.orbA.inImpulse = false;
             imp.orbB.inImpulse = false;
             imp.orbA.impulseCooldown = 0.5;
