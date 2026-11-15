@@ -483,13 +483,43 @@ export function AtelierOnepager({
             </h3>
             <p className="text-sm text-[#A8A298] mb-8">{tExp.artworksModal.subtitle}</p>
             <div className="space-y-8">
-              <div className="border-t border-[#F5F2EB]/12 pt-6">
-                <h4 className="text-lg font-medium text-[#E8C5B0] mb-2">{tExp.artworksModal.sumieTitle}</h4>
-                <p className="text-sm text-[#F5F2EB]/80 leading-relaxed">{tExp.artworksModal.sumieText}</p>
+              <div className="border-t border-[#F5F2EB]/12 pt-6 space-y-4">
+                <div className="w-full max-h-[280px] overflow-hidden border border-[#F5F2EB]/15 bg-[#f7f5f0]">
+                  <img
+                    src={`${basePath}/sumie_about.jpg`}
+                    alt={tExp.artworksModal.sumieImageAlt}
+                    className="w-full h-auto max-h-[280px] object-cover block"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (!img.src.includes('/artcube_lite')) {
+                        img.src = '/artcube_lite/sumie_about.jpg';
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <h4 className="text-lg font-medium text-[#E8C5B0] mb-2">{tExp.artworksModal.sumieTitle}</h4>
+                  <p className="text-sm text-[#F5F2EB]/80 leading-relaxed">{tExp.artworksModal.sumieText}</p>
+                </div>
               </div>
-              <div className="border-t border-[#F5F2EB]/12 pt-6">
-                <h4 className="text-lg font-medium text-[#E8C5B0] mb-2">{tExp.artworksModal.plexusTitle}</h4>
-                <p className="text-sm text-[#F5F2EB]/80 leading-relaxed">{tExp.artworksModal.plexusText}</p>
+              <div className="border-t border-[#F5F2EB]/12 pt-6 space-y-4">
+                <div className="w-full max-h-[280px] overflow-hidden border border-[#F5F2EB]/15 bg-[#0d0914]">
+                  <img
+                    src={`${basePath}/plexus_about.jpg`}
+                    alt={tExp.artworksModal.plexusTitle}
+                    className="w-full h-auto max-h-[280px] object-cover block"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (!img.src.includes('/artcube_lite')) {
+                        img.src = '/artcube_lite/plexus_about.jpg';
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <h4 className="text-lg font-medium text-[#E8C5B0] mb-2">{tExp.artworksModal.plexusTitle}</h4>
+                  <p className="text-sm text-[#F5F2EB]/80 leading-relaxed">{tExp.artworksModal.plexusText}</p>
+                </div>
               </div>
             </div>
             <div className="mt-8 pt-6 border-t border-[#F5F2EB]/12 flex justify-end">

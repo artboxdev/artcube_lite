@@ -18,7 +18,8 @@ interface OnepagerHeaderProps {
 const DESIGN_OPTIONS: { id: DesignVariant; label: string }[] = [
   { id: 'original', label: 'Classic' },
   { id: 'atelier', label: 'Atelier' },
-  { id: 'monolith', label: 'Monolith' },
+  { id: 'washi', label: 'Washi' },
+  { id: 'prism', label: 'Prism' },
 ];
 
 export function OnepagerHeader({
@@ -40,9 +41,11 @@ export function OnepagerHeader({
   const headerSurfaceClass =
     designVariant === 'atelier'
       ? 'border-b border-[#F5F2EB]/15 backdrop-blur-xl bg-[rgba(12,11,10,0.86)]'
-      : designVariant === 'monolith'
-        ? 'border-b border-[#F8FAFC]/16 bg-[#05070A]/95'
-        : 'border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)]';
+      : designVariant === 'washi'
+        ? 'border-b border-[#D4B483]/25 backdrop-blur-xl bg-[rgba(17,15,14,0.88)]'
+        : designVariant === 'prism'
+          ? 'border-b border-[#F0F6FC]/12 backdrop-blur-xl bg-[rgba(4,9,18,0.85)]'
+          : 'border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)]';
 
   return (
     <header className={`sticky top-0 left-0 right-0 z-40 h-16 transition-all duration-300 ${headerSurfaceClass}`}>
@@ -86,11 +89,13 @@ export function OnepagerHeader({
           {/* Design Variant Switcher (Desktop & Tablet) */}
           <div
             className={`hidden sm:flex items-center p-0.5 border backdrop-blur-md ${
-              designVariant === 'monolith'
-                ? 'rounded-none bg-[#0B0F15] border-[#F8FAFC]/20'
-                : designVariant === 'atelier'
-                  ? 'rounded-none bg-[#161513] border-[#F5F2EB]/20'
-                  : 'rounded-full bg-white/[0.08] border-white/15 shadow-inner'
+              designVariant === 'atelier'
+                ? 'rounded-none bg-[#161513] border-[#F5F2EB]/20'
+                : designVariant === 'washi'
+                  ? 'rounded-sm bg-[#1C1917] border-[#D4B483]/35'
+                  : designVariant === 'prism'
+                    ? 'rounded-xl bg-[#0B1424]/90 border-[#38BDF8]/30'
+                    : 'rounded-full bg-white/[0.08] border-white/15 shadow-inner'
             }`}
             role="group"
             aria-label="Design variant"
@@ -98,15 +103,21 @@ export function OnepagerHeader({
             {DESIGN_OPTIONS.map((opt) => {
               const isActive = designVariant === opt.id;
               const activeClass =
-                designVariant === 'monolith'
-                  ? 'rounded-none bg-[#38BDF8] text-[#05070A] font-bold'
-                  : designVariant === 'atelier'
-                    ? 'rounded-none bg-[#F5F2EB] text-[#0C0B0A] font-semibold'
-                    : 'rounded-full bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] text-white shadow-[0_0_12px_rgba(255,42,157,0.5)]';
+                designVariant === 'atelier'
+                  ? 'rounded-none bg-[#F5F2EB] text-[#0C0B0A] font-semibold'
+                  : designVariant === 'washi'
+                    ? 'rounded-sm bg-[#E07A8A] text-[#110F0E] font-bold'
+                    : designVariant === 'prism'
+                      ? 'rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#818CF8] text-[#040912] font-bold'
+                      : 'rounded-full bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] text-white shadow-[0_0_12px_rgba(255,42,157,0.5)]';
               const inactiveClass =
-                designVariant === 'monolith' || designVariant === 'atelier'
+                designVariant === 'atelier'
                   ? 'rounded-none text-white/65 hover:text-white'
-                  : 'rounded-full text-white/65 hover:text-white hover:bg-white/[0.05]';
+                  : designVariant === 'washi'
+                    ? 'rounded-sm text-[#F7F4EE]/65 hover:text-[#F7F4EE]'
+                    : designVariant === 'prism'
+                      ? 'rounded-lg text-[#F0F6FC]/65 hover:text-[#F0F6FC]'
+                      : 'rounded-full text-white/65 hover:text-white hover:bg-white/[0.05]';
 
               return (
                 <button
@@ -198,7 +209,7 @@ export function OnepagerHeader({
               </button>
             ))}
             <div className="pt-3 border-t border-white/10 mt-1">
-              <div className="grid grid-cols-3 gap-2 mb-3" role="group" aria-label="Design variant">
+              <div className="grid grid-cols-2 gap-2 mb-3" role="group" aria-label="Design variant">
                 {DESIGN_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}

@@ -11,7 +11,8 @@ import { GuestJoinScreen } from './GuestJoinScreen';
 import WalletUnavailableModal from './WalletUnavailableModal';
 import { Language } from './translations';
 import { AtelierOnepager } from './variants/AtelierOnepager';
-import { MonolithOnepager } from './variants/MonolithOnepager';
+import { WashiOnepager } from './variants/WashiOnepager';
+import { PrismOnepager } from './variants/PrismOnepager';
 import type { DesignVariant } from './variants/useOnepagerExperience';
 
 interface OnepagerViewProps {
@@ -56,7 +57,12 @@ export function OnepagerView({
           setLang(storedLang);
         }
         const storedVariant = localStorage.getItem('artcube_design_variant') as DesignVariant | null;
-        if (storedVariant === 'original' || storedVariant === 'atelier' || storedVariant === 'monolith') {
+        if (
+          storedVariant === 'original' ||
+          storedVariant === 'atelier' ||
+          storedVariant === 'washi' ||
+          storedVariant === 'prism'
+        ) {
           setDesignVariant(storedVariant);
         }
       } catch {
@@ -149,9 +155,11 @@ export function OnepagerView({
   const containerBackdropClass =
     designVariant === 'atelier'
       ? 'bg-[rgba(12,11,10,0.76)] backdrop-blur-[3px]'
-      : designVariant === 'monolith'
-        ? 'bg-[rgba(5,7,10,0.82)] backdrop-blur-[1px]'
-        : 'bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px]';
+      : designVariant === 'washi'
+        ? 'bg-[rgba(17,15,14,0.80)] backdrop-blur-[3px]'
+        : designVariant === 'prism'
+          ? 'bg-[rgba(4,9,18,0.72)] backdrop-blur-[2px]'
+          : 'bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px]';
 
   return (
     <div
@@ -186,8 +194,24 @@ export function OnepagerView({
           onToggleAudioMuted={onToggleAudioMuted}
           onNavigateTo={handleNavigateTo}
         />
-      ) : designVariant === 'monolith' ? (
-        <MonolithOnepager
+      ) : designVariant === 'washi' ? (
+        <WashiOnepager
+          lang={lang}
+          myName={myName}
+          onNameChange={handleNameUpdate}
+          isHost={isHost}
+          sessionId={sessionId}
+          isJoined={isJoined}
+          guestName={guestName}
+          onJoin={onJoin}
+          onStart={onStart}
+          onModalToggle={handleModalToggle}
+          isAudioMuted={isAudioMuted}
+          onToggleAudioMuted={onToggleAudioMuted}
+          onNavigateTo={handleNavigateTo}
+        />
+      ) : designVariant === 'prism' ? (
+        <PrismOnepager
           lang={lang}
           myName={myName}
           onNameChange={handleNameUpdate}
