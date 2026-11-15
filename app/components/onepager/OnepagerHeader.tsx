@@ -4,17 +4,28 @@ import { useState } from 'react';
 import { LuBox } from 'react-icons/lu';
 import { HiMenu, HiX } from 'react-icons/hi';
 import { Language, translations } from './translations';
+import type { DesignVariant } from './variants/useOnepagerExperience';
 
 interface OnepagerHeaderProps {
   lang: Language;
   onLanguageChange: (lang: Language) => void;
+  designVariant: DesignVariant;
+  onDesignVariantChange: (variant: DesignVariant) => void;
   onOpenWallet: () => void;
   onNavigateTo: (id: string) => void;
 }
 
+const DESIGN_OPTIONS: { id: DesignVariant; label: string }[] = [
+  { id: 'original', label: 'Classic' },
+  { id: 'atelier', label: 'Atelier' },
+  { id: 'monolith', label: 'Monolith' },
+];
+
 export function OnepagerHeader({
   lang,
   onLanguageChange,
+  designVariant,
+  onDesignVariantChange,
   onOpenWallet,
   onNavigateTo,
 }: OnepagerHeaderProps) {
@@ -26,8 +37,15 @@ export function OnepagerHeader({
     onNavigateTo(id);
   };
 
+  const headerSurfaceClass =
+    designVariant === 'atelier'
+      ? 'border-b border-[#F5F2EB]/15 backdrop-blur-xl bg-[rgba(12,11,10,0.86)]'
+      : designVariant === 'monolith'
+        ? 'border-b border-[#F8FAFC]/16 bg-[#05070A]/95'
+        : 'border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)]';
+
   return (
-    <header className="sticky top-0 left-0 right-0 z-40 h-16 border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)] transition-all duration-300">
+    <header className={`sticky top-0 left-0 right-0 z-40 h-16 transition-all duration-300 ${headerSurfaceClass}`}>
       <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
         
         {/* Brand / Logo */}
@@ -63,12 +81,52 @@ export function OnepagerHeader({
           ))}
         </nav>
 
-        {/* Actions / CTA Buttons & Language Switcher */}
+        {/* Actions / CTA Buttons, Design Switcher & Language Switcher */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Design Variant Switcher (Desktop & Tablet) */}
+          <div
+            className={`hidden sm:flex items-center p-0.5 border backdrop-blur-md ${
+              designVariant === 'monolith'
+                ? 'rounded-none bg-[#0B0F15] border-[#F8FAFC]/20'
+                : designVariant === 'atelier'
+                  ? 'rounded-none bg-[#161513] border-[#F5F2EB]/20'
+                  : 'rounded-full bg-white/[0.08] border-white/15 shadow-inner'
+            }`}
+            role="group"
+            aria-label="Design variant"
+          >
+            {DESIGN_OPTIONS.map((opt) => {
+              const isActive = designVariant === opt.id;
+              const activeClass =
+                designVariant === 'monolith'
+                  ? 'rounded-none bg-[#38BDF8] text-[#05070A] font-bold'
+                  : designVariant === 'atelier'
+                    ? 'rounded-none bg-[#F5F2EB] text-[#0C0B0A] font-semibold'
+                    : 'rounded-full bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] text-white shadow-[0_0_12px_rgba(255,42,157,0.5)]';
+              const inactiveClass =
+                designVariant === 'monolith' || designVariant === 'atelier'
+                  ? 'rounded-none text-white/65 hover:text-white'
+                  : 'rounded-full text-white/65 hover:text-white hover:bg-white/[0.05]';
+
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onDesignVariantChange(opt.id)}
+                  className={`px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer ${
+                    isActive ? activeClass : inactiveClass
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
           <button
             type="button"
             onClick={onOpenWallet}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-white/15 bg-white/[0.05] text-[10px] font-semibold tracking-widest text-white/80 hover:text-white hover:border-[#ff2a9d]/50 hover:bg-[#ff2a9d]/10 transition-all duration-300 cursor-pointer"
+            className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-white/15 bg-white/[0.05] text-[10px] font-semibold tracking-widest text-white/80 hover:text-white hover:border-[#ff2a9d]/50 hover:bg-[#ff2a9d]/10 transition-all duration-300 cursor-pointer"
           >
             <span>{t.wallet}</span>
           </button>
@@ -76,7 +134,7 @@ export function OnepagerHeader({
           <button
             type="button"
             onClick={() => handleNavClick('erleben')}
-            className="hidden sm:inline-flex px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_20px_rgba(255,42,157,0.4)] hover:shadow-[0_0_30px_rgba(78,226,236,0.6)] hover:scale-[1.03] transition-all duration-300 cursor-pointer"
+            className="hidden lg:inline-flex px-3.5 py-1.5 sm:px-5 sm:py-2 rounded-full font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#4ee2ec] shadow-[0_0_20px_rgba(255,42,157,0.4)] hover:shadow-[0_0_30px_rgba(78,226,236,0.6)] hover:scale-[1.03] transition-all duration-300 cursor-pointer"
           >
             {t.launchArtwork}
           </button>
@@ -139,7 +197,28 @@ export function OnepagerHeader({
                 {link.label}
               </button>
             ))}
-            <div className="pt-3 border-t border-white/10 flex justify-between items-center mt-1">
+            <div className="pt-3 border-t border-white/10 mt-1">
+              <div className="grid grid-cols-3 gap-2 mb-3" role="group" aria-label="Design variant">
+                {DESIGN_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      onDesignVariantChange(opt.id);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-2 px-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                      designVariant === opt.id
+                        ? 'bg-white text-black border-white'
+                        : 'bg-white/5 text-white/75 border-white/15 hover:text-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="pt-3 border-t border-white/10 flex justify-between items-center">
               <button
                 type="button"
                 onClick={() => {
