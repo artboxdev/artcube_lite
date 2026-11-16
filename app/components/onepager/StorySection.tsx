@@ -73,7 +73,7 @@ export function StorySection({ lang, onModalToggle }: StorySectionProps) {
             {t.headlineHighlight}
           </span>
         </h2>
-        <p className="mt-5 text-sm sm:text-base text-white/85 font-normal leading-relaxed text-left sm:text-center">
+        <p className="mt-5 text-sm sm:text-base text-white/85 font-normal leading-relaxed text-left sm:text-center whitespace-pre-line">
           {t.lead}
         </p>
       </div>
