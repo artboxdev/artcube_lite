@@ -10,8 +10,6 @@ import { OnepagerFooter } from './OnepagerFooter';
 import { GuestJoinScreen } from './GuestJoinScreen';
 import WalletUnavailableModal from './WalletUnavailableModal';
 import { Language } from './translations';
-import { MinimalFuturisticOnepager } from './variants/MinimalFuturisticOnepager';
-import type { DesignVariant } from './variants/useOnepagerExperience';
 
 interface OnepagerViewProps {
   isVisible: boolean;
@@ -41,12 +39,11 @@ export function OnepagerView({
   onToggleAudioMuted,
 }: OnepagerViewProps) {
   const [lang, setLang] = useState<Language>('de');
-  const [designVariant, setDesignVariant] = useState<DesignVariant>('original');
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [isGuestScreenDismissed, setIsGuestScreenDismissed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Restore language & design variant from localStorage on mount
+  // Restore language from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -54,31 +51,10 @@ export function OnepagerView({
         if (storedLang === 'de' || storedLang === 'en') {
           setLang(storedLang);
         }
-        const storedVariant = localStorage.getItem('artcube_design_variant') as DesignVariant | null;
-        if (
-          storedVariant === 'original' ||
-          storedVariant === 'aether' ||
-          storedVariant === 'kinetik' ||
-          storedVariant === 'lumen' ||
-          storedVariant === 'm3-blue' ||
-          storedVariant === 'm3-sakura'
-        ) {
-          setDesignVariant(storedVariant);
-        }
       } catch {
         // ignore localStorage errors
       }
     }
-  }, []);
-
-  const handleDesignVariantChange = useCallback((variant: DesignVariant) => {
-    setDesignVariant(variant);
-    try {
-      localStorage.setItem('artcube_design_variant', variant);
-    } catch {
-      // ignore
-    }
-    containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   // Save language changes to localStorage
@@ -152,81 +128,45 @@ export function OnepagerView({
 
   if (!isVisible) return null;
 
-  const containerBackdropClass =
-    designVariant === 'aether'
-      ? 'bg-[rgba(7,9,13,0.78)] backdrop-blur-[2px]'
-      : designVariant === 'kinetik'
-        ? 'bg-[rgba(5,6,8,0.82)] backdrop-blur-[1px]'
-        : designVariant === 'lumen'
-          ? 'bg-[rgba(11,12,14,0.80)] backdrop-blur-[2px]'
-          : designVariant === 'm3-blue'
-            ? 'bg-[rgba(17,19,24,0.84)] backdrop-blur-[2px]'
-            : designVariant === 'm3-sakura'
-              ? 'bg-[rgba(20,18,22,0.84)] backdrop-blur-[2px]'
-              : 'bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px]';
-
   return (
     <div
       ref={containerRef}
-      className={`fixed inset-0 z-50 overflow-x-hidden overflow-y-auto select-none transition-opacity duration-700 scroll-smooth text-white ${containerBackdropClass} ${
+      className={`fixed inset-0 z-50 overflow-x-hidden overflow-y-auto select-none transition-opacity duration-700 scroll-smooth bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px] text-white ${
         !isVisible ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      {/* 1. Sticky Header with Design Variant & Language Switcher */}
+      {/* 1. Sticky Glassmorphic Header with Language Switcher */}
       <OnepagerHeader
         lang={lang}
         onLanguageChange={handleLanguageChange}
-        designVariant={designVariant}
-        onDesignVariantChange={handleDesignVariantChange}
         onOpenWallet={handleOpenWallet}
         onNavigateTo={handleNavigateTo}
       />
 
-      {designVariant !== 'original' ? (
-        <MinimalFuturisticOnepager
-          variant={designVariant}
-          lang={lang}
-          myName={myName}
-          onNameChange={handleNameUpdate}
-          isHost={isHost}
-          sessionId={sessionId}
-          isJoined={isJoined}
-          guestName={guestName}
-          onJoin={onJoin}
-          onStart={onStart}
-          onModalToggle={handleModalToggle}
-          isAudioMuted={isAudioMuted}
-          onToggleAudioMuted={onToggleAudioMuted}
-          onNavigateTo={handleNavigateTo}
-        />
-      ) : (
-        <>
-          {/* 2. Hero Section */}
-          <HeroSection lang={lang} onNavigateTo={handleNavigateTo} />
+      {/* 2. Hero Section */}
+      <HeroSection lang={lang} onNavigateTo={handleNavigateTo} />
 
-          {/* 3. Live Experience Station (Unified Sakuraverse Artworks & Launch Console) */}
-          <ExperienceStation
-            lang={lang}
-            myName={myName}
-            onNameChange={handleNameUpdate}
-            isHost={isHost}
-            sessionId={sessionId}
-            isJoined={isJoined}
-            guestName={guestName}
-            onJoin={onJoin}
-            onStart={onStart}
-            onModalToggle={handleModalToggle}
-            isAudioMuted={isAudioMuted}
-            onToggleAudioMuted={onToggleAudioMuted}
-          />
+      {/* 3. Live Experience Station (Unified Sakuraverse Artworks & Launch Console) */}
+      <ExperienceStation
+        lang={lang}
+        myName={myName}
+        onNameChange={handleNameUpdate}
+        isHost={isHost}
+        sessionId={sessionId}
+        isJoined={isJoined}
+        guestName={guestName}
+        onJoin={onJoin}
+        onStart={onStart}
+        onModalToggle={handleModalToggle}
+        isAudioMuted={isAudioMuted}
+        onToggleAudioMuted={onToggleAudioMuted}
+      />
 
-          {/* 4. Story Section: Was ist art.cube? (Story & Vision) */}
-          <StorySection lang={lang} onModalToggle={handleModalToggle} />
+      {/* 4. Story Section: Was ist art.cube? (Story & Vision) */}
+      <StorySection lang={lang} onModalToggle={handleModalToggle} />
 
-          {/* 5. Newsletter Section */}
-          <NewsletterSection lang={lang} />
-        </>
-      )}
+      {/* 5. Newsletter Section */}
+      <NewsletterSection lang={lang} />
 
       {/* 7. Footer */}
       <OnepagerFooter
