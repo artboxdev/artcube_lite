@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Language, translations } from '../translations';
 
-export type DesignVariant = 'original' | 'aether' | 'kinetik' | 'lumen';
+export type DesignVariant = 'original' | 'aether' | 'kinetik' | 'lumen' | 'm3-blue' | 'm3-sakura';
 
 export interface VariantOnepagerProps {
   lang: Language;

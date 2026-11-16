@@ -7,7 +7,7 @@ import { translations } from '../translations';
 import { SakuraverseDualSlider } from '../SakuraverseDualSlider';
 import { VariantOnepagerProps, useOnepagerExperience } from './useOnepagerExperience';
 
-export type FuturisticVariantKey = 'aether' | 'kinetik' | 'lumen';
+export type FuturisticVariantKey = 'aether' | 'kinetik' | 'lumen' | 'm3-blue' | 'm3-sakura';
 
 interface VariantTheme {
   bodyFont: string;
@@ -27,6 +27,7 @@ interface VariantTheme {
   plexusBtn: string;
   radiusCard: string;
   radiusControl: string;
+  radiusButton?: string;
   heroLayout: 'left-split' | 'frame-split' | 'centered';
   storyLayout: 'grid' | 'alternating';
 }
@@ -95,6 +96,50 @@ const THEMES: Record<FuturisticVariantKey, VariantTheme> = {
     heroLayout: 'centered',
     storyLayout: 'grid',
   },
+  'm3-blue': {
+    bodyFont: 'var(--font-jakarta), sans-serif',
+    displayFont: 'var(--font-jakarta), sans-serif',
+    textPrimary: 'text-[#E2E2E9]',
+    textSecondary: 'text-[#C4C6D0]',
+    textMuted: 'text-[#8E9099]',
+    surface: 'bg-[#1D2026]/95',
+    surfaceSubtle: 'bg-[#282A30]/90',
+    border: 'border-white/[0.08]',
+    accentText: 'text-[#A8C7FA]',
+    accentGradient: 'bg-gradient-to-r from-[#A8C7FA] via-[#C2E7FF] to-[#D7C3FA] bg-clip-text text-transparent',
+    dotColor: 'text-[#A8C7FA]',
+    primaryBtn: 'bg-[#A8C7FA] text-[#062E6F] hover:bg-[#D3E3FD]',
+    secondaryBtn: 'border border-[#8E9099]/50 text-[#A8C7FA] hover:bg-[#A8C7FA]/10',
+    sumieBtn: 'bg-[#A8C7FA] text-[#062E6F] hover:bg-[#D3E3FD]',
+    plexusBtn: 'bg-[#C2E7FF] text-[#001D35] hover:bg-[#E1F3FF]',
+    radiusCard: 'rounded-[28px]',
+    radiusControl: 'rounded-2xl',
+    radiusButton: 'rounded-full',
+    heroLayout: 'centered',
+    storyLayout: 'grid',
+  },
+  'm3-sakura': {
+    bodyFont: 'var(--font-jakarta), sans-serif',
+    displayFont: 'var(--font-jakarta), sans-serif',
+    textPrimary: 'text-[#EDE0E4]',
+    textSecondary: 'text-[#D6C2C8]',
+    textMuted: 'text-[#9F8C92]',
+    surface: 'bg-[#211E24]/95',
+    surfaceSubtle: 'bg-[#2B2830]/90',
+    border: 'border-[#FFB1C8]/[0.12]',
+    accentText: 'text-[#FFB1C8]',
+    accentGradient: 'bg-gradient-to-r from-[#FFB1C8] via-[#D0BCFF] to-[#A8C7FA] bg-clip-text text-transparent',
+    dotColor: 'text-[#FFB1C8]',
+    primaryBtn: 'bg-[#FFB1C8] text-[#4A152B] hover:bg-[#FFD9E2]',
+    secondaryBtn: 'border border-[#9F8C92]/50 text-[#FFB1C8] hover:bg-[#FFB1C8]/10',
+    sumieBtn: 'bg-[#FFB1C8] text-[#4A152B] hover:bg-[#FFD9E2]',
+    plexusBtn: 'bg-[#D0BCFF] text-[#381E72] hover:bg-[#EADDFF]',
+    radiusCard: 'rounded-[28px]',
+    radiusControl: 'rounded-2xl',
+    radiusButton: 'rounded-full',
+    heroLayout: 'left-split',
+    storyLayout: 'alternating',
+  },
 };
 
 interface MinimalFuturisticOnepagerProps extends VariantOnepagerProps {
@@ -118,6 +163,7 @@ export function MinimalFuturisticOnepager({
   onNavigateTo,
 }: MinimalFuturisticOnepagerProps) {
   const theme = THEMES[variant];
+  const btnRadius = theme.radiusButton ?? theme.radiusControl;
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [emailError, setEmailError] = useState(false);
@@ -187,14 +233,14 @@ export function MinimalFuturisticOnepager({
               <button
                 type="button"
                 onClick={() => onNavigateTo('erleben')}
-                className={`w-full py-4 px-6 ${theme.radiusControl} text-xs font-bold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.primaryBtn}`}
+                className={`w-full py-4 px-6 ${btnRadius} text-xs font-bold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.primaryBtn}`}
               >
                 {tHero.btnPrimary}
               </button>
               <button
                 type="button"
                 onClick={() => onNavigateTo('vision')}
-                className={`w-full py-4 px-6 ${theme.radiusControl} text-xs font-semibold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.secondaryBtn}`}
+                className={`w-full py-4 px-6 ${btnRadius} text-xs font-semibold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.secondaryBtn}`}
               >
                 {tHero.btnSecondary}
               </button>
@@ -262,14 +308,14 @@ export function MinimalFuturisticOnepager({
             <button
               type="button"
               onClick={() => onNavigateTo('erleben')}
-              className={`w-full sm:w-auto px-8 py-4 ${theme.radiusControl} text-xs font-bold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.primaryBtn}`}
+              className={`w-full sm:w-auto px-8 py-4 ${btnRadius} text-xs font-bold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.primaryBtn}`}
             >
               {tHero.btnPrimary}
             </button>
             <button
               type="button"
               onClick={() => onNavigateTo('vision')}
-              className={`w-full sm:w-auto px-8 py-4 ${theme.radiusControl} text-xs font-semibold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.secondaryBtn}`}
+              className={`w-full sm:w-auto px-8 py-4 ${btnRadius} text-xs font-semibold tracking-[0.12em] uppercase transition-colors cursor-pointer ${theme.secondaryBtn}`}
             >
               {tHero.btnSecondary}
             </button>
@@ -460,14 +506,14 @@ export function MinimalFuturisticOnepager({
                   <button
                     type="button"
                     onClick={() => handleStartArtwork('souvenir', 'bluten')}
-                    className={`w-full py-4 px-6 ${theme.radiusControl} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.sumieBtn}`}
+                    className={`w-full py-4 px-6 ${btnRadius} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.sumieBtn}`}
                   >
                     {tExp.startSouvenirSumieBtn}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleStartArtwork('souvenir', 'plexus')}
-                    className={`w-full py-4 px-6 ${theme.radiusControl} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.plexusBtn}`}
+                    className={`w-full py-4 px-6 ${btnRadius} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.plexusBtn}`}
                   >
                     {tExp.startSouvenirPlexusBtn}
                   </button>
@@ -480,14 +526,14 @@ export function MinimalFuturisticOnepager({
                   <button
                     type="button"
                     onClick={() => handleStartArtwork('test', 'bluten')}
-                    className={`w-full py-4 px-6 ${theme.radiusControl} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.sumieBtn}`}
+                    className={`w-full py-4 px-6 ${btnRadius} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.sumieBtn}`}
                   >
                     {tExp.startTestSumieBtn}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleStartArtwork('test', 'plexus')}
-                    className={`w-full py-4 px-6 ${theme.radiusControl} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.plexusBtn}`}
+                    className={`w-full py-4 px-6 ${btnRadius} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.plexusBtn}`}
                   >
                     {tExp.startTestPlexusBtn}
                   </button>
@@ -500,7 +546,7 @@ export function MinimalFuturisticOnepager({
                   <button
                     type="button"
                     onClick={handleGuestJoin}
-                    className={`w-full py-4 px-6 ${theme.radiusControl} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.primaryBtn}`}
+                    className={`w-full py-4 px-6 ${btnRadius} font-bold text-sm tracking-wider uppercase transition-opacity cursor-pointer ${theme.primaryBtn}`}
                   >
                     {tExp.joinBtn}
                   </button>

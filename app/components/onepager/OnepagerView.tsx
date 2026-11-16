@@ -59,7 +59,9 @@ export function OnepagerView({
           storedVariant === 'original' ||
           storedVariant === 'aether' ||
           storedVariant === 'kinetik' ||
-          storedVariant === 'lumen'
+          storedVariant === 'lumen' ||
+          storedVariant === 'm3-blue' ||
+          storedVariant === 'm3-sakura'
         ) {
           setDesignVariant(storedVariant);
         }
@@ -157,7 +159,11 @@ export function OnepagerView({
         ? 'bg-[rgba(5,6,8,0.82)] backdrop-blur-[1px]'
         : designVariant === 'lumen'
           ? 'bg-[rgba(11,12,14,0.80)] backdrop-blur-[2px]'
-          : 'bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px]';
+          : designVariant === 'm3-blue'
+            ? 'bg-[rgba(17,19,24,0.84)] backdrop-blur-[2px]'
+            : designVariant === 'm3-sakura'
+              ? 'bg-[rgba(20,18,22,0.84)] backdrop-blur-[2px]'
+              : 'bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px]';
 
   return (
     <div

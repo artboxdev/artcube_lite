@@ -20,6 +20,8 @@ const DESIGN_OPTIONS: { id: DesignVariant; label: string }[] = [
   { id: 'aether', label: 'Aether' },
   { id: 'kinetik', label: 'Kinetik' },
   { id: 'lumen', label: 'Lumen' },
+  { id: 'm3-blue', label: 'M3 Blue' },
+  { id: 'm3-sakura', label: 'M3 Sakura' },
 ];
 
 export function OnepagerHeader({
@@ -45,7 +47,11 @@ export function OnepagerHeader({
         ? 'border-b border-white/15 backdrop-blur-xl bg-[rgba(5,6,8,0.9)]'
         : designVariant === 'lumen'
           ? 'border-b border-white/12 backdrop-blur-xl bg-[rgba(11,12,14,0.88)]'
-          : 'border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)]';
+          : designVariant === 'm3-blue'
+            ? 'border-b border-white/[0.08] backdrop-blur-xl bg-[rgba(17,19,24,0.92)]'
+            : designVariant === 'm3-sakura'
+              ? 'border-b border-[#FFB1C8]/[0.12] backdrop-blur-xl bg-[rgba(20,18,22,0.92)]'
+              : 'border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)]';
 
   return (
     <header className={`sticky top-0 left-0 right-0 z-40 h-16 transition-all duration-300 ${headerSurfaceClass}`}>
@@ -88,14 +94,18 @@ export function OnepagerHeader({
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Design Variant Switcher (Desktop & Tablet) */}
           <div
-            className={`hidden sm:flex items-center p-0.5 border backdrop-blur-md ${
+            className={`hidden md:flex items-center p-0.5 border backdrop-blur-md ${
               designVariant === 'aether'
                 ? 'rounded-xl bg-[#0F141C] border-[#F8FAFC]/16'
                 : designVariant === 'kinetik'
                   ? 'rounded-sm bg-[#0D1017] border-white/20'
                   : designVariant === 'lumen'
                     ? 'rounded-2xl bg-[#16181D] border-white/15'
-                    : 'rounded-full bg-white/[0.08] border-white/15 shadow-inner'
+                    : designVariant === 'm3-blue'
+                      ? 'rounded-full bg-[#1D2026] border-white/[0.08]'
+                      : designVariant === 'm3-sakura'
+                        ? 'rounded-full bg-[#211E24] border-[#FFB1C8]/[0.15]'
+                        : 'rounded-full bg-white/[0.08] border-white/15 shadow-inner'
             }`}
             role="group"
             aria-label="Design variant"
@@ -109,7 +119,11 @@ export function OnepagerHeader({
                     ? 'rounded-sm bg-white text-[#050608] font-bold'
                     : designVariant === 'lumen'
                       ? 'rounded-xl bg-[#FAFAFA] text-[#0B0C0E] font-bold'
-                      : 'rounded-full bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] text-white shadow-[0_0_12px_rgba(255,42,157,0.5)]';
+                      : designVariant === 'm3-blue'
+                        ? 'rounded-full bg-[#A8C7FA] text-[#062E6F] font-bold'
+                        : designVariant === 'm3-sakura'
+                          ? 'rounded-full bg-[#FFB1C8] text-[#4A152B] font-bold'
+                          : 'rounded-full bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] text-white shadow-[0_0_12px_rgba(255,42,157,0.5)]';
               const inactiveClass =
                 designVariant === 'aether'
                   ? 'rounded-lg text-[#CBD5E1] hover:text-white'
@@ -117,7 +131,11 @@ export function OnepagerHeader({
                     ? 'rounded-sm text-white/70 hover:text-white'
                     : designVariant === 'lumen'
                       ? 'rounded-xl text-[#D4D4D8] hover:text-white'
-                      : 'rounded-full text-white/65 hover:text-white hover:bg-white/[0.05]';
+                      : designVariant === 'm3-blue'
+                        ? 'rounded-full text-[#C4C6D0] hover:text-[#E2E2E9] hover:bg-white/[0.06]'
+                        : designVariant === 'm3-sakura'
+                          ? 'rounded-full text-[#D6C2C8] hover:text-[#EDE0E4] hover:bg-white/[0.06]'
+                          : 'rounded-full text-white/65 hover:text-white hover:bg-white/[0.05]';
 
               return (
                 <button
@@ -209,7 +227,7 @@ export function OnepagerHeader({
               </button>
             ))}
             <div className="pt-3 border-t border-white/10 mt-1">
-              <div className="grid grid-cols-2 gap-2 mb-3" role="group" aria-label="Design variant">
+              <div className="grid grid-cols-3 gap-2 mb-3" role="group" aria-label="Design variant">
                 {DESIGN_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
