@@ -1702,6 +1702,8 @@ export function SakuraCanvas({
   const onPeerPlexusOrbReleaseRef = useRef<((orbId: string, x: number, y: number) => void) | null>(null);
   const onPeerPlexusFinaleTriggerRef = useRef<((timestamp?: number) => void) | null>(null);
   const triggerBlossomImpulseRef = useRef<(() => void) | null>(null);
+  const openSectionIntroRef = useRef<((section: 'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX', shouldBroadcast?: boolean) => void) | null>(null);
+  const completeSectionIntroRef = useRef<((section: 'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX', triggeredByLocalDismiss?: boolean) => void) | null>(null);
 
   const displayUser1Name = isHost ? (myName || 'Host') : (peerName || remoteUser1Name || 'Host');
   const displayUser2Name = isHost ? (peerName || remoteUser2Name || 'Gast') : (myName || 'Gast');
@@ -2018,10 +2020,21 @@ export function SakuraCanvas({
   const [vortexCircleCount, setVortexCircleCount] = useState(0);
   const maxRoundsPerPhase = 3;
 
+  // Sumi-e Test Mode: 5s Centered Section Intro Box State
+  const [activeSectionIntro, setActiveSectionIntro] = useState<'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | null>(null);
+  const activeSectionIntroRef = useRef<'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | null>(null);
+  const sectionIntroTimerRef = useRef<number>(0);
+
+  const dismissSectionIntro = useCallback(() => {
+    const currentIntro = activeSectionIntroRef.current;
+    if (!currentIntro) return;
+    completeSectionIntroRef.current?.(currentIntro, true);
+  }, []);
+
   // 2s Top-Center Circle Gesture Prompt Indicator
   const [circlePromptVisible, setCirclePromptVisible] = useState(false);
   useEffect(() => {
-    if (currentPhase === 'AWAIT_VORTEX') {
+    if (currentPhase === 'AWAIT_VORTEX' && !activeSectionIntro) {
       setCirclePromptVisible(true);
       const timer = setTimeout(() => {
         setCirclePromptVisible(false);
@@ -2030,7 +2043,7 @@ export function SakuraCanvas({
     } else {
       setCirclePromptVisible(false);
     }
-  }, [currentPhase]);
+  }, [currentPhase, activeSectionIntro]);
 
   const activeModeRef = useRef(activeMode);
   const isPausedRef = useRef(isPaused);
@@ -2830,11 +2843,15 @@ export function SakuraCanvas({
     const ROUND_FADE_TIME = 1.0;           // 1.0s unclicked orbs fade out gently
     const ROUND_PAUSE_TIME = 0.8;          // 0.8s pause to let branches settle before next round
     const TRUNK_POST_DELAY = 2.0;          // 2.0s pause after trunk completes before round 1
+    const SECTION_INTRO_DURATION = 5.0;    // 5.0s centered instruction box before each new section (Sumi-e Test Mode)
     let roundState: 'IDLE' | 'ACTIVE' | 'FADING' | 'PAUSE' = 'IDLE';
     let roundTimer = 0.0;
     let trunkPostDelayTimer = 0.0;
     let currentRoundNum = 1;
     let currentPhaseName: 'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX' | 'VORTEX' | 'DONE' = 'BRANCH';
+    let branchIntroShown = false;
+    let blossomIntroShown = false;
+    let awaitVortexIntroShown = false;
 
     // DualSlider-style Flying Petals & 10-Second Vortex Lifecycle State
     const VORTEX_TRANS_IN = 1.25;
@@ -3010,6 +3027,7 @@ export function SakuraCanvas({
 
     const handleUserCircleGesture = (userIdx: 1 | 2, shouldBroadcast: boolean) => {
       if (activeModeRef.current !== 'bluten') return;
+      if (activeSectionIntroRef.current) return;
       if (currentPhaseName !== 'AWAIT_VORTEX' && currentPhaseName !== 'DONE') return;
       if (fullVortexHoldTimer >= 0.0) return;
       targetCameraZoomMultiplier = 1.0;
@@ -3214,6 +3232,91 @@ export function SakuraCanvas({
       }
     };
     spawnOrbRoundRef.current = spawnOrbRound;
+
+    const openSectionIntro = (section: 'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX', shouldBroadcast = true) => {
+      if (activeModeRef.current !== 'bluten' || isCreationModeRef.current) return;
+      if (activeSectionIntroRef.current === section) return;
+
+      if (section === 'BRANCH') {
+        branchIntroShown = true;
+        currentRoundNum = 1;
+        currentRoundRef.current = 1;
+        setCurrentRound(1);
+        currentPhaseName = 'BRANCH';
+        currentPhaseRef.current = 'BRANCH';
+        setCurrentPhase('BRANCH');
+      } else if (section === 'BLOSSOM') {
+        blossomIntroShown = true;
+        currentRoundNum = 1;
+        currentRoundRef.current = 1;
+        setCurrentRound(1);
+        currentPhaseName = 'BLOSSOM';
+        currentPhaseRef.current = 'BLOSSOM';
+        setCurrentPhase('BLOSSOM');
+      } else if (section === 'AWAIT_VORTEX') {
+        awaitVortexIntroShown = true;
+        roundState = 'IDLE';
+        startFlyingPetalsIfNeeded();
+        vortexUser1Ready = false;
+        vortexUser2Ready = false;
+        setVortexCircleCount(0);
+        circleTrailHistory.length = 0;
+      }
+
+      activeSectionIntroRef.current = section;
+      sectionIntroTimerRef.current = 0.0;
+      setActiveSectionIntro(section);
+
+      if (shouldBroadcast && isHostRef.current && hasRemotePeerRef.current) {
+        sendInteractionRef.current?.('SAKURA_SECTION_INTRO', {
+          action: 'SHOW',
+          section,
+          senderIndex: 1
+        });
+      }
+    };
+    openSectionIntroRef.current = openSectionIntro;
+
+    const completeSectionIntro = (section: 'BRANCH' | 'BLOSSOM' | 'AWAIT_VORTEX', triggeredByLocalDismiss = false) => {
+      if (activeSectionIntroRef.current !== section) return;
+
+      activeSectionIntroRef.current = null;
+      sectionIntroTimerRef.current = 0.0;
+      setActiveSectionIntro(null);
+
+      if (triggeredByLocalDismiss && hasRemotePeerRef.current) {
+        sendInteractionRef.current?.('SAKURA_SECTION_INTRO', {
+          action: 'DISMISS',
+          section,
+          senderIndex: isHostRef.current ? 1 : 2
+        });
+      }
+
+      if (section === 'BRANCH' || section === 'BLOSSOM') {
+        if (!hasRemotePeerRef.current || isHostRef.current) {
+          spawnOrbRound(1, section);
+          if (section === 'BRANCH') {
+            showToastRef.current?.('Astphase gestartet — Klicke die leuchtenden Markierungen!');
+          } else {
+            showToastRef.current?.('Blütenphase gestartet! Wähle deine Wunschfarbe.');
+          }
+        }
+      } else if (section === 'AWAIT_VORTEX') {
+        roundState = 'IDLE';
+        startFlyingPetalsIfNeeded();
+        vortexUser1Ready = false;
+        vortexUser2Ready = false;
+        setVortexCircleCount(0);
+        circleTrailHistory.length = 0;
+        currentPhaseName = 'AWAIT_VORTEX';
+        currentPhaseRef.current = 'AWAIT_VORTEX';
+        setCurrentPhase('AWAIT_VORTEX');
+        if (isHostRef.current && hasRemotePeerRef.current) {
+          sendInteractionRef.current?.('SAKURA_PHASE_CHANGE', { phase: 'AWAIT_VORTEX' });
+        }
+      }
+    };
+    completeSectionIntroRef.current = completeSectionIntro;
 
     const spawnSubBranchFromOrb = (orb: OrbNode) => {
       if (isPausedRef.current || orb.branchSpawned) return;
@@ -5000,7 +5103,7 @@ export function SakuraCanvas({
 
     const checkAndTriggerOrbHit = (clientX: number, clientY: number) => {
       if (isPausedRef.current || activeModeRef.current !== 'bluten') return false;
-      if (!isTrunkGrowthFinished || fullVortexHoldTimer >= 0.0) return false;
+      if (!isTrunkGrowthFinished || activeSectionIntroRef.current || fullVortexHoldTimer >= 0.0) return false;
       if (!cameraRef.current || !canvasRef.current) return false;
 
       const coords = getCanvasCoords(clientX, clientY);
@@ -5059,7 +5162,7 @@ export function SakuraCanvas({
           ...activatePayload
         });
 
-        showToastRef.current?.('Interaktiver Knotenpunkt aktiviert!');
+        showToastRef.current?.('Leuchtende Markierung aktiviert!');
 
         const remainingOrbs = activeOrbs.filter(o => !o.userDrawn && !o.branchSpawned);
         if (remainingOrbs.length === 0 && roundState === 'ACTIVE') {
@@ -5109,6 +5212,7 @@ export function SakuraCanvas({
       // Sumi-e Circle Gesture Detection (2D PCA Covariance + Centroid Angular Sweep from DualSlider)
       if (
         activeModeRef.current === 'bluten' &&
+        !activeSectionIntroRef.current &&
         (currentPhaseName === 'AWAIT_VORTEX' || (currentPhaseName === 'DONE' && !isCreationModeRef.current)) &&
         fullVortexHoldTimer < 0.0
       ) {
@@ -5280,7 +5384,7 @@ export function SakuraCanvas({
         e.preventDefault();
       }
       isMouseDown = true;
-      if (activeModeRef.current === 'bluten' && (currentPhaseName === 'AWAIT_VORTEX' || currentPhaseName === 'DONE') && fullVortexHoldTimer < 0.0) {
+      if (activeModeRef.current === 'bluten' && !activeSectionIntroRef.current && (currentPhaseName === 'AWAIT_VORTEX' || currentPhaseName === 'DONE') && fullVortexHoldTimer < 0.0) {
         targetCameraZoomMultiplier = 1.07;
       }
 
@@ -5544,6 +5648,12 @@ export function SakuraCanvas({
       setVortexCircleCount(0);
       colorCountsRef.current = { pink: 0, red: 0, blue: 0, green: 0, yellow: 0 };
       instancedPetalMesh.visible = false;
+      activeSectionIntroRef.current = null;
+      sectionIntroTimerRef.current = 0.0;
+      setActiveSectionIntro(null);
+      branchIntroShown = false;
+      blossomIntroShown = false;
+      awaitVortexIntroShown = false;
 
       while (strokeGroup.children.length > 0) {
         strokeGroup.remove(strokeGroup.children[0]);
@@ -5729,6 +5839,13 @@ export function SakuraCanvas({
       const modeFadeAlpha = THREE.MathUtils.smoothstep(modeTransitionTimerRef.current, 0.0, 1.0);
 
       if (showBlüten) {
+        if (activeSectionIntroRef.current) {
+          sectionIntroTimerRef.current += delta;
+          if (sectionIntroTimerRef.current >= SECTION_INTRO_DURATION) {
+            completeSectionIntro(activeSectionIntroRef.current, false);
+          }
+        }
+
         // Impuls 3: Smooth camera zoom interpolation on circle gesture
         if (Math.abs(cameraZoomMultiplier - targetCameraZoomMultiplier) > 0.0005) {
           cameraZoomMultiplier += (targetCameraZoomMultiplier - cameraZoomMultiplier) * (delta * 4.5);
@@ -5794,6 +5911,9 @@ export function SakuraCanvas({
               trunkPostDelayTimer = 0.0;
               veilMat.opacity = 0.0;
               if (bgUniforms.uBgDim) bgUniforms.uBgDim.value = 1.0;
+              if (!isCreationModeRef.current && !branchIntroShown) {
+                openSectionIntro('BRANCH', true);
+              }
             } else {
               if (growthProgressVal > 0.85) {
                 const restP = (growthProgressVal - 0.85) / 0.15;
@@ -5830,12 +5950,14 @@ export function SakuraCanvas({
             }
             mainTrunkStroke.setProgress(growthProgressVal);
           }
-        } else if (roundState === 'IDLE' && fullVortexHoldTimer < 0.0 && currentPhaseName === 'BRANCH' && activeOrbs.length === 0) {
-          trunkPostDelayTimer += delta;
-          if (trunkPostDelayTimer >= TRUNK_POST_DELAY) {
-            if (!hasRemotePeerRef.current || isHostRef.current) {
-              spawnOrbRound(1, 'BRANCH');
-              showToastRef.current?.('Astphase gestartet — Klicke die Knotenpunkte!');
+        } else if (roundState === 'IDLE' && fullVortexHoldTimer < 0.0 && currentPhaseName === 'BRANCH' && activeOrbs.length === 0 && !activeSectionIntroRef.current) {
+          if (isCreationModeRef.current) {
+            trunkPostDelayTimer += delta;
+            if (trunkPostDelayTimer >= TRUNK_POST_DELAY) {
+              if (!hasRemotePeerRef.current || isHostRef.current) {
+                spawnOrbRound(1, 'BRANCH');
+                showToastRef.current?.('Astphase gestartet — Klicke die leuchtenden Markierungen!');
+              }
             }
           }
         }
@@ -5914,7 +6036,30 @@ export function SakuraCanvas({
             }
           });
 
-          // Spore physics update: Wehen sanft wie Blütenstaub im Wind in Richtung des rechten Bildschirmrandes (+X)
+          // Phase 3: Reveal palette at 3.6s
+          if (impulseBlossomTimer > 3.6 && currentPhaseRef.current !== 'BLOSSOM') {
+            currentPhaseRef.current = 'BLOSSOM';
+            setCurrentPhase('BLOSSOM');
+          }
+
+          // Complete at 5.0s -> In Test Mode show 5s centered instruction box; in Souvenir Mode spawn immediately
+          if (impulseBlossomTimer >= IMPULSE_BLOSSOM_DURATION) {
+            isImpulseBlossomActive = false;
+            impulseBlossoms.forEach(b => b.dispose());
+            impulseBlossoms = [];
+            if (!isCreationModeRef.current) {
+              if (!blossomIntroShown) {
+                openSectionIntro('BLOSSOM', true);
+              }
+            } else {
+              spawnOrbRound(1, 'BLOSSOM');
+              showToastRef.current?.('Blütenphase gestartet! Wähle deine Wunschfarbe.');
+            }
+          }
+        }
+
+        // Spore physics update: Wehen sanft wie Blütenstaub im Wind in Richtung des rechten Bildschirmrandes (+X)
+        if (impulseSporeDust.length > 0) {
           for (let sIdx = impulseSporeDust.length - 1; sIdx >= 0; sIdx--) {
             const sp = impulseSporeDust[sIdx];
             sp.life -= delta;
@@ -5938,21 +6083,6 @@ export function SakuraCanvas({
               (sp.mesh.material as THREE.Material).dispose();
               impulseSporeDust.splice(sIdx, 1);
             }
-          }
-
-          // Phase 3: Reveal palette at 3.6s
-          if (impulseBlossomTimer > 3.6 && currentPhaseRef.current !== 'BLOSSOM') {
-            currentPhaseRef.current = 'BLOSSOM';
-            setCurrentPhase('BLOSSOM');
-          }
-
-          // Complete at 5.0s -> Spawn first blossom orb round
-          if (impulseBlossomTimer >= IMPULSE_BLOSSOM_DURATION) {
-            isImpulseBlossomActive = false;
-            impulseBlossoms.forEach(b => b.dispose());
-            impulseBlossoms = [];
-            spawnOrbRound(1, 'BLOSSOM');
-            showToastRef.current?.('Blütenphase gestartet! Wähle deine Wunschfarbe.');
           }
         }
 
@@ -6192,17 +6322,21 @@ export function SakuraCanvas({
                     }
                   } else if (currentPhaseName === 'BLOSSOM') {
                     roundState = 'IDLE';
-                    startFlyingPetalsIfNeeded();
-                    vortexUser1Ready = false;
-                    vortexUser2Ready = false;
-                    setVortexCircleCount(0);
-                    circleTrailHistory.length = 0;
-                    currentPhaseName = 'AWAIT_VORTEX';
-                    currentPhaseRef.current = 'AWAIT_VORTEX';
-                    setCurrentPhase('AWAIT_VORTEX');
-                    if (isHostRef.current) {
-                      sendInteractionRef.current?.('SAKURA_PHASE_CHANGE', { phase: 'AWAIT_VORTEX' });
-                      channelRef.current?.postMessage({ type: 'SAKURA_PHASE_CHANGE', phase: 'AWAIT_VORTEX' });
+                    if (!isCreationModeRef.current && !awaitVortexIntroShown) {
+                      openSectionIntro('AWAIT_VORTEX', true);
+                    } else {
+                      startFlyingPetalsIfNeeded();
+                      vortexUser1Ready = false;
+                      vortexUser2Ready = false;
+                      setVortexCircleCount(0);
+                      circleTrailHistory.length = 0;
+                      currentPhaseName = 'AWAIT_VORTEX';
+                      currentPhaseRef.current = 'AWAIT_VORTEX';
+                      setCurrentPhase('AWAIT_VORTEX');
+                      if (isHostRef.current) {
+                        sendInteractionRef.current?.('SAKURA_PHASE_CHANGE', { phase: 'AWAIT_VORTEX' });
+                        channelRef.current?.postMessage({ type: 'SAKURA_PHASE_CHANGE', phase: 'AWAIT_VORTEX' });
+                      }
                     }
                   } else {
                     roundState = 'IDLE';
@@ -7249,8 +7383,14 @@ export function SakuraCanvas({
         } else if (msg.kind === 'USER_NAME') {
           if (myIndex === 1 && msg.senderIndex === 2 && msg.user2Name) {
             setRemoteUser2Name(msg.user2Name as string);
-            // Host sends current active round state to guest upon connect
-            if (activeModeRef.current === 'bluten' && activeOrbs.length > 0) {
+            // Host sends current active round or section intro state to guest upon connect
+            if (activeModeRef.current === 'bluten' && activeSectionIntroRef.current) {
+              sendInteractionRef.current?.('SAKURA_SECTION_INTRO', {
+                action: 'SHOW',
+                section: activeSectionIntroRef.current,
+                senderIndex: 1
+              });
+            } else if (activeModeRef.current === 'bluten' && activeOrbs.length > 0) {
               const orbDefs = activeOrbs.map(o => ({
                 id: o.id,
                 branchIndex: o.branchIndex,
@@ -7269,7 +7409,17 @@ export function SakuraCanvas({
           } else if (myIndex === 2 && msg.senderIndex === 1 && msg.user1Name) {
             setRemoteUser1Name(msg.user1Name as string);
           }
+        } else if (msg.kind === 'SAKURA_SECTION_INTRO' && (msg.section === 'BRANCH' || msg.section === 'BLOSSOM' || msg.section === 'AWAIT_VORTEX')) {
+          if (msg.action === 'SHOW') {
+            openSectionIntroRef.current?.(msg.section, false);
+          } else if (msg.action === 'DISMISS') {
+            completeSectionIntroRef.current?.(msg.section, false);
+          }
         } else if (msg.kind === 'SAKURA_PHASE_CHANGE' && msg.phase === 'AWAIT_VORTEX') {
+          awaitVortexIntroShown = true;
+          activeSectionIntroRef.current = null;
+          sectionIntroTimerRef.current = 0.0;
+          setActiveSectionIntro(null);
           roundState = 'IDLE';
           startFlyingPetalsIfNeeded();
           vortexUser1Ready = false;
@@ -7286,6 +7436,11 @@ export function SakuraCanvas({
         } else if (msg.kind === 'BLOSSOM_COLOR_ADD' && msg.color) {
           syncRemoteBlossomColorRef.current?.(msg.color as BlossomColorId);
         } else if (msg.kind === 'SAKURA_SPAWN_ROUND' && typeof msg.roundNum === 'number') {
+          if (msg.phase === 'BRANCH') branchIntroShown = true;
+          if (msg.phase === 'BLOSSOM') blossomIntroShown = true;
+          activeSectionIntroRef.current = null;
+          sectionIntroTimerRef.current = 0.0;
+          setActiveSectionIntro(null);
           spawnOrbRoundRef.current?.(
             msg.roundNum as number,
             msg.phase as ('BRANCH' | 'BLOSSOM'),
@@ -7344,6 +7499,7 @@ export function SakuraCanvas({
           setIsLightboxOpen(false);
         } else if (msg.kind === 'ARTWORK_SELECT' && msg.artwork) {
           setIsCreationMode(true);
+          isCreationModeRef.current = true;
           const art = msg.artwork as 'bluten' | 'plexus';
           setActiveMode(art);
           activeModeRef.current = art;
@@ -7391,10 +7547,11 @@ export function SakuraCanvas({
   }, []);
 
   // Dynamic Instruction Text Calculation based on step-by-step phase
-  const roundInfo = activeMode === 'bluten' && (currentPhase === 'BRANCH' || currentPhase === 'BLOSSOM')
-    ? `${isEn ? 'Round' : 'Runde'} ${currentRound}/${maxRoundsPerPhase}`
-    : activeMode === 'bluten' && currentPhase === 'AWAIT_VORTEX' && hasRemotePeer
-      ? `${isEn ? 'Finale' : 'Finale'} (${vortexCircleCount}/2)`
+  const effectiveBlutenPhase = activeSectionIntro ?? currentPhase;
+  const roundInfo = activeMode === 'bluten' && (effectiveBlutenPhase === 'BRANCH' || effectiveBlutenPhase === 'BLOSSOM')
+    ? `${isEn ? 'Round' : 'Runde'} ${activeSectionIntro ? 1 : currentRound}/${maxRoundsPerPhase}`
+    : activeMode === 'bluten' && effectiveBlutenPhase === 'AWAIT_VORTEX'
+      ? (hasRemotePeer ? `Finale (${vortexCircleCount}/2)` : (activeSectionIntro ? 'Finale' : null))
       : activeMode === 'plexus'
         ? (isPlexusFinale
           ? (isEn ? 'Finale' : 'Finale')
@@ -7403,20 +7560,20 @@ export function SakuraCanvas({
             : `Plexus ${plexusAttachedCount}/6`)
         : null;
 
-  const instructionBody = isTrunkGrowing
+  const instructionBody = (isTrunkGrowing && !activeSectionIntro)
     ? (isEn
-      ? 'Click a node to grow another branch on the tree.'
-      : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
+      ? 'Click a glowing marker to grow another branch on the tree.'
+      : 'Klicke auf eine leuchtende Markierung, um einen weiteren Zweig am Ast wachsen zu lassen.')
     : activeMode === 'bluten'
-      ? currentPhase === 'BRANCH'
+      ? effectiveBlutenPhase === 'BRANCH'
         ? (isEn
-          ? 'Click a node to grow another branch on the tree.'
-          : 'Klicke auf einen Knotenpunkt, um einen weiteren Zweig am Ast wachsen zu lassen.')
-        : currentPhase === 'BLOSSOM'
+          ? 'Click a glowing marker to grow another branch on the tree.'
+          : 'Klicke auf eine leuchtende Markierung, um einen weiteren Zweig am Ast wachsen zu lassen.')
+        : effectiveBlutenPhase === 'BLOSSOM'
           ? (isEn
-            ? 'Select your desired color and click nodes to paint Sakura blossoms.'
-            : 'Wähle deine Wunschfarbe und klicke auf die Knoten, um Sakurablüten zu malen.')
-          : currentPhase === 'AWAIT_VORTEX'
+            ? 'Select your desired color and click the glowing markers to paint Sakura blossoms.'
+            : 'Wähle deine Wunschfarbe und klicke auf die leuchtenden Markierungen, um Sakurablüten zu malen.')
+          : effectiveBlutenPhase === 'AWAIT_VORTEX'
             ? hasRemotePeer
               ? vortexCircleCount === 1
                 ? (isEn
@@ -7428,7 +7585,7 @@ export function SakuraCanvas({
               : (isEn
                 ? 'Make a circular motion on screen to unleash the 10-second blossom vortex!'
                 : 'Führe eine Kreisbewegung auf dem Bildschirm aus, um den 10-sekündigen Blüten-Vortex auszulösen!')
-            : currentPhase === 'VORTEX'
+            : effectiveBlutenPhase === 'VORTEX'
               ? (isEn
                 ? 'The 10-second blossom vortex is unleashed!'
                 : 'Der 10-sekündige Blüten-Vortex ist entfesselt!')
@@ -7574,6 +7731,55 @@ export function SakuraCanvas({
             </div>
           )}
 
+          {/* Sumi-e Test Mode: 5s Centered 2x-Font Instruction Box after Transition Animations */}
+          {activeSectionIntro && activeMode === 'bluten' && !isCreationMode && (
+            <div className="absolute inset-0 z-[120] flex items-center justify-center p-4 pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+              <style>{`
+                @keyframes sectionIntroCountdown {
+                  from { transform: scaleX(1); }
+                  to { transform: scaleX(0); }
+                }
+              `}</style>
+              <div className="pointer-events-auto relative w-full max-w-[92%] sm:max-w-[540px] md:max-w-[660px] bg-[#120c1c]/92 backdrop-blur-xl rounded-none border border-[#ff2a9d]/35 pt-10 pb-6 px-6 sm:pt-12 sm:pb-8 sm:px-10 text-center flex flex-col items-center gap-2 sm:gap-3 shadow-[0_0_50px_rgba(255,42,157,0.22)] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dismissSectionIntro();
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  aria-label={isEn ? 'Close and start section' : 'Schließen und Abschnitt starten'}
+                  title={isEn ? 'Close and start section' : 'Schließen und Abschnitt starten'}
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 w-8 h-8 sm:w-9 sm:h-9 rounded-none bg-white/10 hover:bg-[#ff2a9d]/40 text-white flex items-center justify-center text-sm sm:text-base transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+                {(roundInfo || isPaused) && (
+                  <div className="flex items-center justify-center gap-2 sm:gap-2.5">
+                    <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-none bg-[#ff2a9d] animate-ping" />
+                    <span className="text-[18px] sm:text-[20px] md:text-[22px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
+                      {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
+                    </span>
+                  </div>
+                )}
+                <p className="text-[20px] sm:text-[22px] md:text-[24px] leading-snug text-white/95 font-normal">
+                  {instructionBody}
+                </p>
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 overflow-hidden">
+                  <div
+                    key={activeSectionIntro}
+                    className="h-full w-full bg-gradient-to-r from-[#ff2a9d] via-[#ff80df] to-[#4ee2ec] origin-left"
+                    style={{
+                      animation: 'sectionIntroCountdown 5s linear forwards',
+                      animationPlayState: isPaused ? 'paused' : 'running',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
 
 
           {/* RIGHT SIDEBAR: Color Palette (Smoothly shown during BLOSSOM phase in Landscape & Virtual Landscape, compact on smartphones) */}
@@ -7698,19 +7904,21 @@ export function SakuraCanvas({
                 </div>
 
                 {/* Dynamic Instruction Box Centered */}
-                <div className="pointer-events-auto flex flex-col items-center gap-1 p-3 bg-[#120c1c]/85 backdrop-blur-md rounded-none w-full max-w-[380px] text-center">
-                  {(roundInfo || isPaused) && (
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="w-2 h-2 rounded-none bg-[#ff2a9d] animate-ping" />
-                      <span className="text-[10px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
-                        {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-[11px] leading-snug text-white/90 font-normal">
-                    {instructionBody}
-                  </p>
-                </div>
+                {!(activeSectionIntro && activeMode === 'bluten' && !isCreationMode) && (
+                  <div className="pointer-events-auto flex flex-col items-center gap-1 p-3 bg-[#120c1c]/85 backdrop-blur-md rounded-none w-full max-w-[380px] text-center">
+                    {(roundInfo || isPaused) && (
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="w-2 h-2 rounded-none bg-[#ff2a9d] animate-ping" />
+                        <span className="text-[10px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
+                          {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-[11px] leading-snug text-white/90 font-normal">
+                      {instructionBody}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* MIDDLE SECTION: Horizontal Color Palette centered right below the 16:9 canvas (compact on smartphones) */}
@@ -7840,19 +8048,23 @@ export function SakuraCanvas({
               {/* TOP BAR: Instruction Box (Left) & Control Buttons (Right) */}
               <div className="flex justify-between items-start w-full gap-1.5 sm:gap-2">
                 {/* Top Left: Dynamic Instruction Box */}
-                <div className="pointer-events-auto flex flex-col gap-0.5 sm:gap-1 p-2 sm:p-2.5 md:p-3.5 bg-[#120c1c]/85 backdrop-blur-md rounded-none max-w-[180px] sm:max-w-[260px] md:max-w-[340px] lg:max-w-[420px] shrink-0">
-                  {(roundInfo || isPaused) && (
-                    <div className="flex items-center gap-1 sm:gap-1.5">
-                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-none bg-[#ff2a9d] animate-ping" />
-                      <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold tracking-[1.2px] uppercase text-[#ffb4dc]/95 truncate">
-                        {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-[10px] sm:text-[11px] md:text-xs leading-tight sm:leading-snug md:leading-relaxed text-white/90 font-normal line-clamp-2 md:line-clamp-none">
-                    {instructionBody}
-                  </p>
-                </div>
+                {!(activeSectionIntro && activeMode === 'bluten' && !isCreationMode) ? (
+                  <div className="pointer-events-auto flex flex-col gap-0.5 sm:gap-1 p-2 sm:p-2.5 md:p-3.5 bg-[#120c1c]/85 backdrop-blur-md rounded-none max-w-[180px] sm:max-w-[260px] md:max-w-[340px] lg:max-w-[420px] shrink-0">
+                    {(roundInfo || isPaused) && (
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-none bg-[#ff2a9d] animate-ping" />
+                        <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold tracking-[1.2px] uppercase text-[#ffb4dc]/95 truncate">
+                          {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-[10px] sm:text-[11px] md:text-xs leading-tight sm:leading-snug md:leading-relaxed text-white/90 font-normal line-clamp-2 md:line-clamp-none">
+                      {instructionBody}
+                    </p>
+                  </div>
+                ) : (
+                  <div />
+                )}
 
                 {/* Top Right: Sound, Pause, Restart & EXIT Control Buttons */}
                 <div className="pointer-events-auto flex items-center gap-1 sm:gap-1.5 shrink-0">
