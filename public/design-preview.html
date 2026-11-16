@@ -3,22 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>art.cube — Design-Konzepte Vorschau</title>
+  <title>art.cube — Minimal-Futuristische Konzepte (Scharfe Geometrie)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Michroma&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@600;700;800&family=Unbounded:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      border-radius: 0 !important;
+    }
     html { scroll-behavior: smooth; }
     body {
-      background: #07060a;
+      background: #070709;
       color: #f8fafc;
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Live Ambient Sakura/Plexus Shader-Simulation im Hintergrund */
     #ambient-bg {
       position: fixed;
       inset: 0;
@@ -28,7 +32,7 @@
       pointer-events: none;
     }
 
-    /* Sticky Preview Header */
+    /* Sticky Header — ohne Boxen, nur flache Fläche */
     .top-header {
       position: sticky;
       top: 0;
@@ -37,94 +41,265 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 clamp(16px, 4vw, 48px);
-      backdrop-filter: blur(18px);
-      background: rgba(8, 8, 12, 0.82);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      gap: 12px;
+      padding: 0 clamp(16px, 4vw, 56px);
+      backdrop-filter: blur(16px);
+      background: rgba(7, 7, 10, 0.78);
+      gap: 16px;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
       font-weight: 800;
-      letter-spacing: 0.18em;
-      font-size: 16px;
+      letter-spacing: 0.2em;
+      font-size: 15px;
       color: #fff;
       text-decoration: none;
+      white-space: nowrap;
     }
-    .brand-dot { color: #ff2a9d; }
+    .brand-dot { color: var(--accent-dot, #ff4d8d); }
+
+    .nav-links {
+      display: none;
+      gap: 28px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.65);
+    }
+    .nav-links a { color: inherit; text-decoration: none; transition: color 0.2s; }
+    .nav-links a:hover { color: #fff; }
+    @media (min-width: 980px) { .nav-links { display: flex; } }
+
     .switcher {
       display: flex;
-      gap: 4px;
-      padding: 4px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 999px;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.05);
       overflow-x: auto;
       max-width: 100%;
     }
     .switch-btn {
       border: none;
       background: transparent;
-      color: rgba(255, 255, 255, 0.7);
-      padding: 7px 14px;
-      border-radius: 999px;
-      font-size: 12px;
+      color: rgba(255, 255, 255, 0.68);
+      padding: 8px 14px;
+      font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.2s ease;
     }
     .switch-btn:hover { color: #fff; }
     .switch-btn.active {
-      background: #ffffff;
-      color: #09090b;
+      background: var(--accent-main, #ff4d8d);
+      color: #070709;
+      font-weight: 700;
     }
-    .nav-links {
-      display: none;
-      gap: 20px;
-      font-size: 13px;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.72);
-    }
-    .nav-links a { color: inherit; text-decoration: none; }
-    .nav-links a:hover { color: #fff; }
-    @media (min-width: 960px) { .nav-links { display: flex; } }
 
-    /* Main Wrapper */
     main { position: relative; z-index: 1; }
+
+    /* Dezenter Font-Hinweis ohne Rahmen */
     .variant-banner {
-      max-width: 1200px;
-      margin: 20px auto 0;
-      padding: 0 clamp(16px, 4vw, 48px);
+      max-width: 1120px;
+      margin: 24px auto 0;
+      padding: 0 clamp(20px, 5vw, 48px);
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.02em;
     }
-    .variant-pill {
+    .variant-banner strong { color: #fff; font-weight: 600; }
+
+    /* ============================================================
+       3 VARIANTEN (aufgebaut wie C: offen, wenig Boxen, keine Linien, 0px Ecken)
+       ============================================================ */
+    body[data-theme="monograph"] {
+      --display-font: 'Syne', sans-serif;
+      --body-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --accent-main: #ff4d8d;
+      --accent-alt: #2dd4bf;
+      --accent-dot: #ff4d8d;
+      --grad: linear-gradient(90deg, #ff4d8d, #c084fc, #2dd4bf);
+      --surface-soft: rgba(14, 14, 18, 0.62);
+      --surface-field: rgba(255, 255, 255, 0.05);
+      --text-muted: #a1a1aa;
+    }
+    body[data-theme="vector"] {
+      --display-font: 'Unbounded', sans-serif;
+      --body-font: 'Inter', system-ui, sans-serif;
+      --accent-main: #38bdf8;
+      --accent-alt: #ffffff;
+      --accent-dot: #38bdf8;
+      --grad: linear-gradient(90deg, #38bdf8, #818cf8, #e879f9);
+      --surface-soft: rgba(7, 11, 20, 0.64);
+      --surface-field: rgba(255, 255, 255, 0.045);
+      --text-muted: #94a3b8;
+    }
+    body[data-theme="axis"] {
+      --display-font: 'Michroma', sans-serif;
+      --body-font: 'DM Sans', system-ui, sans-serif;
+      --accent-main: #e2e8f0;
+      --accent-alt: #22d3ee;
+      --accent-dot: #22d3ee;
+      --grad: linear-gradient(90deg, #a78bfa, #22d3ee, #f472b6);
+      --surface-soft: rgba(10, 12, 16, 0.66);
+      --surface-field: rgba(255, 255, 255, 0.05);
+      --text-muted: #9ca3af;
+    }
+
+    body { font-family: var(--body-font); }
+
+    /* 1. HERO — Schwebende Skulpturale Typografie ohne Boxen */
+    .hero {
+      min-height: calc(100vh - 104px);
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 72px clamp(20px, 5vw, 48px) 96px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    body[data-theme="vector"] .hero {
+      align-items: flex-start;
+      text-align: left;
+    }
+    body[data-theme="axis"] .hero {
+      align-items: center;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-family: var(--display-font);
+      font-size: clamp(3.4rem, 10.5vw, 8.2rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 0.94;
+      color: #ffffff;
+    }
+    body[data-theme="vector"] .hero h1 {
+      font-weight: 600;
+      font-size: clamp(3rem, 8.8vw, 7.2rem);
+      letter-spacing: -0.05em;
+    }
+    body[data-theme="axis"] .hero h1 {
+      font-weight: 400;
+      font-size: clamp(2.6rem, 8vw, 6.4rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .hero h1 .dot { color: var(--accent-dot); }
+
+    .hero-lead {
+      margin-top: 32px;
+      max-width: 54ch;
+      font-size: clamp(16px, 1.45vw, 19px);
+      line-height: 1.75;
+      color: rgba(255, 255, 255, 0.86);
+    }
+
+    .hero-actions {
+      margin-top: 40px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      justify-content: center;
+    }
+    body[data-theme="vector"] .hero-actions { justify-content: flex-start; }
+
+    .btn {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      justify-content: center;
+      padding: 16px 28px;
+      font-family: var(--body-font);
       font-size: 12px;
-      color: #cbd5e1;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
     }
-    .variant-pill strong { color: #fff; }
+    .btn-main {
+      background: var(--accent-main);
+      color: #070709;
+    }
+    .btn-main:hover { background: #ffffff; color: #070709; }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+    }
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: var(--accent-main);
+    }
 
-    /* Shared Dual Slider */
+    /* 2. EXPERIENCE STATION — Offen, minimal, exakte Reihenfolge */
+    .experience-sec {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 80px clamp(20px, 5vw, 32px) 110px;
+    }
+    .exp-header {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 44px;
+    }
+    .exp-header h2 {
+      font-family: var(--display-font);
+      font-size: clamp(2rem, 4.8vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+    body[data-theme="axis"] .exp-header h2 {
+      font-weight: 400;
+      font-size: clamp(1.7rem, 3.8vw, 2.8rem);
+      letter-spacing: 0.01em;
+    }
+    .exp-header p {
+      margin-top: 18px;
+      font-size: 15px;
+      line-height: 1.75;
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .grad-text {
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .link-accent {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      font-weight: 600;
+      color: var(--accent-alt);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      cursor: pointer;
+    }
+    .link-accent:hover { opacity: 0.8; }
+
+    .slider-prompt {
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 16px;
+    }
+
+    /* Dual Slider — komplett eckig, ohne Rahmen */
     .slider-wrap {
       position: relative;
       width: 100%;
       aspect-ratio: 16 / 9;
       max-height: 380px;
-      border-radius: 16px;
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.15);
       background: #0d0914;
       user-select: none;
-      margin-bottom: 28px;
+      margin-bottom: 36px;
     }
     .slider-wrap img {
       position: absolute;
@@ -141,18 +316,14 @@
       width: 50%;
       border-right: 2px solid #ffffff;
     }
-    .slider-overlay img {
-      width: 100%;
-      max-width: none;
-    }
+    .slider-overlay img { width: 100%; max-width: none; }
     .slider-handle {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 40px;
-      height: 40px;
-      border-radius: 999px;
+      width: 38px;
+      height: 38px;
       background: #fff;
       color: #09090b;
       display: flex;
@@ -160,7 +331,6 @@
       justify-content: center;
       font-size: 13px;
       font-weight: 800;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
       pointer-events: none;
     }
     .slider-range {
@@ -176,517 +346,102 @@
       position: absolute;
       bottom: 14px;
       padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(9, 9, 11, 0.78);
+      background: rgba(7, 7, 10, 0.8);
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
       font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       z-index: 4;
     }
-    .slider-tag.left { left: 14px; color: #ff80df; }
-    .slider-tag.right { right: 14px; color: #4ee2ec; }
+    .slider-tag.left { left: 14px; color: var(--accent-main); }
+    .slider-tag.right { right: 14px; color: var(--accent-alt); }
 
-    /* Shared Buttons & Inputs */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 15px 26px;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s ease;
-    }
-    .link-accent {
-      background: none;
-      border: none;
-      padding: 0;
-      font: inherit;
-      font-weight: 600;
-      text-decoration: underline;
-      text-underline-offset: 4px;
-      cursor: pointer;
-    }
-
-    /* ============================================================
-       KONZEPT A: EXHIBITION & CONTRAST (Dunkel -> Helles Museum -> Dunkel)
-       ============================================================ */
-    body[data-theme="exhibition"] .hero {
-      min-height: calc(100vh - 110px);
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 64px clamp(16px, 4vw, 48px) 80px;
-      display: grid;
-      grid-template-columns: 1fr;
-      align-items: end;
-      gap: 40px;
-    }
-    @media (min-width: 900px) {
-      body[data-theme="exhibition"] .hero {
-        grid-template-columns: 1.4fr 0.8fr;
-      }
-    }
-    body[data-theme="exhibition"] .hero h1 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: clamp(4rem, 11vw, 8.8rem);
-      font-weight: 700;
-      letter-spacing: -0.04em;
-      line-height: 0.9;
-      color: #ffffff;
-    }
-    body[data-theme="exhibition"] .hero h1 .dot { color: #ff2a9d; }
-    body[data-theme="exhibition"] .hero-lead {
-      margin-top: 28px;
-      max-width: 54ch;
-      font-size: clamp(16px, 1.5vw, 19px);
-      line-height: 1.7;
-      color: rgba(255, 255, 255, 0.88);
-    }
-    body[data-theme="exhibition"] .hero-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      border-left: 1px solid rgba(255, 255, 255, 0.16);
-      padding-left: 28px;
-    }
-    body[data-theme="exhibition"] .btn-main {
-      background: #ffffff;
-      color: #09090b;
-      border-radius: 999px;
-    }
-    body[data-theme="exhibition"] .btn-main:hover { background: #4ee2ec; }
-    body[data-theme="exhibition"] .btn-ghost {
-      background: rgba(255, 255, 255, 0.06);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.24);
-      border-radius: 999px;
-    }
-    body[data-theme="exhibition"] .btn-ghost:hover { border-color: #fff; }
-
-    /* Experience Station - Exakte Reihenfolge, offene Bühne */
-    body[data-theme="exhibition"] .experience-sec {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 80px clamp(16px, 4vw, 32px) 100px;
-    }
-    body[data-theme="exhibition"] .console-box {
-      background: rgba(12, 12, 16, 0.86);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 24px;
+    /* Konsole — OHNE Boxen/Rahmen, nur zarte Fläche & Luft */
+    .console-box {
+      background: var(--surface-soft);
+      backdrop-filter: blur(18px);
       padding: clamp(24px, 4vw, 44px);
     }
-
-    /* Helle Story-Sektion! */
-    body[data-theme="exhibition"] .story-wrapper {
-      background: #f6f4ef;
-      color: #111110;
-      padding: 100px clamp(16px, 4vw, 48px);
-    }
-    body[data-theme="exhibition"] .story-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    body[data-theme="exhibition"] .story-header {
-      max-width: 760px;
-      margin-bottom: 64px;
-    }
-    body[data-theme="exhibition"] .story-header h2 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: clamp(2.2rem, 5vw, 3.8rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      line-height: 1.05;
-      color: #111110;
-    }
-    body[data-theme="exhibition"] .story-header p {
-      margin-top: 20px;
-      font-size: 16px;
-      line-height: 1.75;
-      color: #3f3f46;
-      max-width: 62ch;
-    }
-    body[data-theme="exhibition"] .story-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 40px;
-      align-items: center;
-      padding: 48px 0;
-      border-top: 1px solid rgba(17, 17, 16, 0.14);
-    }
-    @media (min-width: 900px) {
-      body[data-theme="exhibition"] .story-row {
-        grid-template-columns: 1.25fr 1fr;
-        gap: 56px;
-      }
-      body[data-theme="exhibition"] .story-row.reverse {
-        grid-template-columns: 1fr 1.25fr;
-      }
-      body[data-theme="exhibition"] .story-row.reverse .story-img-wrap { order: 2; }
-    }
-    body[data-theme="exhibition"] .story-img-wrap {
-      border-radius: 16px;
-      overflow: hidden;
-      aspect-ratio: 16 / 10;
-      position: relative;
-      background: #18181b;
-    }
-    body[data-theme="exhibition"] .story-img-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    body[data-theme="exhibition"] .story-content h3 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 28px;
-      font-weight: 700;
-      color: #111110;
-      margin-bottom: 20px;
-    }
-    body[data-theme="exhibition"] .story-list { list-style: none; display: flex; flex-direction: column; gap: 18px; }
-    body[data-theme="exhibition"] .story-list h4 { font-size: 15px; font-weight: 700; color: #111110; }
-    body[data-theme="exhibition"] .story-list p { font-size: 14px; line-height: 1.65; color: #52525b; margin-top: 4px; }
-    body[data-theme="exhibition"] .story-wrapper .grad-text {
-      background: linear-gradient(90deg, #d61f7a, #0284c7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    body[data-theme="exhibition"] .story-wrapper .link-accent { color: #0284c7; }
-
-    /* ============================================================
-       KONZEPT B: STAGE & INSTRUMENT (Hardware / Studio Interface)
-       ============================================================ */
-    body[data-theme="instrument"] {
-      font-family: 'Space Grotesk', system-ui, sans-serif;
-    }
-    body[data-theme="instrument"] .hero {
-      min-height: calc(100vh - 110px);
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 48px clamp(16px, 4vw, 48px) 64px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    body[data-theme="instrument"] .hero-top {
-      padding-top: 24px;
-    }
-    body[data-theme="instrument"] .hero h1 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: clamp(4.2rem, 12vw, 9.5rem);
-      font-weight: 700;
-      letter-spacing: -0.04em;
-      line-height: 0.88;
-    }
-    body[data-theme="instrument"] .hero h1 .dot { color: #38bdf8; }
-    body[data-theme="instrument"] .hero-bottom {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 28px;
-      padding-top: 28px;
-      border-top: 1px solid rgba(255, 255, 255, 0.16);
-      align-items: end;
-    }
-    @media (min-width: 900px) {
-      body[data-theme="instrument"] .hero-bottom { grid-template-columns: 1.3fr 0.7fr; }
-    }
-    body[data-theme="instrument"] .hero-lead {
-      font-size: 17px;
-      line-height: 1.65;
-      color: #e2e8f0;
-      max-width: 58ch;
-    }
-    body[data-theme="instrument"] .hero-actions {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-    body[data-theme="instrument"] .btn-main {
-      background: #38bdf8;
-      color: #05070a;
-      border-radius: 6px;
-    }
-    body[data-theme="instrument"] .btn-main:hover { background: #ffffff; }
-    body[data-theme="instrument"] .btn-ghost {
-      background: rgba(15, 20, 28, 0.8);
-      color: #f8fafc;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      border-radius: 6px;
-    }
-    body[data-theme="instrument"] .btn-ghost:hover { border-color: #38bdf8; color: #38bdf8; }
-
-    body[data-theme="instrument"] .experience-sec {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 80px clamp(16px, 4vw, 32px);
-    }
-    body[data-theme="instrument"] .console-box {
-      background: rgba(9, 12, 17, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 8px;
-      padding: clamp(20px, 4vw, 40px);
-    }
-    body[data-theme="instrument"] .slider-wrap { border-radius: 6px; }
-    body[data-theme="instrument"] .story-wrapper {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 80px clamp(16px, 4vw, 48px);
-    }
-    body[data-theme="instrument"] .story-header {
-      margin-bottom: 48px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-      padding-bottom: 32px;
-    }
-    body[data-theme="instrument"] .story-header h2 {
-      font-size: clamp(2.2rem, 4.5vw, 3.6rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-    }
-    body[data-theme="instrument"] .story-header p {
-      margin-top: 16px;
-      font-size: 16px;
-      line-height: 1.7;
-      color: #cbd5e1;
-      max-width: 66ch;
-    }
-    body[data-theme="instrument"] .story-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 24px;
-    }
-    @media (min-width: 900px) {
-      body[data-theme="instrument"] .story-grid { grid-template-columns: 1fr 1fr; }
-    }
-    body[data-theme="instrument"] .story-row {
-      background: rgba(9, 12, 17, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 8px;
-      padding: 28px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    body[data-theme="instrument"] .story-img-wrap {
-      aspect-ratio: 16 / 9;
-      border-radius: 4px;
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-    }
-    body[data-theme="instrument"] .story-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    body[data-theme="instrument"] .story-content h3 { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
-    body[data-theme="instrument"] .story-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
-    body[data-theme="instrument"] .story-list h4 { font-size: 15px; font-weight: 600; color: #fff; }
-    body[data-theme="instrument"] .story-list p { font-size: 14px; line-height: 1.65; color: #94a3b8; margin-top: 4px; }
-
-    /* ============================================================
-       KONZEPT C: GALLERY MONOGRAPH (Skulpturale Typo & Negativraum)
-       ============================================================ */
-    body[data-theme="monograph"] .hero {
-      min-height: calc(100vh - 110px);
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 80px clamp(16px, 4vw, 48px);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-    }
-    body[data-theme="monograph"] .hero h1 {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(4rem, 11vw, 8.5rem);
-      font-weight: 800;
-      letter-spacing: -0.04em;
-      line-height: 0.92;
-    }
-    body[data-theme="monograph"] .hero h1 .dot { color: #ff4d8d; }
-    body[data-theme="monograph"] .hero-lead {
-      margin-top: 32px;
-      max-width: 52ch;
-      font-size: clamp(16px, 1.4vw, 18px);
-      line-height: 1.75;
-      color: #e4e4e7;
-    }
-    body[data-theme="monograph"] .hero-actions {
-      margin-top: 36px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 14px;
-    }
-    body[data-theme="monograph"] .btn-main {
-      background: #ff4d8d;
-      color: #09090b;
-      border-radius: 12px;
-    }
-    body[data-theme="monograph"] .btn-main:hover { background: #ffffff; }
-    body[data-theme="monograph"] .btn-ghost {
-      background: transparent;
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.24);
-      border-radius: 12px;
-    }
-    body[data-theme="monograph"] .btn-ghost:hover { border-color: #ff4d8d; color: #ff4d8d; }
-
-    body[data-theme="monograph"] .experience-sec {
-      max-width: 880px;
-      margin: 0 auto;
-      padding: 90px clamp(16px, 4vw, 32px);
-    }
-    body[data-theme="monograph"] .console-box {
-      background: rgba(14, 14, 18, 0.88);
-      border-top: 1px solid rgba(255, 255, 255, 0.16);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-      padding: clamp(28px, 4vw, 48px) 0;
-    }
-    body[data-theme="monograph"] .story-wrapper {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 90px clamp(16px, 4vw, 48px);
-    }
-    body[data-theme="monograph"] .story-header {
-      text-align: center;
-      max-width: 720px;
-      margin: 0 auto 72px;
-    }
-    body[data-theme="monograph"] .story-header h2 {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(2.2rem, 4.5vw, 3.5rem);
-      font-weight: 700;
-      line-height: 1.08;
-    }
-    body[data-theme="monograph"] .story-header p {
-      margin-top: 20px;
-      font-size: 16px;
-      line-height: 1.75;
-      color: #d4d4d8;
-    }
-    body[data-theme="monograph"] .story-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 48px;
-    }
-    @media (min-width: 900px) {
-      body[data-theme="monograph"] .story-grid { grid-template-columns: 1fr 1fr; }
-    }
-    body[data-theme="monograph"] .story-row {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    body[data-theme="monograph"] .story-img-wrap {
-      aspect-ratio: 16 / 10;
-      border-radius: 16px;
-      overflow: hidden;
-      background: #18181b;
-    }
-    body[data-theme="monograph"] .story-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    body[data-theme="monograph"] .story-content h3 {
-      font-family: 'Syne', sans-serif;
-      font-size: 26px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-    body[data-theme="monograph"] .story-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
-    body[data-theme="monograph"] .story-list h4 { font-size: 15px; font-weight: 600; color: #fff; }
-    body[data-theme="monograph"] .story-list p { font-size: 14px; line-height: 1.65; color: #a1a1aa; margin-top: 4px; }
-
-    /* Shared Experience Console Internals (exakte Reihenfolge) */
-    .exp-header { text-align: center; max-width: 720px; margin: 0 auto 40px; }
-    .exp-header h2 {
-      font-size: clamp(2.1rem, 4.8vw, 3.4rem);
-      font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -0.025em;
-    }
-    .exp-header p {
-      margin-top: 16px;
-      font-size: 15px;
-      line-height: 1.7;
-      color: #cbd5e1;
-    }
-    .grad-text {
-      background: linear-gradient(90deg, #ff70b8, #a78bfa, #38bdf8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .link-accent { color: #38bdf8; }
-    .slider-prompt {
-      text-align: center;
-      font-size: 15px;
-      font-weight: 600;
-      color: #e2e8f0;
-      margin-bottom: 16px;
-    }
-    .console-stack { display: flex; flex-direction: column; gap: 24px; }
+    .console-stack { display: flex; flex-direction: column; gap: 28px; }
     .field-label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: #94a3b8;
+      color: var(--text-muted);
       margin-bottom: 10px;
     }
     .text-input {
       width: 100%;
-      padding: 15px 18px;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: rgba(255, 255, 255, 0.05);
-      color: #fff;
+      padding: 16px 18px;
+      border: none;
+      background: var(--surface-field);
+      color: #ffffff;
+      font-family: var(--body-font);
       font-size: 15px;
       font-weight: 500;
       outline: none;
+      transition: background 0.2s;
     }
-    .text-input:focus { border-color: #38bdf8; }
+    .text-input:focus { background: rgba(255, 255, 255, 0.1); }
+
     .mode-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 14px;
+      gap: 12px;
     }
     @media (min-width: 640px) { .mode-grid { grid-template-columns: 1fr 1fr; } }
+
     .mode-card {
-      padding: 18px 20px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.03);
+      padding: 20px;
+      border: none;
+      background: rgba(255, 255, 255, 0.035);
       text-align: left;
       cursor: pointer;
       color: #fff;
-      transition: all 0.2s ease;
+      transition: background 0.2s ease;
     }
+    .mode-card:hover { background: rgba(255, 255, 255, 0.07); }
     .mode-card.active {
-      border-color: #38bdf8;
-      background: rgba(56, 189, 248, 0.1);
+      background: rgba(255, 255, 255, 0.11);
+      box-shadow: inset 3px 0 0 var(--accent-main);
     }
-    .mode-card-title { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #38bdf8; }
-    .mode-card p { font-size: 13px; line-height: 1.55; color: #cbd5e1; margin-top: 6px; }
+    .mode-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent-main);
+    }
+    .mode-card p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.78);
+      margin-top: 6px;
+    }
+
+    /* Invite ohne Rahmen */
     .invite-box {
-      padding: 18px;
-      border-radius: 12px;
+      padding: 20px;
       background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-    .invite-row { display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8; }
+    .invite-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
     .share-url {
       font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      color: #94a3b8;
-      background: rgba(0, 0, 0, 0.45);
-      padding: 8px 12px;
-      border-radius: 6px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 10px 12px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -697,79 +452,165 @@
       gap: 10px;
       font-size: 12px;
       color: #cbd5e1;
-      padding-top: 8px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 6px;
     }
+
     .souvenir-notice {
-      padding: 14px 16px;
-      border-radius: 10px;
+      padding: 16px 18px;
       background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.35);
       color: #fde68a;
       font-size: 13px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
+
     .sound-btn {
       align-self: center;
-      padding: 10px 20px;
-      border-radius: 999px;
+      padding: 11px 22px;
       background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      border: none;
       color: #e2e8f0;
+      font-family: var(--body-font);
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
+      transition: background 0.2s;
     }
+    .sound-btn:hover { background: rgba(255, 255, 255, 0.12); }
+
     .start-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 14px;
+      gap: 12px;
     }
     @media (min-width: 640px) { .start-grid { grid-template-columns: 1fr 1fr; } }
+
     .btn-sumie {
       width: 100%;
-      background: #ff2a9d;
-      color: #fff;
-      border-radius: 10px;
+      background: var(--accent-main);
+      color: #070709;
     }
+    .btn-sumie:hover { background: #ffffff; }
     .btn-plexus {
       width: 100%;
-      background: #38bdf8;
-      color: #05070a;
-      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
     }
-    .hint-small { text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 10px; }
+    .btn-plexus:hover {
+      background: var(--accent-alt);
+      color: #070709;
+    }
+    .hint-small {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
 
-    /* Newsletter & Footer */
+    /* 3. STORY SECTION — Keine Boxen, freie Bilder & Typo */
+    .story-wrapper {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 90px clamp(20px, 5vw, 48px);
+    }
+    .story-header {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 76px;
+    }
+    body[data-theme="vector"] .story-header {
+      text-align: left;
+      margin: 0 0 64px;
+    }
+    .story-header h2 {
+      font-family: var(--display-font);
+      font-size: clamp(2rem, 4.5vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.08;
+    }
+    body[data-theme="axis"] .story-header h2 {
+      font-weight: 400;
+      font-size: clamp(1.7rem, 3.6vw, 2.7rem);
+    }
+    .story-header p {
+      margin-top: 20px;
+      font-size: 16px;
+      line-height: 1.75;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 56px;
+    }
+    @media (min-width: 900px) { .story-grid { grid-template-columns: 1fr 1fr; } }
+
+    .story-row {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .story-img-wrap {
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      background: #121216;
+    }
+    .story-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .story-content h3 {
+      font-family: var(--display-font);
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    body[data-theme="axis"] .story-content h3 { font-weight: 400; font-size: 21px; }
+    .story-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .story-list h4 { font-size: 15px; font-weight: 600; color: #ffffff; }
+    .story-list p { font-size: 14px; line-height: 1.65; color: var(--text-muted); margin-top: 4px; }
+
+    /* 4. NEWSLETTER — Ohne Box/Rahmen */
     .newsletter-sec {
       max-width: 1120px;
       margin: 0 auto;
-      padding: 72px clamp(16px, 4vw, 48px);
+      padding: 64px clamp(20px, 5vw, 48px) 96px;
     }
     .newsletter-card {
       padding: clamp(28px, 5vw, 52px);
-      border-radius: 20px;
-      background: rgba(14, 14, 18, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: var(--surface-soft);
+      backdrop-filter: blur(18px);
       display: grid;
       grid-template-columns: 1fr;
       gap: 28px;
       align-items: center;
     }
     @media (min-width: 860px) { .newsletter-card { grid-template-columns: 1fr 1fr; } }
-    .newsletter-card h2 { font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 700; }
-    .newsletter-card p { margin-top: 8px; font-size: 14px; color: #cbd5e1; line-height: 1.6; }
+    .newsletter-card h2 {
+      font-family: var(--display-font);
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 700;
+    }
+    body[data-theme="axis"] .newsletter-card h2 { font-weight: 400; }
+    .newsletter-card p { margin-top: 10px; font-size: 14px; color: rgba(255, 255, 255, 0.78); line-height: 1.65; }
     .news-form { display: flex; flex-direction: column; gap: 10px; }
     @media (min-width: 540px) { .news-form { flex-direction: row; } }
+
     .site-footer {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(7, 7, 10, 0.92);
-      padding: 40px clamp(16px, 4vw, 48px);
+      background: rgba(7, 7, 10, 0.86);
+      padding: 40px clamp(20px, 5vw, 48px);
       font-size: 12px;
-      color: #94a3b8;
+      color: var(--text-muted);
     }
     .footer-inner {
-      max-width: 1200px;
+      max-width: 1120px;
       margin: 0 auto;
       display: flex;
       flex-wrap: wrap;
@@ -778,13 +619,13 @@
       gap: 16px;
     }
 
-    /* Modals / Lightboxes */
+    /* Modals / Lightboxes — scharfe Ecken, ohne unnötige Linien */
     .modal-backdrop {
       position: fixed;
       inset: 0;
       z-index: 100;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(8px);
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(10px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -796,24 +637,21 @@
       max-width: 680px;
       max-height: 90vh;
       overflow-y: auto;
-      background: #121218;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 20px;
-      padding: 28px;
+      background: #101014;
+      padding: 32px;
       color: #f8fafc;
       position: relative;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 24px;
     }
     .modal-close {
       position: absolute;
-      top: 18px;
-      right: 18px;
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      top: 20px;
+      right: 20px;
+      width: 36px;
+      height: 36px;
+      border: none;
       background: rgba(255, 255, 255, 0.08);
       color: #fff;
       cursor: pointer;
@@ -823,24 +661,20 @@
       width: 100%;
       max-height: 280px;
       object-fit: cover;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      display: block;
     }
     .modal-block {
       padding: 18px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.035);
     }
     .modal-block h4 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
     .modal-block p { font-size: 14px; line-height: 1.65; color: #cbd5e1; }
   </style>
 </head>
-<body data-theme="exhibition">
+<body data-theme="monograph">
   <canvas id="ambient-bg"></canvas>
 
-  <!-- Kopfzeile mit Konzept-Switcher -->
   <header class="top-header">
     <a href="#top" class="brand">ART<span class="brand-dot">.</span>CUBE</a>
 
@@ -850,33 +684,25 @@
       <a href="#newsletter">Community</a>
     </nav>
 
-    <div class="switcher" role="group" aria-label="Konzept wechseln">
-      <button class="switch-btn active" data-set-theme="exhibition">A · Exhibition &amp; Contrast</button>
-      <button class="switch-btn" data-set-theme="instrument">B · Stage &amp; Instrument</button>
-      <button class="switch-btn" data-set-theme="monograph">C · Gallery Monograph</button>
+    <div class="switcher" role="group" aria-label="Variante und Schriftart wählen">
+      <button class="switch-btn active" data-set-theme="monograph">1 · Syne</button>
+      <button class="switch-btn" data-set-theme="vector">2 · Unbounded</button>
+      <button class="switch-btn" data-set-theme="axis">3 · Michroma</button>
     </div>
   </header>
 
   <main>
-    <!-- Info-Hinweis -->
-    <div class="variant-banner">
-      <div class="variant-pill" id="concept-caption">
-        <strong>Konzept A (Exhibition &amp; Contrast):</strong> Offener Shader-Hero, ruhige Konsole &amp; heller Editorial-Bruch für die Story.
-      </div>
+    <div class="variant-banner" id="concept-caption">
+      <strong>Variante 1 (Monograph):</strong> Display-Font <strong>Syne</strong> · Body-Font <strong>Plus Jakarta Sans</strong> — Skulpturale Typografie, keine Abrundungen, minimale Flächen.
     </div>
 
     <!-- 1. HERO -->
     <section id="top" class="hero">
-      <div class="hero-top">
-        <h1>art<span class="dot">.</span>cube</h1>
-        <p class="hero-lead" id="hero-lead-inline">Kunst wird digital. Kunst wird lebendig. art.cube lässt die räumlichen und emotionalen Grenzen zwischen dir und der Kunst verschwinden. Erschaffe dein eigenes digitales Kunstwerk und lasse die Pixel vor dir zur Leinwand werden.</p>
-      </div>
-
-      <div class="hero-actions" id="hero-actions-block">
-        <div class="hero-actions-inner" id="hero-buttons-wrap" style="display:flex; flex-direction:inherit; gap:inherit; width:100%;">
-          <button class="btn btn-main" onclick="document.getElementById('erleben').scrollIntoView({behavior:'smooth'})">Jetzt das Kunstwerk erleben</button>
-          <button class="btn btn-ghost" onclick="document.getElementById('vision').scrollIntoView({behavior:'smooth'})">art.cube entdecken</button>
-        </div>
+      <h1>art<span class="dot">.</span>cube</h1>
+      <p class="hero-lead">Kunst wird digital. Kunst wird lebendig. art.cube lässt die räumlichen und emotionalen Grenzen zwischen dir und der Kunst verschwinden. Erschaffe dein eigenes digitales Kunstwerk und lasse die Pixel vor dir zur Leinwand werden.</p>
+      <div class="hero-actions">
+        <button class="btn btn-main" onclick="document.getElementById('erleben').scrollIntoView({behavior:'smooth'})">Jetzt das Kunstwerk erleben</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('vision').scrollIntoView({behavior:'smooth'})">art.cube entdecken</button>
       </div>
     </section>
 
@@ -892,7 +718,6 @@
 
       <p class="slider-prompt">Hier kannst du Sakuraverse testen:</p>
 
-      <!-- Dual Slider -->
       <div class="slider-wrap" id="dual-slider">
         <img src="./plexus_preview.jpg" alt="Plexus Vorschau" />
         <div class="slider-overlay" id="slider-overlay">
@@ -904,16 +729,13 @@
         <span class="slider-tag right">Plexus · Transformation</span>
       </div>
 
-      <!-- Start Console (exakte Reihenfolge) -->
       <div class="console-box">
         <div class="console-stack">
-          <!-- 1. Name -->
           <div>
             <label class="field-label" for="name-input">Dein Name (Optional)</label>
             <input id="name-input" class="text-input" type="text" placeholder="Wie heißt du?" />
           </div>
 
-          <!-- 2. Modus -->
           <div>
             <span class="field-label">Wähle deinen Modus</span>
             <div class="mode-grid">
@@ -928,13 +750,12 @@
             </div>
           </div>
 
-          <!-- 3. Invite (Testmodus) -->
           <div class="invite-box" id="invite-box">
             <div class="invite-row">
               <strong>Mitspieler einladen (Optional)</strong>
               <span>MAX. 2 TEILNEHMER</span>
             </div>
-            <button type="button" class="btn btn-ghost" style="width:100%; border-radius:8px; padding:12px;" onclick="copyInvite(this)">Einladungslink kopieren</button>
+            <button type="button" class="btn btn-ghost" style="width:100%; padding:13px;" onclick="copyInvite(this)">Einladungslink kopieren</button>
             <div class="share-url">https://artboxdev.github.io/artcube/?sid=demo-preview</div>
             <div class="status-row">
               <span>● Host: Du</span>
@@ -942,17 +763,14 @@
             </div>
           </div>
 
-          <!-- 4. Souvenir-Hinweis -->
           <div class="souvenir-notice" id="souvenir-notice" style="display:none;">
             Im Souvenirmodus erstellst du dein individuelles Video-Souvenir. Sollte es dir nicht gefallen, kannst du vor der Sicherung deines Souvenirs das Fenster mit der Videovorschau schließen (X) und es noch einmal versuchen.
           </div>
 
-          <!-- 5. Sound Toggle -->
           <button type="button" class="sound-btn" id="sound-btn" onclick="toggleSound()">
             🔊 Klicke, um den Sound in der Session erst einmal auszuschalten
           </button>
 
-          <!-- 6. Start Buttons -->
           <div>
             <p class="hint-small">Während das Kunstwerk läuft, werden dir Tipps angezeigt, wie du interagieren kannst.</p>
             <div class="start-grid">
@@ -966,61 +784,57 @@
 
     <!-- 3. STORY SECTION -->
     <section id="vision" class="story-wrapper">
-      <div class="story-inner">
-        <div class="story-header">
-          <h2>Ein Raum für Co-Kreation: <span class="grad-text">Zwei Modi, eine Idee</span></h2>
-          <p>Wir sind ein kleines Team, das die Menschen (wortwörtlich) mit der Kunst verbinden möchte. Dafür sollt ihr selbst zu Künstlern und Künstlerinnen werden. Auf Smartphones oder Laptop führt ihr die &bdquo;Pinselstriche&ldquo; aus und erweckt das Bild vor euch zum Leben. art.cube soll für einzigartige und interaktive Erlebnisse stehen, die du gemeinsam mit anderen teilen kannst. Unsere Kunstwerke starten jetzt zuerst im Browser — später sollen begehbare, immersive Orte entstehen, in denen ihr zusammen die Kunst mit euren Smartphones steuert. Der Raum um dich herum wird zur lebendigen Leinwand. Ein noch nie dagewissenes Zusammenspiel aus Licht, Klang und menschlicher Interaktion.</p>
-        </div>
+      <div class="story-header">
+        <h2>Ein Raum für Co-Kreation: <span class="grad-text">Zwei Modi, eine Idee</span></h2>
+        <p>Wir sind ein kleines Team, das die Menschen (wortwörtlich) mit der Kunst verbinden möchte. Dafür sollt ihr selbst zu Künstlern und Künstlerinnen werden. Auf Smartphones oder Laptop führt ihr die &bdquo;Pinselstriche&ldquo; aus und erweckt das Bild vor euch zum Leben. art.cube soll für einzigartige und interaktive Erlebnisse stehen, die du gemeinsam mit anderen teilen kannst. Unsere Kunstwerke starten jetzt zuerst im Browser — später sollen begehbare, immersive Orte entstehen, in denen ihr zusammen die Kunst mit euren Smartphones steuert. Der Raum um dich herum wird zur lebendigen Leinwand. Ein noch nie dagewesenes Zusammenspiel aus Licht, Klang und menschlicher Interaktion.</p>
+      </div>
 
-        <div class="story-grid">
-          <!-- Phase 1 -->
-          <article class="story-row">
-            <div class="story-img-wrap">
-              <img src="./artcube_version1_2.jpg" alt="Der digitale Prototyp" />
-            </div>
-            <div class="story-content">
-              <h3>Der digitale Prototyp</h3>
-              <ul class="story-list">
-                <li>
-                  <h4>Allein oder zu zweit erleben</h4>
-                  <p>Verbindet euch per Einladungslink in Sekundenschnelle und gestaltet synchron die visuellen Elemente. Keine Apps und kein Download — es geht direkt los.</p>
-                </li>
-                <li>
-                  <h4>Auf allen Geräten erlebbar</h4>
-                  <p>Läuft auf Desktops, Tablets und Smartphones.</p>
-                </li>
-                <li>
-                  <h4>Eigenes digitales Souvenir</h4>
-                  <p>Haltet eure Schöpfung in einem animierten Video-Souvenir <strong class="grad-text">für immer</strong> fest. <button type="button" class="link-accent" onclick="openModal('nft-modal')">Wie funktioniert das?</button></p>
-                </li>
-              </ul>
-            </div>
-          </article>
+      <div class="story-grid">
+        <article class="story-row">
+          <div class="story-img-wrap">
+            <img src="./artcube_version1_2.jpg" alt="Der digitale Prototyp" />
+          </div>
+          <div class="story-content">
+            <h3>Der digitale Prototyp</h3>
+            <ul class="story-list">
+              <li>
+                <h4>Allein oder zu zweit erleben</h4>
+                <p>Verbindet euch per Einladungslink in Sekundenschnelle und gestaltet synchron die visuellen Elemente. Keine Apps und kein Download — es geht direkt los.</p>
+              </li>
+              <li>
+                <h4>Auf allen Geräten erlebbar</h4>
+                <p>Läuft auf Desktops, Tablets und Smartphones.</p>
+              </li>
+              <li>
+                <h4>Eigenes digitales Souvenir</h4>
+                <p>Haltet eure Schöpfung in einem animierten Video-Souvenir <strong class="grad-text">für immer</strong> fest. <button type="button" class="link-accent" onclick="openModal('nft-modal')">Wie funktioniert das?</button></p>
+              </li>
+            </ul>
+          </div>
+        </article>
 
-          <!-- Phase 2 -->
-          <article class="story-row reverse">
-            <div class="story-img-wrap">
-              <img src="./artcube_version2.jpg" alt="Der art.cube" />
-            </div>
-            <div class="story-content">
-              <h3>Der art.cube</h3>
-              <ul class="story-list">
-                <li>
-                  <h4>Audioreaktive 360° Projektionen</h4>
-                  <p>Gemeinsam in Gruppen 360-Grad-Projektionen erleben, die auf Interaktion reagieren.</p>
-                </li>
-                <li>
-                  <h4>Smartphone als magischer Controller</h4>
-                  <p>Mit euren eigenen Smartphones steuert und formt ihr Kunstwerke auf magische Art und Weise.</p>
-                </li>
-                <li>
-                  <h4>Einzigartige Gruppen-Erlebnisse</h4>
-                  <p>Keine zwei Besuche sind gleich: Das kollektive Verhalten der Gruppe formt das Kunstwerk jedes Mal neu.</p>
-                </li>
-              </ul>
-            </div>
-          </article>
-        </div>
+        <article class="story-row">
+          <div class="story-img-wrap">
+            <img src="./artcube_version2.jpg" alt="Der art.cube" />
+          </div>
+          <div class="story-content">
+            <h3>Der art.cube</h3>
+            <ul class="story-list">
+              <li>
+                <h4>Audioreaktive 360° Projektionen</h4>
+                <p>Gemeinsam in Gruppen 360-Grad-Projektionen erleben, die auf Interaktion reagieren.</p>
+              </li>
+              <li>
+                <h4>Smartphone als magischer Controller</h4>
+                <p>Mit euren eigenen Smartphones steuert und formt ihr Kunstwerke auf magische Art und Weise.</p>
+              </li>
+              <li>
+                <h4>Einzigartige Gruppen-Erlebnisse</h4>
+                <p>Keine zwei Besuche sind gleich: Das kollektive Verhalten der Gruppe formt das Kunstwerk jedes Mal neu.</p>
+              </li>
+            </ul>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -1036,7 +850,7 @@
             <input type="email" class="text-input" placeholder="deine@email.de" required />
             <button type="submit" class="btn btn-main" style="white-space:nowrap;">Auf Gästeliste</button>
           </form>
-          <p style="font-size:12px; color:#94a3b8; margin-top:10px;">Kein Spam. Nur Einladungen zu Ausstellungen und neuen digitalen Kunstwerken.</p>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:10px;">Kein Spam. Nur Einladungen zu Ausstellungen und neuen digitalen Kunstwerken.</p>
         </div>
       </div>
     </section>
@@ -1044,18 +858,18 @@
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <span>&copy; 2026 art.cube — Design-Vorschau</span>
+      <span>&copy; 2026 art.cube — Minimal-Futuristische Vorschau</span>
       <span>A new immersion</span>
     </div>
   </footer>
 
-  <!-- Lightbox Modal 1: Artworks (mit Bildern!) -->
+  <!-- Lightbox Modal 1: Artworks -->
   <div class="modal-backdrop" id="artworks-modal" onclick="closeModal('artworks-modal')">
     <div class="modal-panel" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="closeModal('artworks-modal')" aria-label="Schließen">✕</button>
       <div>
-        <h3 style="font-size:22px; font-weight:800;">Die zwei Welten von Sakuraverse</h3>
-        <p style="font-size:12px; color:#ff80df; margin-top:4px;">Traditionelle Tuschekunst &amp; Digitale Netzwerk-Ästhetik</p>
+        <h3 style="font-family:var(--display-font); font-size:22px; font-weight:700;">Die zwei Welten von Sakuraverse</h3>
+        <p style="font-size:12px; color:var(--accent-main); margin-top:6px;">Traditionelle Tuschekunst &amp; Digitale Netzwerk-Ästhetik</p>
       </div>
       <div class="modal-block">
         <img src="./sumie_about.jpg" alt="Sumi-e" class="modal-img" />
@@ -1076,8 +890,8 @@
     <div class="modal-panel" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="closeModal('nft-modal')" aria-label="Schließen">✕</button>
       <div>
-        <h3 style="font-size:22px; font-weight:800;">Wie funktioniert das?</h3>
-        <p style="font-size:12px; color:#38bdf8; margin-top:4px;">Dein digitales Souvenir auf der Blockchain</p>
+        <h3 style="font-family:var(--display-font); font-size:22px; font-weight:700;">Wie funktioniert das?</h3>
+        <p style="font-size:12px; color:var(--accent-alt); margin-top:6px;">Dein digitales Souvenir auf der Blockchain</p>
       </div>
       <div class="modal-block">
         <h4>1. Erschaffe dein 14-Sekunden-Kunstwerk</h4>
@@ -1092,39 +906,11 @@
   </div>
 
   <script>
-    // 1. Konzept-Switcher + Hero-Layout-Anpassung
     const captions = {
-      exhibition: '<strong>Konzept A (Exhibition & Contrast):</strong> Offener Shader-Hero, ruhige Konsole &amp; heller Editorial-Bruch für die Story.',
-      instrument: '<strong>Konzept B (Stage & Instrument):</strong> Präzises Hardware-/Studio-Interface ohne verschachtelte Blobs.',
-      monograph: '<strong>Konzept C (Gallery Monograph):</strong> Skulpturale Typografie, maximaler Negativraum &amp; klare Mittelachse.'
+      monograph: '<strong>Variante 1 (Monograph):</strong> Display-Font <strong>Syne</strong> · Body-Font <strong>Plus Jakarta Sans</strong> — Skulpturale Typografie, keine Abrundungen, minimale Flächen.',
+      vector: '<strong>Variante 2 (Vector):</strong> Display-Font <strong>Unbounded</strong> · Body-Font <strong>Inter</strong> — Breite futuristische Geometrie, linksbündiger Hero, kaltes Eis-Cyan.',
+      axis: '<strong>Variante 3 (Axis):</strong> Display-Font <strong>Michroma</strong> · Body-Font <strong>DM Sans</strong> — Raumfahrt-/Architektur-Typografie, extrem klar &amp; reduziert.'
     };
-    const heroEl = document.getElementById('top');
-    const heroTop = heroEl.querySelector('.hero-top');
-    const heroBottom = document.getElementById('hero-actions-block');
-    const heroLead = document.getElementById('hero-lead-inline');
-
-    const heroButtonsWrap = document.getElementById('hero-buttons-wrap');
-
-    function applyHeroStructure(theme) {
-      if (theme === 'instrument') {
-        heroBottom.className = 'hero-bottom';
-        heroButtonsWrap.style.display = 'grid';
-        heroButtonsWrap.style.gap = '10px';
-        if (!heroBottom.contains(heroLead)) {
-          heroBottom.prepend(heroLead);
-        }
-      } else {
-        if (!heroTop.contains(heroLead)) {
-          heroTop.appendChild(heroLead);
-        }
-        heroBottom.className = 'hero-actions';
-        heroButtonsWrap.style.display = theme === 'monograph' ? 'flex' : 'flex';
-        heroButtonsWrap.style.flexDirection = theme === 'monograph' ? 'row' : 'column';
-        heroButtonsWrap.style.flexWrap = 'wrap';
-        heroButtonsWrap.style.justifyContent = theme === 'monograph' ? 'center' : 'flex-start';
-        heroButtonsWrap.style.gap = '12px';
-      }
-    }
 
     document.querySelectorAll('[data-set-theme]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1133,12 +919,10 @@
         document.querySelectorAll('[data-set-theme]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('concept-caption').innerHTML = captions[theme];
-        applyHeroStructure(theme);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
     });
 
-    // 2. Dual Slider
     const sliderInput = document.getElementById('slider-input');
     const sliderOverlay = document.getElementById('slider-overlay');
     const sliderHandle = document.getElementById('slider-handle');
@@ -1155,7 +939,6 @@
     window.addEventListener('resize', syncSlider);
     syncSlider();
 
-    // 3. Modus-Umschalter
     function setMode(mode) {
       document.getElementById('mode-test').classList.toggle('active', mode === 'test');
       document.getElementById('mode-souvenir').classList.toggle('active', mode === 'souvenir');
@@ -1181,7 +964,6 @@
     function openModal(id) { document.getElementById(id).classList.add('open'); }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-    // 4. Sanfter Live-Shader-Ersatz im Hintergrund
     const canvas = document.getElementById('ambient-bg');
     const ctx = canvas.getContext('2d');
     let w, h, particles = [];
@@ -1191,23 +973,23 @@
     }
     window.addEventListener('resize', resize);
     resize();
-    for (let i = 0; i < 48; i++) {
+    for (let i = 0; i < 42; i++) {
       particles.push({
         x: Math.random() * w,
         y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.45,
-        vy: (Math.random() - 0.5) * 0.45,
-        r: Math.random() * 2.4 + 0.8,
-        c: i % 2 === 0 ? 'rgba(255,42,157,0.45)' : 'rgba(78,226,236,0.4)'
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 2 + 0.8,
+        c: i % 2 === 0 ? 'rgba(255,77,141,0.38)' : 'rgba(56,189,248,0.35)'
       });
     }
     function tick() {
-      ctx.fillStyle = '#07060a';
+      ctx.fillStyle = '#070709';
       ctx.fillRect(0, 0, w, h);
-      const g = ctx.createRadialGradient(w * 0.55, h * 0.38, 20, w * 0.55, h * 0.38, Math.max(w, h) * 0.65);
-      g.addColorStop(0, 'rgba(121, 40, 202, 0.22)');
-      g.addColorStop(0.5, 'rgba(255, 42, 157, 0.08)');
-      g.addColorStop(1, 'rgba(7, 6, 10, 0)');
+      const g = ctx.createRadialGradient(w * 0.52, h * 0.35, 20, w * 0.52, h * 0.35, Math.max(w, h) * 0.6);
+      g.addColorStop(0, 'rgba(121, 40, 202, 0.16)');
+      g.addColorStop(0.55, 'rgba(255, 77, 141, 0.06)');
+      g.addColorStop(1, 'rgba(7, 7, 9, 0)');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < particles.length; i++) {
@@ -1219,19 +1001,6 @@
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
-        for (let j = i + 1; j < particles.length; j++) {
-          const q = particles[j];
-          const dx = p.x - q.x, dy = p.y - q.y;
-          const d = dx * dx + dy * dy;
-          if (d < 16000) {
-            ctx.strokeStyle = 'rgba(255,255,255,' + (0.08 * (1 - d / 16000)) + ')';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.stroke();
-          }
-        }
       }
       requestAnimationFrame(tick);
     }
