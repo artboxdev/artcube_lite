@@ -1619,6 +1619,7 @@ class OrbNode {
     this.mesh.position.z += 0.15;
 
     if (this.isExploding) {
+      if (this.pulseMesh) this.pulseMesh.visible = false;
       this.explosionTimer += delta;
       const t = Math.min(1.0, this.explosionTimer / this.explosionDuration);
       const easeOut = 1.0 - Math.pow(1.0 - t, 3.0);
@@ -1632,6 +1633,21 @@ class OrbNode {
         this.mesh.visible = false;
       }
     } else {
+      this.spawnImpulseTimer += delta;
+      const popT = Math.min(1.0, this.spawnImpulseTimer / 0.45);
+      const popScale = 1.0 + Math.sin(popT * Math.PI) * 0.25;
+      this.mesh.scale.setScalar(popScale);
+
+      if (this.pulseMesh && this.pulseMaterial) {
+        if (this.spawnImpulseTimer < this.spawnImpulseDuration) {
+          this.pulseMesh.visible = true;
+          this.pulseMaterial.uniforms.uProgress.value = this.spawnImpulseTimer / this.spawnImpulseDuration;
+          this.pulseMaterial.uniforms.uAlpha.value = modeFadeAlpha * 0.95;
+        } else {
+          this.pulseMesh.visible = false;
+        }
+      }
+
       this.material.uniforms.uAlpha.value = this.alpha * modeFadeAlpha;
       if (this.guideLine) (this.guideLine.material as THREE.LineDashedMaterial).opacity = this.alpha * 0.75 * modeFadeAlpha;
     }
@@ -1639,6 +1655,16 @@ class OrbNode {
 
   destroy(orbGroup: THREE.Group) {
     orbGroup.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.material.dispose();
+    if (this.pulseMesh && this.pulseMaterial) {
+      this.pulseMesh.geometry.dispose();
+      this.pulseMaterial.dispose();
+    }
+    if (this.guideLine) {
+      this.guideLine.geometry.dispose();
+      (this.guideLine.material as THREE.Material).dispose();
+    }
   }
 }
 
