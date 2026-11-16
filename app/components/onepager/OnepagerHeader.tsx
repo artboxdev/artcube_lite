@@ -17,9 +17,9 @@ interface OnepagerHeaderProps {
 
 const DESIGN_OPTIONS: { id: DesignVariant; label: string }[] = [
   { id: 'original', label: 'Classic' },
-  { id: 'atelier', label: 'Atelier' },
-  { id: 'washi', label: 'Washi' },
-  { id: 'prism', label: 'Prism' },
+  { id: 'aether', label: 'Aether' },
+  { id: 'kinetik', label: 'Kinetik' },
+  { id: 'lumen', label: 'Lumen' },
 ];
 
 export function OnepagerHeader({
@@ -39,12 +39,12 @@ export function OnepagerHeader({
   };
 
   const headerSurfaceClass =
-    designVariant === 'atelier'
-      ? 'border-b border-[#F5F2EB]/15 backdrop-blur-xl bg-[rgba(12,11,10,0.86)]'
-      : designVariant === 'washi'
-        ? 'border-b border-[#D4B483]/25 backdrop-blur-xl bg-[rgba(17,15,14,0.88)]'
-        : designVariant === 'prism'
-          ? 'border-b border-[#F0F6FC]/12 backdrop-blur-xl bg-[rgba(4,9,18,0.85)]'
+    designVariant === 'aether'
+      ? 'border-b border-[#F8FAFC]/12 backdrop-blur-xl bg-[rgba(7,9,13,0.86)]'
+      : designVariant === 'kinetik'
+        ? 'border-b border-white/15 backdrop-blur-xl bg-[rgba(5,6,8,0.9)]'
+        : designVariant === 'lumen'
+          ? 'border-b border-white/12 backdrop-blur-xl bg-[rgba(11,12,14,0.88)]'
           : 'border-b border-white/10 backdrop-blur-xl bg-[rgba(10,5,16,0.78)]';
 
   return (
@@ -89,12 +89,12 @@ export function OnepagerHeader({
           {/* Design Variant Switcher (Desktop & Tablet) */}
           <div
             className={`hidden sm:flex items-center p-0.5 border backdrop-blur-md ${
-              designVariant === 'atelier'
-                ? 'rounded-none bg-[#161513] border-[#F5F2EB]/20'
-                : designVariant === 'washi'
-                  ? 'rounded-sm bg-[#1C1917] border-[#D4B483]/35'
-                  : designVariant === 'prism'
-                    ? 'rounded-xl bg-[#0B1424]/90 border-[#38BDF8]/30'
+              designVariant === 'aether'
+                ? 'rounded-xl bg-[#0F141C] border-[#F8FAFC]/16'
+                : designVariant === 'kinetik'
+                  ? 'rounded-sm bg-[#0D1017] border-white/20'
+                  : designVariant === 'lumen'
+                    ? 'rounded-2xl bg-[#16181D] border-white/15'
                     : 'rounded-full bg-white/[0.08] border-white/15 shadow-inner'
             }`}
             role="group"
@@ -103,20 +103,20 @@ export function OnepagerHeader({
             {DESIGN_OPTIONS.map((opt) => {
               const isActive = designVariant === opt.id;
               const activeClass =
-                designVariant === 'atelier'
-                  ? 'rounded-none bg-[#F5F2EB] text-[#0C0B0A] font-semibold'
-                  : designVariant === 'washi'
-                    ? 'rounded-sm bg-[#E07A8A] text-[#110F0E] font-bold'
-                    : designVariant === 'prism'
-                      ? 'rounded-lg bg-gradient-to-r from-[#38BDF8] to-[#818CF8] text-[#040912] font-bold'
+                designVariant === 'aether'
+                  ? 'rounded-lg bg-[#38BDF8] text-[#07090D] font-bold'
+                  : designVariant === 'kinetik'
+                    ? 'rounded-sm bg-white text-[#050608] font-bold'
+                    : designVariant === 'lumen'
+                      ? 'rounded-xl bg-[#FAFAFA] text-[#0B0C0E] font-bold'
                       : 'rounded-full bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] text-white shadow-[0_0_12px_rgba(255,42,157,0.5)]';
               const inactiveClass =
-                designVariant === 'atelier'
-                  ? 'rounded-none text-white/65 hover:text-white'
-                  : designVariant === 'washi'
-                    ? 'rounded-sm text-[#F7F4EE]/65 hover:text-[#F7F4EE]'
-                    : designVariant === 'prism'
-                      ? 'rounded-lg text-[#F0F6FC]/65 hover:text-[#F0F6FC]'
+                designVariant === 'aether'
+                  ? 'rounded-lg text-[#CBD5E1] hover:text-white'
+                  : designVariant === 'kinetik'
+                    ? 'rounded-sm text-white/70 hover:text-white'
+                    : designVariant === 'lumen'
+                      ? 'rounded-xl text-[#D4D4D8] hover:text-white'
                       : 'rounded-full text-white/65 hover:text-white hover:bg-white/[0.05]';
 
               return (

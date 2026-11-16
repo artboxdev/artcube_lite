@@ -10,9 +10,7 @@ import { OnepagerFooter } from './OnepagerFooter';
 import { GuestJoinScreen } from './GuestJoinScreen';
 import WalletUnavailableModal from './WalletUnavailableModal';
 import { Language } from './translations';
-import { AtelierOnepager } from './variants/AtelierOnepager';
-import { WashiOnepager } from './variants/WashiOnepager';
-import { PrismOnepager } from './variants/PrismOnepager';
+import { MinimalFuturisticOnepager } from './variants/MinimalFuturisticOnepager';
 import type { DesignVariant } from './variants/useOnepagerExperience';
 
 interface OnepagerViewProps {
@@ -59,9 +57,9 @@ export function OnepagerView({
         const storedVariant = localStorage.getItem('artcube_design_variant') as DesignVariant | null;
         if (
           storedVariant === 'original' ||
-          storedVariant === 'atelier' ||
-          storedVariant === 'washi' ||
-          storedVariant === 'prism'
+          storedVariant === 'aether' ||
+          storedVariant === 'kinetik' ||
+          storedVariant === 'lumen'
         ) {
           setDesignVariant(storedVariant);
         }
@@ -153,12 +151,12 @@ export function OnepagerView({
   if (!isVisible) return null;
 
   const containerBackdropClass =
-    designVariant === 'atelier'
-      ? 'bg-[rgba(12,11,10,0.76)] backdrop-blur-[3px]'
-      : designVariant === 'washi'
-        ? 'bg-[rgba(17,15,14,0.80)] backdrop-blur-[3px]'
-        : designVariant === 'prism'
-          ? 'bg-[rgba(4,9,18,0.72)] backdrop-blur-[2px]'
+    designVariant === 'aether'
+      ? 'bg-[rgba(7,9,13,0.78)] backdrop-blur-[2px]'
+      : designVariant === 'kinetik'
+        ? 'bg-[rgba(5,6,8,0.82)] backdrop-blur-[1px]'
+        : designVariant === 'lumen'
+          ? 'bg-[rgba(11,12,14,0.80)] backdrop-blur-[2px]'
           : 'bg-[rgba(8,0,14,0.45)] backdrop-blur-[2px]';
 
   return (
@@ -178,40 +176,9 @@ export function OnepagerView({
         onNavigateTo={handleNavigateTo}
       />
 
-      {designVariant === 'atelier' ? (
-        <AtelierOnepager
-          lang={lang}
-          myName={myName}
-          onNameChange={handleNameUpdate}
-          isHost={isHost}
-          sessionId={sessionId}
-          isJoined={isJoined}
-          guestName={guestName}
-          onJoin={onJoin}
-          onStart={onStart}
-          onModalToggle={handleModalToggle}
-          isAudioMuted={isAudioMuted}
-          onToggleAudioMuted={onToggleAudioMuted}
-          onNavigateTo={handleNavigateTo}
-        />
-      ) : designVariant === 'washi' ? (
-        <WashiOnepager
-          lang={lang}
-          myName={myName}
-          onNameChange={handleNameUpdate}
-          isHost={isHost}
-          sessionId={sessionId}
-          isJoined={isJoined}
-          guestName={guestName}
-          onJoin={onJoin}
-          onStart={onStart}
-          onModalToggle={handleModalToggle}
-          isAudioMuted={isAudioMuted}
-          onToggleAudioMuted={onToggleAudioMuted}
-          onNavigateTo={handleNavigateTo}
-        />
-      ) : designVariant === 'prism' ? (
-        <PrismOnepager
+      {designVariant !== 'original' ? (
+        <MinimalFuturisticOnepager
+          variant={designVariant}
           lang={lang}
           myName={myName}
           onNameChange={handleNameUpdate}
