@@ -211,22 +211,18 @@ export function ExperienceStation({
 
   return (
     <section id="erleben" className="relative py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
-      
-      {/* Glow Center Background */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] sm:w-[700px] h-[350px] sm:h-[700px] bg-gradient-to-tr from-[#ff2a9d]/20 via-[#7928ca]/20 to-[#4ee2ec]/20 blur-[110px] pointer-events-none -z-10" />
-
       {/* Section Header */}
       <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-pink-500/30 bg-pink-500/10 text-pink-300 text-[11px] font-bold tracking-[0.2em] uppercase mb-4">
+        <div className="text-[#ff80df] text-[11px] font-bold tracking-[0.22em] uppercase mb-4">
           {t.pill}
         </div>
-        <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+        <h2 className="font-display text-2xl sm:text-4xl md:text-5xl text-white tracking-tight leading-tight">
           {t.titlePrefix}{' '}
           <span className="bg-gradient-to-r from-[#ff80df] via-[#ff2a9d] to-[#4ee2ec] bg-clip-text text-transparent">
             {t.titleHighlight}
           </span>
         </h2>
-        <p className="mt-4 text-sm sm:text-base text-white/85 font-light leading-relaxed text-left sm:text-center">
+        <p className="mt-5 text-sm sm:text-base text-white/85 font-normal leading-relaxed text-left sm:text-center">
           {t.subline}{' '}
           <button
             type="button"
@@ -248,12 +244,12 @@ export function ExperienceStation({
       {/* Freestanding Interactive Dual-Artwork Slider (Sumi-e & Plexus) */}
       <SakuraverseDualSlider lang={lang} />
 
-      {/* Consolidated Start Console */}
-      <div className="relative rounded-[32px] sm:rounded-[38px] p-6 sm:p-10 bg-[rgba(16,10,26,0.94)] border border-pink-500/40 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_50px_rgba(255,42,157,0.25)] flex flex-col gap-7">
+      {/* Consolidated Start Console — scharfe Ecken, ohne Rahmen-Overkill */}
+      <div className="relative rounded-none p-6 sm:p-10 bg-[rgba(14,8,22,0.82)] backdrop-blur-xl flex flex-col gap-7">
         
         {/* Name Input */}
         <div className="flex flex-col gap-2.5">
-          <label htmlFor="stationNameInput" className="flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-pink-200/90">
+          <label htmlFor="stationNameInput" className="flex items-center gap-2 text-xs font-bold tracking-[0.16em] uppercase text-pink-200/85">
             <span>{t.nameLabel}</span>
           </label>
           <input
@@ -263,24 +259,24 @@ export function ExperienceStation({
             onChange={(e) => onNameChange(e.target.value)}
             placeholder={isHost ? t.namePlaceholderHost : t.namePlaceholderGuest}
             maxLength={20}
-            className="w-full px-5 py-4 rounded-2xl bg-white/[0.06] border border-pink-500/30 focus:border-[#ff2a9d] focus:bg-white/[0.1] focus:shadow-[0_0_20px_rgba(255,42,157,0.4)] text-white text-base font-semibold tracking-wide placeholder:text-white/30 outline-none transition-all duration-300"
+            className="w-full px-5 py-4 rounded-none bg-white/[0.05] focus:bg-white/[0.1] text-white text-base font-medium placeholder:text-white/35 outline-none transition-colors duration-200"
           />
         </div>
 
         {/* Mode Selection (Testmodus vs. Souvenirmodus) */}
         <div className="flex flex-col gap-2.5">
-          <label className="flex items-center gap-2 text-xs font-bold tracking-[2px] uppercase text-pink-200/90">
+          <label className="flex items-center gap-2 text-xs font-bold tracking-[0.16em] uppercase text-pink-200/85">
             <span>{t.modeLabel}</span>
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             
-            {/* Testmodus Card */}
+            {/* Testmodus */}
             <div
               onClick={() => setActiveMode('test')}
-              className={`p-5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between gap-3 cursor-pointer ${
+              className={`p-5 rounded-none text-left transition-colors duration-200 flex flex-col justify-between gap-2.5 cursor-pointer ${
                 activeMode === 'test'
-                  ? 'bg-cyan-500/15 border-[#4ee2ec] shadow-[0_0_25px_rgba(78,226,236,0.3)] ring-1 ring-[#4ee2ec]/40'
-                  : 'bg-white/[0.03] border-white/10 hover:border-white/30 hover:bg-white/[0.06]'
+                  ? 'bg-cyan-500/15 shadow-[inset_3px_0_0_#4ee2ec]'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08]'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -288,21 +284,21 @@ export function ExperienceStation({
                   {t.testModeTitle}
                 </span>
                 {activeMode === 'test' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#4ee2ec] shadow-[0_0_10px_#4ee2ec]" />
+                  <span className="w-2 h-2 rounded-none bg-[#4ee2ec]" />
                 )}
               </div>
-              <p className="text-xs text-white/75 leading-relaxed font-light">
+              <p className="text-xs sm:text-sm text-white/80 leading-relaxed font-normal">
                 {t.testModeDesc}
               </p>
             </div>
 
-            {/* Souvenirmodus Card */}
+            {/* Souvenirmodus */}
             <div
               onClick={() => setActiveMode('souvenir')}
-              className={`p-5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between gap-3 cursor-pointer ${
+              className={`p-5 rounded-none text-left transition-colors duration-200 flex flex-col justify-between gap-2.5 cursor-pointer ${
                 activeMode === 'souvenir'
-                  ? 'bg-pink-500/15 border-[#ff2a9d] shadow-[0_0_25px_rgba(255,42,157,0.3)] ring-1 ring-[#ff2a9d]/40'
-                  : 'bg-white/[0.03] border-white/10 hover:border-white/30 hover:bg-white/[0.06]'
+                  ? 'bg-pink-500/15 shadow-[inset_3px_0_0_#ff2a9d]'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08]'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -310,10 +306,10 @@ export function ExperienceStation({
                   {t.souvenirModeTitle}
                 </span>
                 {activeMode === 'souvenir' && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff2a9d] shadow-[0_0_10px_#ff2a9d]" />
+                  <span className="w-2 h-2 rounded-none bg-[#ff2a9d]" />
                 )}
               </div>
-              <p className="text-xs text-white/75 leading-relaxed font-light">
+              <p className="text-xs sm:text-sm text-white/80 leading-relaxed font-normal">
                 {t.souvenirModeDesc}
               </p>
             </div>
@@ -323,40 +319,40 @@ export function ExperienceStation({
 
         {/* Collaboration Invite (Host & Testmodus only) */}
         {isHost && activeMode === 'test' && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-black/40 border border-white/10 flex flex-col gap-3">
+          <div className="p-4 sm:p-5 rounded-none bg-black/35 flex flex-col gap-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold tracking-wider uppercase text-white/80 flex items-center gap-1.5">
+              <span className="font-bold tracking-wider uppercase text-white/85 flex items-center gap-1.5">
                 {t.inviteLabel}
               </span>
-              <span className="text-[10px] text-white/50 tracking-wider">{t.inviteTag}</span>
+              <span className="text-[11px] text-white/55 tracking-wider">{t.inviteTag}</span>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2.5">
               <button
                 type="button"
                 onClick={handleCopy}
-                className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs tracking-wider uppercase cursor-pointer border transition-all duration-300 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-3 px-4 rounded-none font-bold text-xs tracking-wider uppercase cursor-pointer transition-colors duration-200 flex items-center justify-center gap-2 ${
                   copied
-                    ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(52,211,153,0.3)]'
-                    : 'bg-white/[0.06] border-white/15 text-white hover:bg-white/[0.12] hover:border-pink-500/40'
+                    ? 'bg-emerald-500/25 text-emerald-300'
+                    : 'bg-white/[0.07] text-white hover:bg-white/[0.14]'
                 }`}
               >
                 <span>{copied ? t.copiedBtn : t.copyBtn}</span>
               </button>
             </div>
 
-            <div className="text-[10px] font-mono text-cyan-200/50 truncate bg-black/50 px-3 py-1.5 rounded-lg border border-white/5 select-all">
+            <div className="text-xs font-mono text-cyan-200/70 truncate bg-black/45 px-3 py-2 rounded-none select-all">
               {shareUrl}
             </div>
 
             {/* Status Indicators */}
-            <div className="grid grid-cols-2 gap-2 mt-1 pt-2 border-t border-white/5 text-[11px]">
-              <div className="flex items-center gap-2 text-white/80">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
+            <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
+              <div className="flex items-center gap-2 text-white/85">
+                <span className="w-2 h-2 rounded-none bg-emerald-400 animate-pulse" />
                 <span>{t.hostStatus}: {myName || t.you}</span>
               </div>
-              <div className="flex items-center gap-2 text-white/50">
-                <span className={`w-2 h-2 rounded-full transition-colors duration-300 ${isJoined ? 'bg-emerald-400 shadow-[0_0_10px_#34d399] animate-pulse' : 'bg-white/20'}`} />
+              <div className="flex items-center gap-2 text-white/60">
+                <span className={`w-2 h-2 rounded-none transition-colors duration-300 ${isJoined ? 'bg-emerald-400 animate-pulse' : 'bg-white/25'}`} />
                 <span className={isJoined ? 'text-emerald-300 font-semibold transition-colors' : ''}>
                   {t.guestStatus}: {isJoined ? `${t.connected} (${guestName || 'Gast'})` : t.waiting}
                 </span>
@@ -367,7 +363,7 @@ export function ExperienceStation({
 
         {/* Notice on Souvenir mode if active */}
         {activeMode === 'souvenir' && (
-          <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
+          <div className="flex items-center gap-2.5 p-4 rounded-none bg-amber-500/12 text-amber-200 text-xs sm:text-sm">
             <span>{t.souvenirNotice}</span>
           </div>
         )}
@@ -377,13 +373,13 @@ export function ExperienceStation({
           <button
             type="button"
             onClick={onToggleAudioMuted}
-            className="group inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-pink-500/30 text-white/80 hover:text-white transition-all text-xs font-medium cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(255,42,157,0.15)]"
+            className="group inline-flex items-center gap-2.5 px-5 py-2.5 rounded-none bg-white/[0.06] hover:bg-white/[0.12] text-white/85 hover:text-white transition-colors text-xs font-medium cursor-pointer"
             aria-label={isAudioMuted ? 'Sound anschalten' : 'Sound ausschalten'}
           >
             {isAudioMuted ? (
-              <FiVolumeX className="w-4 h-4 text-pink-400 shrink-0 group-hover:scale-110 transition-transform" />
+              <FiVolumeX className="w-4 h-4 text-pink-400 shrink-0" />
             ) : (
-              <FiVolume2 className="w-4 h-4 text-cyan-400 shrink-0 group-hover:scale-110 transition-transform" />
+              <FiVolume2 className="w-4 h-4 text-cyan-400 shrink-0" />
             )}
             <span className="text-center">
               {lang === 'de'
@@ -397,21 +393,21 @@ export function ExperienceStation({
         <div>
           {activeMode === 'souvenir' ? (
             <div className="flex flex-col gap-3">
-              <p className="text-center text-[11px] sm:text-xs text-white/60 tracking-wide font-light">
+              <p className="text-center text-xs text-white/65 tracking-wide font-normal">
                 {t.interactionHint}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => handleStartArtwork('souvenir', 'bluten')}
-                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)]"
+                  className="w-full py-5 px-6 rounded-none font-bold text-xs sm:text-sm tracking-[0.14em] uppercase text-white transition-opacity duration-200 flex items-center justify-center cursor-pointer hover:opacity-90 bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca]"
                 >
                   <span>{t.startSouvenirSumieBtn}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleStartArtwork('souvenir', 'plexus')}
-                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]"
+                  className="w-full py-5 px-6 rounded-none font-bold text-xs sm:text-sm tracking-[0.14em] uppercase text-white transition-opacity duration-200 flex items-center justify-center cursor-pointer hover:opacity-90 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec]"
                 >
                   <span>{t.startSouvenirPlexusBtn}</span>
                 </button>
@@ -419,21 +415,21 @@ export function ExperienceStation({
             </div>
           ) : isHost ? (
             <div className="flex flex-col gap-3">
-              <p className="text-center text-[11px] sm:text-xs text-white/60 tracking-wide font-light">
+              <p className="text-center text-xs text-white/65 tracking-wide font-normal">
                 {t.interactionHint}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => handleStartArtwork('test', 'bluten')}
-                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)]"
+                  className="w-full py-5 px-6 rounded-none font-bold text-xs sm:text-sm tracking-[0.14em] uppercase text-white transition-opacity duration-200 flex items-center justify-center cursor-pointer hover:opacity-90 bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#7928ca]"
                 >
                   <span>{t.startTestSumieBtn || 'Testmodus "Sumi-E" starten'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleStartArtwork('test', 'plexus')}
-                  className="w-full py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white transition-all duration-300 flex items-center justify-center cursor-pointer hover:scale-[1.01] hover:-translate-y-0.5 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec] shadow-[0_10px_35px_rgba(78,226,236,0.45)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.7)]"
+                  className="w-full py-5 px-6 rounded-none font-bold text-xs sm:text-sm tracking-[0.14em] uppercase text-white transition-opacity duration-200 flex items-center justify-center cursor-pointer hover:opacity-90 bg-gradient-to-r from-[#06b6d4] via-[#0284c7] to-[#4ee2ec]"
                 >
                   <span>{t.startTestPlexusBtn || 'Testmodus "Plexus" starten'}</span>
                 </button>
@@ -441,19 +437,19 @@ export function ExperienceStation({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <p className="text-center text-[11px] sm:text-xs text-white/60 tracking-wide font-light">
+              <p className="text-center text-xs text-white/65 tracking-wide font-normal">
                 {t.interactionHint}
               </p>
               {!isJoined ? (
                 <button
                   type="button"
                   onClick={handleGuestJoin}
-                  className="w-full py-5 px-8 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white bg-gradient-to-r from-[#4ee2ec] to-[#0284c7] shadow-[0_10px_35px_rgba(78,226,236,0.4)] hover:shadow-[0_15px_45px_rgba(78,226,236,0.6)] hover:scale-[1.01] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-5 px-8 rounded-none font-bold text-xs sm:text-sm tracking-[0.14em] uppercase text-white bg-gradient-to-r from-[#4ee2ec] to-[#0284c7] hover:opacity-90 transition-opacity duration-200 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>{t.joinBtn}</span>
                 </button>
               ) : (
-                <div className="p-4 rounded-2xl bg-white/[0.06] border border-white/15 text-center text-xs tracking-wider text-white/80 animate-pulse">
+                <div className="p-4 rounded-none bg-white/[0.06] text-center text-xs sm:text-sm tracking-wider text-white/85 animate-pulse">
                   {t.guestWaitingNotice}
                 </div>
               )}
@@ -466,7 +462,7 @@ export function ExperienceStation({
       {/* Lightbox Modal: Lerne mehr über die beiden Kunstwerke (Sumi-e & Plexus) */}
       {mounted && isArtworksModalOpen && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/88 backdrop-blur-md animate-in fade-in duration-200"
           onClick={closeArtworksModal}
           style={{ touchAction: 'none' }}
           role="dialog"
@@ -474,16 +470,16 @@ export function ExperienceStation({
           aria-label={t.artworksModal.title}
         >
           <div
-            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 bg-[rgba(18,12,28,0.98)] border border-pink-500/50 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.35)] text-left flex flex-col gap-6 my-auto"
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-none p-6 sm:p-9 bg-[rgba(14,8,22,0.98)] text-left flex flex-col gap-6 my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg sm:text-2xl font-extrabold text-white tracking-wide">
+                <h3 className="font-display text-lg sm:text-xl text-white tracking-wide">
                   {t.artworksModal.title}
                 </h3>
-                <span className="text-[11px] font-mono tracking-wider text-pink-300/70 uppercase">
+                <span className="text-xs font-mono tracking-wider text-pink-300/80 uppercase block mt-1">
                   {t.artworksModal.subtitle}
                 </span>
               </div>
@@ -491,16 +487,16 @@ export function ExperienceStation({
               <button
                 type="button"
                 onClick={closeArtworksModal}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer shrink-0"
+                className="w-9 h-9 rounded-none bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer shrink-0"
                 aria-label={t.artworksModal.closeBtn}
               >
                 <FiX className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Section 1: Sumi-e (History + Generated Crane & Cherry Blossom Image) */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-pink-500/30 flex flex-col gap-4">
-              <div className="w-full max-h-[280px] sm:max-h-[340px] overflow-hidden rounded-xl border border-pink-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(255,42,157,0.2)] bg-[#f7f5f0]">
+            {/* Section 1: Sumi-e */}
+            <div className="p-5 sm:p-6 rounded-none bg-white/[0.04] flex flex-col gap-4">
+              <div className="w-full max-h-[280px] sm:max-h-[340px] overflow-hidden rounded-none bg-[#f7f5f0]">
                 <img
                   src={sumieImgSrc}
                   alt={t.artworksModal.sumieImageAlt}
@@ -509,18 +505,18 @@ export function ExperienceStation({
               </div>
 
               <div className="flex flex-col gap-2">
-                <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
+                <h4 className="text-base sm:text-lg font-bold text-[#ff80df] tracking-wide">
                   {t.artworksModal.sumieTitle}
                 </h4>
-                <p className="text-xs sm:text-sm text-white/80 font-light leading-relaxed">
+                <p className="text-sm text-white/85 font-normal leading-relaxed">
                   {t.artworksModal.sumieText}
                 </p>
               </div>
             </div>
 
-            {/* Section 2: Plexus (Visual Impact in Artworks) */}
-            <div className="p-5 sm:p-6 rounded-2xl bg-white/[0.04] border border-cyan-500/30 flex flex-col gap-4">
-              <div className="w-full max-h-[280px] sm:max-h-[340px] overflow-hidden rounded-xl border border-cyan-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_20px_rgba(6,182,212,0.2)] bg-[#0d0914]">
+            {/* Section 2: Plexus */}
+            <div className="p-5 sm:p-6 rounded-none bg-white/[0.04] flex flex-col gap-4">
+              <div className="w-full max-h-[280px] sm:max-h-[340px] overflow-hidden rounded-none bg-[#0d0914]">
                 <img
                   src={plexusImgSrc}
                   alt={t.artworksModal.plexusTitle}
@@ -529,10 +525,10 @@ export function ExperienceStation({
               </div>
 
               <div className="flex flex-col gap-2">
-                <h4 className="text-base sm:text-lg font-extrabold text-white tracking-wide">
+                <h4 className="text-base sm:text-lg font-bold text-[#4ee2ec] tracking-wide">
                   {t.artworksModal.plexusTitle}
                 </h4>
-                <p className="text-xs sm:text-sm text-white/80 font-light leading-relaxed">
+                <p className="text-sm text-white/85 font-normal leading-relaxed">
                   {t.artworksModal.plexusText}
                 </p>
               </div>
@@ -542,7 +538,7 @@ export function ExperienceStation({
             <button
               type="button"
               onClick={closeArtworksModal}
-              className="w-full py-3.5 px-6 rounded-2xl font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#06b6d4] shadow-[0_10px_25px_rgba(255,42,157,0.4)] hover:shadow-[0_12px_30px_rgba(78,226,236,0.6)] hover:scale-[1.01] transition-all duration-300 cursor-pointer"
+              className="w-full py-4 px-6 rounded-none font-bold text-xs tracking-[0.14em] uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#4ee2ec] hover:opacity-90 transition-opacity cursor-pointer"
             >
               {t.artworksModal.closeBtn}
             </button>

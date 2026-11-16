@@ -98,18 +98,18 @@ export function GuestJoinScreen({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
             <circle cx="12" cy="12" r="2" fill="currentColor" fillOpacity="0.4" />
           </svg>
-          <span className="text-sm font-extrabold tracking-[2px] uppercase bg-gradient-to-r from-white via-pink-200 to-[#ff2a9d] bg-clip-text text-transparent">
+          <span className="font-display text-sm tracking-[0.18em] uppercase bg-gradient-to-r from-white via-pink-200 to-[#ff2a9d] bg-clip-text text-transparent">
             Sakuraverse
           </span>
         </div>
 
         {/* Language Switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-full bg-white/[0.06] border border-white/10 text-xs">
+        <div className="flex items-center gap-1 p-0.5 rounded-none bg-white/[0.06] text-xs">
           <button
             type="button"
             onClick={() => onLanguageChange('de')}
-            className={`px-2.5 py-1 rounded-full font-bold transition-all ${
-              lang === 'de' ? 'bg-[#ff2a9d] text-white shadow-[0_0_10px_#ff2a9d]' : 'text-white/60 hover:text-white'
+            className={`px-2.5 py-1 rounded-none font-bold transition-colors cursor-pointer ${
+              lang === 'de' ? 'bg-[#ff2a9d] text-white' : 'text-white/65 hover:text-white'
             }`}
           >
             DE
@@ -117,8 +117,8 @@ export function GuestJoinScreen({
           <button
             type="button"
             onClick={() => onLanguageChange('en')}
-            className={`px-2.5 py-1 rounded-full font-bold transition-all ${
-              lang === 'en' ? 'bg-[#ff2a9d] text-white shadow-[0_0_10px_#ff2a9d]' : 'text-white/60 hover:text-white'
+            className={`px-2.5 py-1 rounded-none font-bold transition-colors cursor-pointer ${
+              lang === 'en' ? 'bg-[#4ee2ec] text-black' : 'text-white/65 hover:text-white'
             }`}
           >
             EN
@@ -126,26 +126,26 @@ export function GuestJoinScreen({
         </div>
       </header>
 
-      {/* Main Join Console Card */}
+      {/* Main Join Console */}
       <main className="w-full max-w-lg my-auto py-4">
-        <div className="relative rounded-[32px] p-6 sm:p-8 md:p-10 bg-[rgba(18,10,28,0.92)] border border-pink-500/40 backdrop-blur-2xl shadow-[0_30px_90px_rgba(0,0,0,0.85),0_0_60px_rgba(255,42,157,0.3)] flex flex-col gap-6 text-center">
+        <div className="relative rounded-none p-7 sm:p-10 bg-[rgba(14,8,22,0.88)] backdrop-blur-xl flex flex-col gap-6 text-center">
           
           {/* Badge & Title */}
           <div className="flex flex-col items-center gap-2.5">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-pink-500/15 border border-pink-500/40 text-pink-300 text-[10px] font-bold tracking-[2px] uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#ff2a9d] animate-ping" />
+            <span className="inline-flex items-center gap-2 text-pink-300 text-[11px] font-bold tracking-[0.2em] uppercase">
+              <span className="w-1.5 h-1.5 rounded-none bg-[#ff2a9d] animate-ping" />
               {t.badge}
             </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide uppercase bg-gradient-to-r from-white via-pink-100 to-[#ff80df] bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(255,42,157,0.5)]">
+            <h1 className="font-display text-2xl sm:text-3xl tracking-wide uppercase text-white">
               {t.title}
             </h1>
-            <p className="text-xs sm:text-sm text-white/75 font-light leading-relaxed max-w-md">
+            <p className="text-sm text-white/80 font-normal leading-relaxed max-w-md">
               {t.subtitle}
             </p>
           </div>
 
           {/* Session Identification Info */}
-          <div className="flex items-center justify-center gap-2 text-[11px] font-mono text-cyan-300/80 bg-cyan-950/40 border border-cyan-500/30 rounded-xl py-2 px-3">
+          <div className="flex items-center justify-center gap-2 text-xs font-mono text-cyan-300 bg-white/[0.04] rounded-none py-2.5 px-3">
             <span>ID:</span>
             <span className="font-bold tracking-wider">{sessionId}</span>
           </div>
@@ -154,15 +154,15 @@ export function GuestJoinScreen({
           {!isJoined ? (
             <div className="flex flex-col gap-5 text-left">
               <div className="flex flex-col gap-2">
-                <label htmlFor="guestJoinInput" className="text-xs font-bold tracking-[1.5px] uppercase text-pink-200/90 flex items-center justify-between">
+                <label htmlFor="guestJoinInput" className="text-xs font-bold tracking-[0.14em] uppercase text-pink-200/90 flex items-center justify-between">
                   <span>{t.nameLabel}</span>
                   <button
                     type="button"
                     onClick={handleRandomize}
-                    className="text-[10px] lowercase font-normal text-pink-300/70 hover:text-pink-300 hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-[11px] lowercase font-normal text-pink-300/80 hover:text-pink-300 hover:underline cursor-pointer flex items-center gap-1"
                   >
                     <svg className="w-3 h-3 text-pink-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <rect x="3" y="3" width="18" height="18" rx="0" />
                       <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                       <circle cx="16" cy="16" r="1.5" fill="currentColor" />
                       <circle cx="12" cy="12" r="1.5" fill="currentColor" />
@@ -181,10 +181,10 @@ export function GuestJoinScreen({
                     }}
                     placeholder={t.namePlaceholder}
                     maxLength={20}
-                    className="w-full px-5 py-4 rounded-2xl bg-white/[0.06] border border-pink-500/35 focus:border-[#ff2a9d] focus:bg-white/[0.1] focus:shadow-[0_0_25px_rgba(255,42,157,0.45)] text-white text-base font-semibold tracking-wide placeholder:text-white/30 outline-none transition-all duration-300"
+                    className="w-full px-5 py-4 rounded-none bg-white/[0.06] focus:bg-white/[0.11] text-white text-base font-medium placeholder:text-white/35 outline-none transition-colors duration-200"
                   />
                 </div>
-                <p className="text-[10px] text-white/45 font-light">
+                <p className="text-xs text-white/55 font-normal">
                   {t.nameHint}
                 </p>
               </div>
@@ -194,13 +194,13 @@ export function GuestJoinScreen({
                 <button
                   type="button"
                   onClick={onToggleAudioMuted}
-                  className="group inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-pink-500/30 text-white/80 hover:text-white transition-all text-xs font-medium cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(255,42,157,0.15)]"
+                  className="group inline-flex items-center gap-2.5 px-4 py-2.5 rounded-none bg-white/[0.06] hover:bg-white/[0.12] text-white/85 hover:text-white transition-colors text-xs font-medium cursor-pointer"
                   aria-label={isAudioMuted ? 'Sound anschalten' : 'Sound ausschalten'}
                 >
                   {isAudioMuted ? (
-                    <FiVolumeX className="w-4 h-4 text-pink-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <FiVolumeX className="w-4 h-4 text-pink-400 shrink-0" />
                   ) : (
-                    <FiVolume2 className="w-4 h-4 text-cyan-400 shrink-0 group-hover:scale-110 transition-transform" />
+                    <FiVolume2 className="w-4 h-4 text-cyan-400 shrink-0" />
                   )}
                   <span className="text-center">
                     {lang === 'de'
@@ -213,7 +213,7 @@ export function GuestJoinScreen({
               <button
                 type="button"
                 onClick={handleJoinClick}
-                className="w-full py-4 sm:py-5 px-6 rounded-2xl font-extrabold text-sm sm:text-base tracking-[2px] uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#06b6d4] shadow-[0_10px_35px_rgba(255,42,157,0.45)] hover:shadow-[0_15px_45px_rgba(255,42,157,0.7)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-4 sm:py-5 px-6 rounded-none font-bold text-xs sm:text-sm tracking-[0.14em] uppercase text-white bg-gradient-to-r from-[#ff2a9d] via-[#d946ef] to-[#4ee2ec] hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>{t.joinBtn}</span>
               </button>
@@ -222,13 +222,13 @@ export function GuestJoinScreen({
             /* STATE 2: After Joining -> Waiting for Host to Start */
             <div className="flex flex-col items-center gap-6 py-2 animate-in fade-in zoom-in-95 duration-300">
               
-              {/* Joined Status Pill */}
-              <div className="w-full flex flex-col items-center gap-2 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-emerald-200">
+              {/* Joined Status */}
+              <div className="w-full flex flex-col items-center gap-2 p-4 rounded-none bg-emerald-500/12 text-emerald-200">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_#34d399] animate-pulse" />
+                  <span className="w-2 h-2 rounded-none bg-emerald-400 animate-pulse" />
                   <span>{t.joinedSuccessBadge}: {localName || myName}</span>
                 </div>
-                <span className="text-[11px] text-white/70">
+                <span className="text-xs text-white/75">
                   {t.connectedWithHost}
                 </span>
               </div>
@@ -236,8 +236,8 @@ export function GuestJoinScreen({
               {/* Waiting Indicator & Animated Visual */}
               <div className="flex flex-col items-center gap-4 py-2">
                 <div className="relative flex items-center justify-center w-16 h-16">
-                  <span className="absolute inset-0 rounded-full border border-pink-500/30 animate-ping" style={{ animationDuration: '2.5s' }} />
-                  <span className="w-12 h-12 rounded-full bg-pink-500/15 border border-pink-500/50 flex items-center justify-center text-pink-300 shadow-[0_0_25px_rgba(255,42,157,0.45)]">
+                  <span className="absolute inset-0 rounded-none border border-pink-500/35 animate-ping" style={{ animationDuration: '2.5s' }} />
+                  <span className="w-12 h-12 rounded-none bg-pink-500/15 flex items-center justify-center text-pink-300">
                     <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c1.5 2.5 1.5 5 0 7-1.5-2-1.5-4.5 0-7zm6 3c.5 3-1 5-3 5.5 1-2.5 1-4.5 3-5.5zM6 6c2 1 2 3 3 5.5-2-.5-3.5-2.5-3-5.5zm11 9c-1 2.5-3 3-5.5 3 2-1 3-2.5 5.5-3zm-10 0c2.5.5 3.5 2 5.5 3-2.5 0-4.5-.5-5.5-3z" />
                       <circle cx="12" cy="12" r="2" fill="currentColor" />
@@ -245,10 +245,10 @@ export function GuestJoinScreen({
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 text-center max-w-sm">
-                  <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
+                  <h3 className="font-display text-base sm:text-lg text-white tracking-wide">
                     {t.waitingForHostTitle}
                   </h3>
-                  <p className="text-xs text-white/70 leading-relaxed font-light">
+                  <p className="text-xs sm:text-sm text-white/75 leading-relaxed font-normal">
                     {t.waitingForHostDesc}
                   </p>
                 </div>
@@ -257,13 +257,13 @@ export function GuestJoinScreen({
           )}
 
           {/* Link to dismiss overlay and view full website if desired */}
-          <div className="pt-2 border-t border-white/5">
+          <div className="pt-2">
             <button
               type="button"
               onClick={onDismissToWebsite}
-              className="text-xs text-white/50 hover:text-white/80 transition-colors underline-offset-4 hover:underline cursor-pointer"
+              className="text-xs text-white/60 hover:text-white transition-colors underline-offset-4 hover:underline cursor-pointer"
             >
-              {t.exploreWebsiteBtn} →
+              {t.exploreWebsiteBtn}
             </button>
           </div>
 

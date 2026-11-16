@@ -2777,7 +2777,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
     <div className="mb-10 sm:mb-12">
       <div
         ref={containerRef}
-        className="relative h-72 sm:h-96 w-full rounded-[28px] sm:rounded-[34px] overflow-hidden border border-pink-500/40 bg-[#0d0006] shadow-[0_20px_60px_rgba(0,0,0,0.85),0_0_45px_rgba(255,42,157,0.22)] select-none"
+        className="relative h-72 sm:h-96 w-full rounded-none overflow-hidden bg-[#0d0006] select-none"
       >
         <canvas
           ref={canvasRef}
@@ -2792,11 +2792,11 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
 
         {/* Top-Left Badge: Sumi-e */}
         <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 lg:top-4 lg:left-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-start gap-1 sm:gap-1.5 pointer-events-none z-10">
-          <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-pink-400/40 text-pink-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
+          <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-none bg-black/75 backdrop-blur-md text-pink-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-semibold uppercase tracking-wider leading-tight inline-flex items-center gap-1">
             <span className="truncate">{t.sliderSumieBadge}</span>
           </div>
           {isVortexUI && (
-            <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-pink-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#ff2a9d]">
+            <div className="px-2.5 py-1 rounded-none bg-pink-500/90 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-wide leading-tight animate-pulse">
               {t.sliderVortexActive}
             </div>
           )}
@@ -2804,11 +2804,11 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
 
         {/* Top-Right Badge: Plexus */}
         <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 lg:top-4 lg:right-4 max-w-[45%] sm:max-w-[46%] flex flex-col items-end gap-1 sm:gap-1.5 pointer-events-none z-10">
-          <div className="px-2 py-0.5 sm:px-2.5 sm:py-1 lg:px-3.5 lg:py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-cyan-400/40 text-cyan-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-bold uppercase tracking-normal sm:tracking-wide lg:tracking-wider leading-tight inline-flex items-center gap-1 shadow-lg">
+          <div className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-none bg-black/75 backdrop-blur-md text-cyan-200 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs font-semibold uppercase tracking-wider leading-tight inline-flex items-center gap-1">
             <span className="truncate">{t.sliderPlexusBadge}</span>
           </div>
           {isImpulseUI && (
-            <div className="px-2 py-0.5 sm:px-2.5 sm:py-0.5 lg:px-3 lg:py-1 rounded-full bg-cyan-500/85 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-normal sm:tracking-wide leading-tight animate-pulse shadow-[0_0_15px_#00c3ff]">
+            <div className="px-2.5 py-1 rounded-none bg-cyan-500/90 backdrop-blur-md text-white text-[9px] sm:text-[10px] lg:text-xs font-bold tracking-wide leading-tight animate-pulse">
               {t.sliderPulseActive}
             </div>
           )}
@@ -2816,10 +2816,10 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
 
         {/* Bottom Interaction Hints */}
         <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 lg:bottom-3.5 lg:left-4 lg:right-4 flex items-end justify-between gap-2 pointer-events-none z-10">
-          <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-pink-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-pink-100/90 font-light">
+          <span className="max-w-[46%] sm:max-w-[47%] px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-none bg-black/70 backdrop-blur-md text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-pink-100/90 font-normal">
             {t.sliderHintSumie}
           </span>
-          <span className="max-w-[46%] sm:max-w-[47%] px-2 py-1 sm:px-2.5 sm:py-1 lg:px-3 lg:py-1 rounded-xl sm:rounded-full bg-black/65 backdrop-blur-md border border-cyan-500/25 text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-light text-right sm:text-left">
+          <span className="max-w-[46%] sm:max-w-[47%] px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-none bg-black/70 backdrop-blur-md text-[9px] sm:text-[10px] md:text-[11px] lg:text-xs leading-snug sm:leading-tight text-cyan-100/90 font-normal text-right sm:text-left">
             {t.sliderHintPlexus}
           </span>
         </div>
@@ -2827,7 +2827,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
         {/* Divider Line — ONLY visible in Smartphone view (< 640px) */}
         <div
           style={{ left: `${splitRatio * 100}%` }}
-          className="sm:hidden absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] shadow-[0_0_15px_#ffffff] pointer-events-none z-10"
+          className="sm:hidden absolute top-0 bottom-0 w-0.5 -translate-x-1/2 bg-gradient-to-b from-[#ff80df] via-white to-[#4ee2ec] pointer-events-none z-10"
         />
 
         {/* Interactive Handle Button — ONLY visible and draggable in Smartphone view (< 640px)! */}
@@ -2840,7 +2840,7 @@ export function SakuraverseDualSlider({ lang }: SakuraverseDualSliderProps) {
             e.preventDefault();
             isDraggingHandleRef.current = true;
           }}
-          className="sm:hidden absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#12091c]/95 border-2 border-white shadow-[0_0_22px_rgba(255,42,157,0.85)] active:scale-95 transition-transform flex items-center justify-center text-[11px] text-white font-bold cursor-ew-resize touch-none z-20"
+          className="sm:hidden absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-none bg-white text-black flex items-center justify-center text-[11px] font-bold cursor-ew-resize touch-none z-20"
         >
           ↔
         </button>

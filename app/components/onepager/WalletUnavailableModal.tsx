@@ -56,22 +56,22 @@ export default function WalletUnavailableModal({
       aria-label={`${t.titlePrefix} ${t.titleHighlight}`}
     >
       <div
-        className="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-10 bg-[rgba(18,12,28,0.98)] border border-pink-500/40 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_50px_rgba(255,42,157,0.3)] animate-in zoom-in-95 duration-200 my-auto text-left"
+        className="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-none p-7 sm:p-10 bg-[rgba(14,8,22,0.98)] animate-in zoom-in-95 duration-200 my-auto text-left"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full bg-white/10 text-white/70 hover:text-white hover:bg-white/20 transition-all cursor-pointer"
+          className="absolute top-5 right-5 p-2 rounded-none bg-white/10 text-white/75 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
           aria-label={t.close}
         >
-          <PiX className="w-5 h-5 hover:rotate-90 transition-transform duration-300" />
+          <PiX className="w-5 h-5" />
         </button>
 
-        <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-4 text-white">
+        <h3 className="font-display text-xl sm:text-2xl tracking-tight mb-4 text-white pr-8">
           {t.titlePrefix} <span className="bg-gradient-to-r from-[#ff2a9d] to-[#4ee2ec] bg-clip-text text-transparent">{t.titleHighlight}</span>
         </h3>
 
-        <div className="space-y-4 font-light text-sm text-white/80 leading-relaxed">
+        <div className="space-y-4 font-normal text-sm text-white/85 leading-relaxed">
           <p>{t.p1}</p>
           <p>{t.p2}</p>
         </div>
@@ -79,7 +79,7 @@ export default function WalletUnavailableModal({
         <button
           type="button"
           onClick={onClose}
-          className="w-full mt-6 py-3.5 px-6 rounded-2xl font-bold text-xs tracking-wider uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] shadow-[0_10px_25px_rgba(255,42,157,0.4)] hover:shadow-[0_12px_30px_rgba(255,42,157,0.6)] hover:scale-[1.01] transition-all cursor-pointer"
+          className="w-full mt-7 py-3.5 px-6 rounded-none font-bold text-xs tracking-[0.14em] uppercase text-white bg-gradient-to-r from-[#ff2a9d] to-[#7928ca] hover:opacity-90 transition-opacity cursor-pointer"
         >
           {t.close}
         </button>
