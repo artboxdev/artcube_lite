@@ -564,6 +564,38 @@ const sakuraOrbFragmentShader = /* glsl */ `
   }
 `;
 
+// Short, compact Sakura-pink spawn pulse shader for glowing markers
+const sakuraSpawnPulseFragmentShader = /* glsl */ `
+  varying vec2 vUv;
+  uniform float uProgress;
+  uniform float uAlpha;
+  uniform vec3 uColor;
+
+  void main() {
+    vec2 p = vUv - vec2(0.5);
+    float r = length(p);
+    if (r > 0.5) discard;
+
+    float p1 = clamp(uProgress / 0.65, 0.0, 1.0);
+    float rad1 = mix(0.06, 0.46, 1.0 - pow(1.0 - p1, 2.2));
+    float ring1 = exp(-pow((r - rad1) * 32.0, 2.0)) * smoothstep(0.0, 0.08, p1) * (1.0 - p1);
+
+    float p2 = clamp((uProgress - 0.22) / 0.68, 0.0, 1.0);
+    float rad2 = mix(0.05, 0.42, 1.0 - pow(1.0 - p2, 2.2));
+    float ring2 = exp(-pow((r - rad2) * 36.0, 2.0)) * smoothstep(0.0, 0.08, p2) * (1.0 - p2) * 0.78;
+
+    float flashFade = exp(-uProgress * 5.2);
+    float coreFlash = exp(-r * r * 55.0) * flashFade * 0.65;
+
+    float intensity = (ring1 + ring2 + coreFlash) * smoothstep(0.5, 0.36, r);
+    vec3 col = mix(uColor, vec3(1.0, 0.88, 0.96), (ring1 * 0.4 + coreFlash) * 0.8);
+    float alpha = intensity * uAlpha;
+
+    if (alpha < 0.005) discard;
+    gl_FragColor = vec4(col, alpha);
+  }
+`;
+
 // Dedicated Volumetric Fractal Energy Orb Shaders
 const fractalOrbVertexShader = /* glsl */ `
   varying vec3 vLocalPosition;
@@ -1319,7 +1351,7 @@ class SumiEBlossomCluster {
 
     for (let s = 0; s < numLayerStrokes; s++) {
       const strokeColor = pinkHexList[(s + Math.floor(Math.random() * pinkHexList.length)) % pinkHexList.length];
-      const clusterRadius = 0.40 + Math.random() * 0.20;
+      const clusterRadius = 0.20 + Math.random() * 0.10;
       const baseAngle = (s * Math.PI * 2.0) / numLayerStrokes + (Math.random() - 0.5) * 0.45;
       const pts: THREE.Vector3[] = [];
 
@@ -1330,12 +1362,12 @@ class SumiEBlossomCluster {
         pts.push(new THREE.Vector3(
           Math.cos(angle) * r,
           Math.sin(angle) * r,
-          (Math.random() - 0.5) * 0.12
+          (Math.random() - 0.5) * 0.06
         ));
       }
 
       const clusterCurve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
-      const strokeMesh = new ImmersiveStroke(this.group, 0.30 + Math.random() * 0.14, 2, strokeColor);
+      const strokeMesh = new ImmersiveStroke(this.group, 0.15 + Math.random() * 0.07, 2, strokeColor);
 
       const spacedPts = clusterCurve.getSpacedPoints(35);
       for (let i = 0; i <= 35; i++) {
@@ -1348,7 +1380,7 @@ class SumiEBlossomCluster {
       this.strokes.push(strokeMesh);
     }
 
-    const coreGeom = new THREE.PlaneGeometry(1.6, 1.6);
+    const coreGeom = new THREE.PlaneGeometry(0.8, 0.8);
     const coreMat = new THREE.ShaderMaterial({
       vertexShader: orbMeshVertexShader,
       fragmentShader: sakuraOrbFragmentShader,
@@ -1414,11 +1446,15 @@ class OrbNode {
   isExploding = false;
   explosionTimer = 0.0;
   explosionDuration = 0.40;
+  spawnImpulseTimer = 0.0;
+  spawnImpulseDuration = 0.90;
   targetChildLength: number;
   angleRad: number;
   guideDir: THREE.Vector3;
   material: THREE.ShaderMaterial;
   mesh: THREE.Mesh;
+  pulseMaterial?: THREE.ShaderMaterial;
+  pulseMesh?: THREE.Mesh;
   guideLine?: THREE.Line;
 
   constructor(
@@ -1515,6 +1551,26 @@ class OrbNode {
     this.mesh.position.copy(this.position);
     this.mesh.position.z += 0.15;
     orbGroup.add(this.mesh);
+
+    if (this.type !== 'petal') {
+      const pulseGeom = new THREE.PlaneGeometry(1.75, 1.75);
+      const pulseColor = this.type === 'branch' ? new THREE.Color(0xff99d6) : new THREE.Color(0xff66cc);
+      this.pulseMaterial = new THREE.ShaderMaterial({
+        vertexShader: orbMeshVertexShader,
+        fragmentShader: sakuraSpawnPulseFragmentShader,
+        uniforms: {
+          uProgress: { value: 0.0 },
+          uAlpha: { value: 0.0 },
+          uColor: { value: pulseColor }
+        },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      this.pulseMesh = new THREE.Mesh(pulseGeom, this.pulseMaterial);
+      this.pulseMesh.position.set(0, 0, 0.02);
+      this.mesh.add(this.pulseMesh);
+    }
 
     if (this.type === 'branch') {
       const lineMat = new THREE.LineDashedMaterial({
@@ -6011,16 +6067,22 @@ export function SakuraCanvas({
                 ];
 
                 for (let d = 0; d < 48; d++) {
-                  // Wind carrying towards right screen edge (+X): positive base drift with natural turbulence
+                  // Slower, more diffuse drift towards right screen edge (+X)
+                  const spreadAngle = Math.random() * Math.PI * 2.0;
+                  const spreadRadius = Math.random() * 0.34;
                   const vel = new THREE.Vector3(
-                    2.2 + Math.random() * 4.2,
-                    (Math.random() - 0.42) * 1.6,
-                    (Math.random() - 0.5) * 1.0
+                    0.35 + Math.random() * 1.45,
+                    (Math.random() - 0.46) * 2.3,
+                    (Math.random() - 0.5) * 1.7
                   );
                   const pCol = sakuraSporeColors[Math.floor(Math.random() * sakuraSporeColors.length)];
                   const dMat = new THREE.MeshBasicMaterial({ color: pCol, transparent: true, opacity: 0.95 });
                   const dMesh = new THREE.Mesh(dustGeom, dMat);
-                  dMesh.position.copy(blossom.group.position);
+                  dMesh.position.set(
+                    blossom.group.position.x + Math.cos(spreadAngle) * spreadRadius,
+                    blossom.group.position.y + Math.sin(spreadAngle) * spreadRadius,
+                    blossom.group.position.z + (Math.random() - 0.5) * 0.2
+                  );
                   impulseBlossomGroup.add(dMesh);
 
                   impulseSporeDust.push({
@@ -6064,11 +6126,15 @@ export function SakuraCanvas({
             const sp = impulseSporeDust[sIdx];
             sp.life -= delta;
 
-            // Kontinuierliche Windbeschleunigung nach rechts (+X) mit sanften Windböen
-            const gustX = 1.8 + Math.sin(sp.life * 2.6 + (sp.seed || sIdx)) * 0.9;
+            // Sanftere, langsamere Windbeschleunigung nach rechts (+X) mit diffuser Verwirbelung
+            const seedVal = sp.seed || sIdx;
+            const gustX = 0.45 + Math.sin(sp.life * 2.1 + seedVal) * 0.45;
             sp.vel.x += gustX * delta;
-            // Aerodynamisches Schweben und Wellenbewegung in Y
-            sp.vel.y += Math.sin(sp.life * 4.0 + (sp.seed || sIdx)) * delta * 0.7 - delta * 0.22;
+            // Diffuses Schweben und organische Wellenbewegung in Y und Z
+            sp.vel.y += Math.sin(sp.life * 3.4 + seedVal) * delta * 1.1 - delta * 0.14;
+            sp.vel.z += Math.cos(sp.life * 2.8 + seedVal * 1.3) * delta * 0.7;
+            // Leichte Luftdämpfung für langsames, weiches Ausgleiten
+            sp.vel.multiplyScalar(1.0 - Math.min(0.4, delta * 0.35));
 
             sp.mesh.position.addScaledVector(sp.vel, delta);
 
@@ -7731,16 +7797,30 @@ export function SakuraCanvas({
             </div>
           )}
 
-          {/* Sumi-e Test Mode: 5s Centered 2x-Font Instruction Box after Transition Animations */}
+          {/* Sumi-e Test Mode: 5s Centered Instruction Box (50% scaled, 0.5s fade-in) after Transition Animations */}
           {activeSectionIntro && activeMode === 'bluten' && !isCreationMode && (
-            <div className="absolute inset-0 z-[120] flex items-center justify-center p-4 pointer-events-none animate-in fade-in zoom-in-95 duration-300">
+            <div className="absolute inset-0 z-[120] flex items-center justify-center p-4 pointer-events-none">
               <style>{`
+                @keyframes sectionIntroFadeIn {
+                  from {
+                    opacity: 0;
+                    transform: scale(0.96);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: scale(1);
+                  }
+                }
                 @keyframes sectionIntroCountdown {
                   from { transform: scaleX(1); }
                   to { transform: scaleX(0); }
                 }
               `}</style>
-              <div className="pointer-events-auto relative w-full max-w-[92%] sm:max-w-[540px] md:max-w-[660px] bg-[#120c1c]/92 backdrop-blur-xl rounded-none border border-[#ff2a9d]/35 pt-10 pb-6 px-6 sm:pt-12 sm:pb-8 sm:px-10 text-center flex flex-col items-center gap-2 sm:gap-3 shadow-[0_0_50px_rgba(255,42,157,0.22)] overflow-hidden">
+              <div
+                key={`intro-box-${activeSectionIntro}`}
+                className="pointer-events-auto relative w-full max-w-[230px] sm:max-w-[270px] md:max-w-[330px] bg-[#120c1c]/92 backdrop-blur-xl rounded-none border border-[#ff2a9d]/35 pt-6 pb-3.5 px-4 sm:pt-7 sm:pb-4 sm:px-5 text-center flex flex-col items-center gap-1 sm:gap-1.5 shadow-[0_0_30px_rgba(255,42,157,0.22)] overflow-hidden"
+                style={{ animation: 'sectionIntroFadeIn 0.5s ease-out forwards' }}
+              >
                 <button
                   type="button"
                   onClick={(e) => {
@@ -7751,19 +7831,19 @@ export function SakuraCanvas({
                   onTouchStart={(e) => e.stopPropagation()}
                   aria-label={isEn ? 'Close and start section' : 'Schließen und Abschnitt starten'}
                   title={isEn ? 'Close and start section' : 'Schließen und Abschnitt starten'}
-                  className="absolute top-3 right-3 sm:top-4 sm:right-4 w-8 h-8 sm:w-9 sm:h-9 rounded-none bg-white/10 hover:bg-[#ff2a9d]/40 text-white flex items-center justify-center text-sm sm:text-base transition-colors cursor-pointer"
+                  className="absolute top-2 right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-none bg-white/10 hover:bg-[#ff2a9d]/40 text-white flex items-center justify-center text-[10px] sm:text-xs transition-colors cursor-pointer"
                 >
                   ✕
                 </button>
                 {(roundInfo || isPaused) && (
-                  <div className="flex items-center justify-center gap-2 sm:gap-2.5">
-                    <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-none bg-[#ff2a9d] animate-ping" />
-                    <span className="text-[18px] sm:text-[20px] md:text-[22px] font-bold tracking-[2px] uppercase text-[#ffb4dc]/95">
+                  <div className="flex items-center justify-center gap-1 sm:gap-1.5">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-none bg-[#ff2a9d] animate-ping" />
+                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold tracking-[1.2px] uppercase text-[#ffb4dc]/95">
                       {roundInfo ? `${roundInfo}${isPaused ? (isEn ? ' (Paused)' : ' (Pausiert)') : ''}` : (isEn ? 'Paused' : 'Pausiert')}
                     </span>
                   </div>
                 )}
-                <p className="text-[20px] sm:text-[22px] md:text-[24px] leading-snug text-white/95 font-normal">
+                <p className="text-[10px] sm:text-[11px] md:text-xs leading-snug text-white/95 font-normal">
                   {instructionBody}
                 </p>
                 <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 overflow-hidden">
